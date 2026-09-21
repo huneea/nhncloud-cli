@@ -13,6 +13,7 @@ nhncloud configure --uak-id <uak-id> --uak-secret <uak-secret> --ncr-appkey <app
 ```
 
 기본 region은 `kr1`이고, `kr1`, `kr2`, `kr3`를 지원한다.
+공공망 profile(`"environment": "gov"`)의 NCR API는 `kr1`만 지원한다.
 
 ## Registry 조회
 

@@ -38,6 +38,28 @@ nhncloud doctor   # 설정이 제대로 됐는지 확인
 자격증명은 `~/.nhncloud/credentials.json`(mode 0600), 설정은 `~/.nhncloud/config.json` 에 저장한다.
 profile 우선순위는 `--profile` > `NHNCLOUD_PROFILE` > `config.defaultProfile` > `default` 다.
 
+공공기관용 NHN Cloud를 사용한다면 해당 profile의 `credentials.json` 블록에 `"environment": "gov"`를 추가한다.
+기존 profile은 이 필드를 생략하면 일반망을 사용한다.
+공공망 endpoint 선택은 OAuth, Deploy, NCR, IaaS 호출에 적용된다.
+공공망 NCR은 `kr1`, IaaS는 `kr1`과 `kr2`만 지원한다.
+
+```json
+{
+  "version": 1,
+  "profiles": {
+    "public-project": {
+      "environment": "gov",
+      "userAccessKey": { "id": "<uak-id>", "secret": "<uak-secret>" },
+      "deploy": { "appkey": "<appkey>" }
+    }
+  }
+}
+```
+
+`nhncloud deploy artifacts --profile public-project --json`으로 조회할 수 있다.
+현재 `configure`의 연결 테스트는 일반망 주소를 사용하므로, 공공망 자격증명을 저장할 때는 `--no-verify`를 지정한다.
+공공망 표시를 추가한 뒤 조회 명령으로 연결과 권한을 확인한다.
+
 > **iaas 자격증명의 함정 두 가지**
 >
 > `--iaas-password` 는 NHN Cloud 콘솔 IAM 의 **API 비밀번호**다. 로그인 비밀번호와 다르다.

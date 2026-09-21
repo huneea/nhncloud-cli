@@ -8,6 +8,8 @@ UAK를 OAuth `client_credentials`로 교환한 Bearer token으로 인증하고, 
 `~/.nhncloud/credentials.json`에 profile 공통 `userAccessKey`가 필요하다.
 appkey는 `nhncloud configure --deploy-appkey <key>`로 profile에 설정한다.
 `nhncloud configure` 사용을 권장한다.
+공공망에서는 profile에 `"environment": "gov"`를 명시하고 `--profile`로 선택한다.
+공공망 Deploy API 주소는 `https://api-tcd.gov-nhncloudservice.com`이다.
 
 배포 좌표(아티팩트·서버그룹·시나리오 등)는 config에 두지 않는다.
 매 호출마다 명령 옵션으로 넘긴다.
@@ -57,6 +59,7 @@ nhncloud deploy run --artifact-id <id> --server-group-id <id> --scenario-ids <id
 ```bash
 nhncloud deploy artifacts --json
 nhncloud deploy server-groups --artifact-id <id> --json
+nhncloud deploy scenarios --artifact-id <id> --server-group-id <id> --json
 nhncloud deploy histories --artifact-id <id> --json
 nhncloud deploy binary-groups --artifact-id <id> --json
 nhncloud deploy binaries --binary-group <key> --artifact-id <id> --json
@@ -68,6 +71,7 @@ nhncloud deploy binaries --binary-group <key> --artifact-id <id> --json
 |------|------|
 | 아티팩트 목록 | `deploy artifacts` |
 | 서버그룹 목록 | `deploy server-groups --artifact-id <id>` |
+| 시나리오 목록 | `deploy scenarios --artifact-id <id> --server-group-id <id>` |
 | 배포 이력 | `deploy histories --artifact-id <id>` |
 | 바이너리 그룹 목록 | `deploy binary-groups --artifact-id <id>` |
 | 바이너리 목록 | `deploy binaries --binary-group <key> --artifact-id <id>` |
