@@ -8,6 +8,7 @@ import {
   setIaasCredential,
   listProfilesWithUak,
   getUserAccessKey,
+  getProfileEnvironment,
 } from "../config/credentials.js";
 import {
   verifyUserAccessKey,
@@ -55,6 +56,13 @@ async function saveAndVerify(
 ): Promise<void> {
   // 연결 테스트
   if (doVerify) {
+    // 기존 공공망 profile의 UAK·IaaS 비밀번호가 일반망 검증 주소로 전송되지 않게 한다.
+    if (await getProfileEnvironment(profileName, true) === "gov") {
+      throw new NhnCloudCliError(
+        "공공망 profile은 configure 연결 테스트를 지원하지 않습니다. --no-verify로 저장한 뒤 조회 명령으로 확인하세요.",
+        EXIT_CONFIG_ERROR,
+      );
+    }
     if (uak) {
       const ok = await verifyUserAccessKey(uak);
       if (ok) {

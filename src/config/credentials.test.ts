@@ -115,6 +115,11 @@ describe("getProfileEnvironment", () => {
     await expect(credentials.getProfileEnvironment("public")).resolves.toBe("gov");
   });
 
+  it("새 profile의 configure 검증에는 일반망 기본값을 반환한다", async () => {
+    await writeCredentials({ version: 1, profiles: {} });
+    await expect(credentials.getProfileEnvironment("new", true)).resolves.toBe("real");
+  });
+
   it("알 수 없는 환경값은 호출 전에 거부한다", async () => {
     await writeCredentials({ version: 1, profiles: { bad: { environment: "other" } } });
     await expect(credentials.getProfileEnvironment("bad")).rejects.toMatchObject({ exitCode: EXIT_CONFIG_ERROR });

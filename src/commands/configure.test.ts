@@ -4,6 +4,7 @@ import { NhnCloudCliError } from "../utils/errors.js";
 import { EXIT_CONFIG_ERROR, EXIT_PARAM_ERROR } from "../utils/exit-codes.js";
 import {
   getUserAccessKey,
+  getProfileEnvironment,
   resolveProfileName,
   setIaasCredential,
   setServiceCredential,
@@ -25,6 +26,7 @@ vi.mock("../config/credentials.js", () => ({
   setIaasCredential: vi.fn(),
   listProfilesWithUak: vi.fn(async () => []),
   getUserAccessKey: vi.fn(),
+  getProfileEnvironment: vi.fn(async () => "real"),
 }));
 vi.mock("./configure-verify.js", () => ({
   verifyUserAccessKey: vi.fn(),
@@ -42,6 +44,7 @@ describe("configure logncrash Search v3", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(process.stderr, "write").mockImplementation((() => true) as never);
+    vi.mocked(getProfileEnvironment).mockResolvedValue("real");
     vi.mocked(getUserAccessKey).mockResolvedValue({ id: "existing-id", secret: "existing-secret" });
     vi.mocked(verifyUserAccessKey).mockResolvedValue(true);
     vi.mocked(verifyLogncrash).mockResolvedValue(true);
@@ -91,6 +94,19 @@ describe("configure logncrash Search v3", () => {
     expect(verifyUserAccessKey).toHaveBeenCalledWith(uak);
     expect(verifyLogncrash).toHaveBeenCalledWith(uak, "appkey");
     expect(setUserAccessKey).toHaveBeenCalledWith("default", uak);
+  });
+
+  it("기존 공공망 profile은 일반망 연결 테스트 전에 거부한다", async () => {
+    vi.mocked(getProfileEnvironment).mockResolvedValue("gov");
+
+    await expect(programWithConfigure().parseAsync([
+      "node", "nhncloud", "configure", "--profile", "public",
+      "--uak-id", "<uak-id>", "--uak-secret", "<uak-secret>",
+    ])).rejects.toMatchObject({ exitCode: EXIT_CONFIG_ERROR });
+
+    expect(getProfileEnvironment).toHaveBeenCalledWith("public", true);
+    expect(verifyUserAccessKey).not.toHaveBeenCalled();
+    expect(setUserAccessKey).not.toHaveBeenCalled();
   });
 
   it("--logncrash-secret은 한 번 경고하고 저장 값에서는 제외한다", async () => {

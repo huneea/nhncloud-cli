@@ -166,10 +166,11 @@ export async function getUserAccessKey(profileName: string): Promise<UserAccessK
 }
 
 /** 기존 profile 은 일반망으로 해석하며, 알 수 없는 값은 요청 전에 거부한다. */
-export async function getProfileEnvironment(profileName: string): Promise<CloudEnvironment> {
-  const credentials = await loadCredentials();
+export async function getProfileEnvironment(profileName: string, allowMissing = false): Promise<CloudEnvironment> {
+  const credentials = allowMissing ? await loadCredentialsOrEmpty() : await loadCredentials();
   const profile = credentials.profiles[profileName];
   if (!profile) {
+    if (allowMissing) return "real";
     throw new NhnCloudCliError(`profile "${profileName}" 을 찾을 수 없습니다.`, EXIT_CONFIG_ERROR);
   }
   const environment = profile.environment;
