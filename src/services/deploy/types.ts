@@ -8,6 +8,12 @@ export interface BinaryGroup {
   createDate: string;
 }
 
+/** 서버 그룹에 매핑된 Deploy 시나리오. */
+export interface Scenario {
+  scenarioId: number;
+  scenarioName: string;
+}
+
 /** 바이너리 — `GET .../binary-groups/{key}/binaries` 의 binaries[] 항목 */
 export interface Binary {
   binaryKey: number | string;

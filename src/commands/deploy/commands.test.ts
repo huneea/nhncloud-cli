@@ -11,15 +11,18 @@ import {
 const mocks = vi.hoisted(() => ({
   resolveProfileName: vi.fn(),
   getUserAccessKey: vi.fn(),
+  getProfileEnvironment: vi.fn(),
   getOptionalServiceCredential: vi.fn(),
   getAccessToken: vi.fn(),
   artifacts: vi.fn(),
+  scenarios: vi.fn(),
   startSpinner: vi.fn(),
 }));
 
 vi.mock("../../config/credentials.js", () => ({
   resolveProfileName: mocks.resolveProfileName,
   getUserAccessKey: mocks.getUserAccessKey,
+  getProfileEnvironment: mocks.getProfileEnvironment,
   getOptionalServiceCredential: mocks.getOptionalServiceCredential,
 }));
 vi.mock("../../api/oauth.js", () => ({ getAccessToken: mocks.getAccessToken }));
@@ -31,6 +34,7 @@ vi.mock("../../utils/spinner.js", () => ({
 vi.mock("../../services/deploy/client.js", () => ({
   DeployClient: class {
     artifacts = mocks.artifacts;
+    scenarios = mocks.scenarios;
   },
 }));
 
@@ -41,6 +45,7 @@ import { downloadCommand } from "./download.js";
 import { historiesCommand } from "./histories.js";
 import { runCommand } from "./run.js";
 import { serverGroupsCommand } from "./server-groups.js";
+import { scenariosCommand } from "./scenarios.js";
 import { uploadCommand } from "./upload.js";
 import { resolveDeployAppKey } from "./helpers.js";
 
@@ -52,6 +57,7 @@ const leafCommands = [
   historiesCommand,
   runCommand,
   serverGroupsCommand,
+  scenariosCommand,
   uploadCommand,
 ];
 
@@ -73,6 +79,7 @@ describe("deploy 명령 옵션", () => {
       "histories",
       "run",
       "server-groups",
+      "scenarios",
       "upload",
     ]);
   });
@@ -132,7 +139,7 @@ async function captureLeafError(
 }
 
 describe("deploy 명령 위치 인수", () => {
-  it("8개 명령 모두 위치 인수를 노출하지 않는다", () => {
+  it("9개 명령 모두 위치 인수를 노출하지 않는다", () => {
     expect(leafCommands.flatMap((command) => collectArgumentPaths(command))).toEqual([]);
   });
 });
@@ -142,6 +149,7 @@ describe("deploy 좌표 옵션 검증", () => {
     vi.resetAllMocks();
     mocks.resolveProfileName.mockResolvedValue("p");
     mocks.getUserAccessKey.mockResolvedValue({ id: "<uak-id>", secret: "<uak-secret>" });
+    mocks.getProfileEnvironment.mockResolvedValue("real");
     mocks.getOptionalServiceCredential.mockResolvedValue({ appkey: "<appkey>" });
     mocks.getAccessToken.mockResolvedValue("access-token");
   });
@@ -158,6 +166,7 @@ describe("deploy 좌표 옵션 검증", () => {
     ],
     ["histories", historiesCommand, []],
     ["server-groups", serverGroupsCommand, []],
+    ["scenarios", scenariosCommand, []],
     // --file 을 없는 경로로 둔다 — 좌표 검증이 파일 가드 뒤로 되돌아가면
     // "읽을 수 없습니다" 가 먼저 나와 이 케이스가 실패한다 (순서 고정).
     ["upload", uploadCommand, ["--file", "no-such-file.bin", "--binary-group", "1"]],
@@ -184,6 +193,11 @@ describe("deploy 좌표 옵션 검증", () => {
     expect(err).toMatchObject({ message: expect.stringContaining(`${flag} 가 필요합니다`) });
   });
 
+  it("scenarios 는 --server-group-id 없이 호출하면 입력 오류로 거부한다", async () => {
+    const err = await captureLeafError(scenariosCommand, ["--artifact-id", "1"]);
+    expect(err).toMatchObject({ exitCode: EXIT_PARAM_ERROR, message: expect.stringContaining("--server-group-id") });
+  });
+
   it("좌표 검증은 spinner 시작과 인증 체인보다 앞선다", async () => {
     await expect(parseLeaf(historiesCommand, [])).rejects.toThrow(
       expect.objectContaining({ exitCode: EXIT_PARAM_ERROR }),
@@ -202,6 +216,35 @@ describe("deploy 좌표 옵션 검증", () => {
 
     expect(mocks.artifacts).toHaveBeenCalledWith("<appkey>");
     stdout.mockRestore();
+  });
+
+  it("gov profile은 공공망 OAuth 선택을 전달한다", async () => {
+    mocks.getProfileEnvironment.mockResolvedValue("gov");
+    mocks.artifacts.mockResolvedValue({ artifacts: [] });
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+
+    await parseLeaf(artifactsCommand, [], ["--json"]);
+
+    expect(mocks.getAccessToken).toHaveBeenCalledWith("p", "<uak-id>", "<uak-secret>", false, "gov");
+  });
+
+  it.each([
+    ["기본", [], "sample scenario"],
+    ["JSON", ["--json"], '"scenarioId": 7'],
+    ["quiet", ["--quiet"], "7\n"],
+  ])("scenarios %s 출력은 시나리오를 보여준다", async (_name, globals, expected) => {
+    mocks.scenarios.mockResolvedValue([{ scenarioId: 7, scenarioName: "sample scenario" }]);
+    const chunks: string[] = [];
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+      chunks.push(String(chunk));
+      return true;
+    });
+    try {
+      await parseLeaf(scenariosCommand, ["--artifact-id", "1", "--server-group-id", "2"], globals);
+      expect(chunks.join("")).toContain(expected);
+    } finally {
+      stdout.mockRestore();
+    }
   });
 });
 

@@ -1,24 +1,29 @@
 import { NhnCloudCliError } from "../utils/errors.js";
 import { EXIT_API_ERROR, EXIT_PARAM_ERROR } from "../utils/exit-codes.js";
+import type { CloudEnvironment } from "../config/types.js";
 
 /**
- * 서비스명 → 엔드포인트 맵 (일반/real 전용 — gov 제외, ADR-005).
+ * 일반망 서비스 endpoint. 공공망은 공식 주소가 확인된 서비스만 별도 등록한다.
  */
 const ENDPOINTS: Record<string, string> = {
   logncrash: "https://api-lncs-search.nhncloudservice.com",
   "logncrash-collector": "https://api-logncrash.nhncloudservice.com",
   deploy: "https://api-deploy.nhncloudservice.com",
 };
+const GOV_ENDPOINTS: Record<string, string> = {
+  deploy: "https://api-tcd.gov-nhncloudservice.com",
+};
 
 /**
  * 서비스명에 해당하는 엔드포인트를 반환한다.
  * 미등록 서비스는 NhnCloudCliError 를 던진다.
  */
-export function endpointFor(service: string): string {
-  const endpoint = ENDPOINTS[service];
+export function endpointFor(service: string, environment: CloudEnvironment = "real"): string {
+  const endpoints = environment === "gov" ? GOV_ENDPOINTS : ENDPOINTS;
+  const endpoint = endpoints[service];
   if (!endpoint) {
     throw new NhnCloudCliError(
-      `등록되지 않은 서비스입니다: "${service}". 지원 서비스: ${Object.keys(ENDPOINTS).join(", ")}`,
+      `등록되지 않은 서비스입니다: "${service}". 지원 서비스: ${Object.keys(endpoints).join(", ")}`,
       EXIT_API_ERROR,
     );
   }
@@ -30,8 +35,17 @@ export function endpointFor(service: string): string {
 /**
  * Keystone v2 토큰 발급 엔드포인트 (ADR-010).
  */
-export function keystoneIdentityUrl(): string {
-  return "https://api-identity-infrastructure.nhncloudservice.com/v2.0/tokens";
+export function keystoneIdentityUrl(environment: CloudEnvironment = "real"): string {
+  return `https://api-identity-infrastructure.${environment === "gov" ? "gov-" : ""}nhncloudservice.com/v2.0/tokens`;
+}
+
+const GOV_IAAS_REGIONS = ["kr1", "kr2"];
+
+function govIaasHost(region: string, service: string): string {
+  if (!GOV_IAAS_REGIONS.includes(region)) {
+    throw new NhnCloudCliError(`지원하지 않는 공공망 IaaS region 입니다: "${region}". 사용 가능한 region: ${GOV_IAAS_REGIONS.join(", ")}`, EXIT_PARAM_ERROR);
+  }
+  return `${region}-api-${service}-infrastructure.gov-nhncloudservice.com`;
 }
 
 /**
@@ -122,7 +136,11 @@ const NCR_HOST: Record<string, string> = {
  * region 에 해당하는 NCR Management API host 를 반환한다.
  * 미등록 region 은 사용 가능한 region 목록 안내와 함께 EXIT_PARAM_ERROR 를 던진다.
  */
-export function ncrHost(region: string): string {
+export function ncrHost(region: string, environment: CloudEnvironment = "real"): string {
+  if (environment === "gov") {
+    if (region !== "kr1") throw new NhnCloudCliError(`지원하지 않는 공공망 NCR region 입니다: "${region}". 사용 가능한 region: kr1`, EXIT_PARAM_ERROR);
+    return "kr1-ncr.api.gov-nhncloudservice.com";
+  }
   const host = NCR_HOST[region];
   if (!host) {
     throw new NhnCloudCliError(
@@ -137,7 +155,8 @@ export function ncrHost(region: string): string {
  * region 에 해당하는 instance API host 를 반환한다.
  * 미등록 region 은 사용 가능한 region 목록 안내와 함께 EXIT_PARAM_ERROR 를 던진다.
  */
-export function instanceHost(region: string): string {
+export function instanceHost(region: string, environment: CloudEnvironment = "real"): string {
+  if (environment === "gov") return govIaasHost(region, "instance");
   const host = INSTANCE_HOST[region];
   if (!host) {
     throw new NhnCloudCliError(
@@ -152,7 +171,8 @@ export function instanceHost(region: string): string {
  * region 에 해당하는 image API host 를 반환한다.
  * 미등록 region 은 EXIT_PARAM_ERROR.
  */
-export function imageHost(region: string): string {
+export function imageHost(region: string, environment: CloudEnvironment = "real"): string {
+  if (environment === "gov") return govIaasHost(region, "image");
   const host = IMAGE_HOST[region];
   if (!host) {
     throw new NhnCloudCliError(
@@ -167,7 +187,8 @@ export function imageHost(region: string): string {
  * region 에 해당하는 network API host 를 반환한다.
  * 미등록 region 은 EXIT_PARAM_ERROR.
  */
-export function networkHost(region: string): string {
+export function networkHost(region: string, environment: CloudEnvironment = "real"): string {
+  if (environment === "gov") return govIaasHost(region, "network");
   const host = NETWORK_HOST[region];
   if (!host) {
     throw new NhnCloudCliError(
@@ -182,7 +203,8 @@ export function networkHost(region: string): string {
  * region 에 해당하는 Block Storage API host 를 반환한다.
  * 미등록 region 은 EXIT_PARAM_ERROR.
  */
-export function blockStorageHost(region: string): string {
+export function blockStorageHost(region: string, environment: CloudEnvironment = "real"): string {
+  if (environment === "gov") return govIaasHost(region, "block-storage");
   const host = BLOCKSTORAGE_HOST[region];
   if (!host) {
     throw new NhnCloudCliError(
@@ -197,7 +219,8 @@ export function blockStorageHost(region: string): string {
  * region 에 해당하는 NKS(container-infra) API host 를 반환한다.
  * 미등록 region 은 EXIT_PARAM_ERROR.
  */
-export function nksHost(region: string): string {
+export function nksHost(region: string, environment: CloudEnvironment = "real"): string {
+  if (environment === "gov") return govIaasHost(region, "kubernetes");
   const host = NKS_HOST[region];
   if (!host) {
     throw new NhnCloudCliError(

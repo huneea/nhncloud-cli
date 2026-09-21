@@ -44,3 +44,4 @@ ADR-NNN 내용은 `docs/adr/NNN-*.md` 로 찾는다(번호 glob: slug 몰라도 
 - [ADR-034](034-logncrash-export-completed-result-preservation.md): Log & Crash export 완료 결과 보존: 조회 상태와 파일 형식 상태 분리
 - [ADR-035](035-required-option-exit-code.md): 필수 옵션 누락을 입력 오류로 정규화: Commander 메시지와 조기 검증 유지
 - [ADR-036](036-logncrash-available-token-preflight.md): Log & Crash 조회 토큰 사전 확인과 추정 대기 시간
+- [ADR-037](037-gov-profile-endpoints.md): 공공망 profile의 OAuth·Deploy·NCR·IaaS endpoint 선택

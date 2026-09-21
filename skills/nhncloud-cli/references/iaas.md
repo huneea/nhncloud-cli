@@ -2,6 +2,8 @@
 
 `instance`, `network`, `volume`, `floatingip`은 IaaS 자격증명과 Keystone token을 공유한다.
 region이 중요하면 `--region <region>`을 명시한다.
+공공망 profile에는 `"environment": "gov"`를 명시한다.
+공식 문서에 endpoint가 있는 공공망 IaaS region은 `kr1`과 `kr2`다.
 
 ## IaaS 설정
 

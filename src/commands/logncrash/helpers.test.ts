@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   resolveProfileName: vi.fn(),
   getServiceCredential: vi.fn(),
   getUserAccessKey: vi.fn(),
+  requireRealEnvironment: vi.fn(),
   getAccessToken: vi.fn(),
   clientConstructor: vi.fn(function () {
     return { kind: "logncrash-client" };
@@ -16,6 +17,7 @@ vi.mock("../../config/credentials.js", () => ({
   resolveProfileName: mocks.resolveProfileName,
   getServiceCredential: mocks.getServiceCredential,
   getUserAccessKey: mocks.getUserAccessKey,
+  requireRealEnvironment: mocks.requireRealEnvironment,
 }));
 vi.mock("../../api/oauth.js", () => ({ getAccessToken: mocks.getAccessToken }));
 vi.mock("../../services/logncrash/client.js", () => ({

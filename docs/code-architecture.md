@@ -34,6 +34,7 @@
 
 `floatingip`과 `volume` 명령은 각각 network와 blockstorage 서비스 경계를 재사용한다.
 서비스가 늘면 먼저 기존 인증과 endpoint 조합으로 표현할 수 있는지 확인한다.
+공공망 profile의 명시적 선택은 [ADR-037](adr/037-gov-profile-endpoints.md)을 따른다.
 
 ## 의존 방향
 

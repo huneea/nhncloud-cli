@@ -1,5 +1,5 @@
 import { readFileSync, statSync } from "node:fs";
-import { resolveProfileName, getUserAccessKey } from "../../config/credentials.js";
+import { resolveProfileName, getUserAccessKey, requireRealEnvironment } from "../../config/credentials.js";
 import { getAccessToken } from "../../api/oauth.js";
 import { NcsClient } from "../../services/ncs/client.js";
 import { resolveServiceAppKey } from "../service-appkey.js";
@@ -187,6 +187,7 @@ export async function resolveNcsClient(opts: {
   region?: string;
 }): Promise<{ client: NcsClient; profileName: string }> {
   const profileName = await resolveProfileName(opts.profile);
+  await requireRealEnvironment(profileName, "NCS");
   const uak = await getUserAccessKey(profileName);
   const accessToken = await getAccessToken(profileName, uak.id, uak.secret);
   const appKey = await resolveNcsAppKey(profileName);

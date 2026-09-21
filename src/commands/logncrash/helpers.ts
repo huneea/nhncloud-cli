@@ -3,6 +3,7 @@ import {
   getServiceCredential,
   getUserAccessKey,
   resolveProfileName,
+  requireRealEnvironment,
 } from "../../config/credentials.js";
 import { LogncrashClient } from "../../services/logncrash/client.js";
 import {
@@ -18,6 +19,7 @@ import { EXIT_CONFIG_ERROR } from "../../utils/exit-codes.js";
  */
 export async function resolveLogncrashClient(profile?: string): Promise<LogncrashClient> {
   const profileName = await resolveProfileName(profile);
+  await requireRealEnvironment(profileName, "Log & Crash");
   const credential = await getServiceCredential("logncrash", profileName);
   if (typeof credential.appkey !== "string" || credential.appkey.length === 0) {
     throw new NhnCloudCliError(

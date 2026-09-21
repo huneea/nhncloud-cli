@@ -3,7 +3,7 @@ import { readFileSync, statSync } from "node:fs";
 import { startSpinner, stopSpinner } from "../../utils/spinner.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_PARAM_ERROR, EXIT_CONFIG_ERROR } from "../../utils/exit-codes.js";
-import { resolveProfileName, getServiceCredential } from "../../config/credentials.js";
+import { resolveProfileName, getServiceCredential, requireRealEnvironment } from "../../config/credentials.js";
 import { LogncrashClient } from "../../services/logncrash/client.js";
 import type { OutputOptions } from "../../formatters/table.js";
 import type { LogLevel } from "../../services/logncrash/types.js";
@@ -100,6 +100,7 @@ export const sendCommand = new Command("send")
 
     // ── 3. 자격증명 로드 — appkey 만 사용 (secret 불요, ADR-014) ──
     const profileName = await resolveProfileName(opts.profile);
+    await requireRealEnvironment(profileName, "Log & Crash");
     const cred = await getServiceCredential("logncrash", profileName);
     if (!cred.appkey) {
       throw new NhnCloudCliError(

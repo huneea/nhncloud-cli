@@ -5,7 +5,7 @@ import { toNhnCloudCliError } from "./httpError.js";
 import { DEFAULT_TIMEOUT_MS } from "./timeout.js";
 import { NhnCloudCliError } from "../utils/errors.js";
 import { EXIT_API_ERROR } from "../utils/exit-codes.js";
-import type { IaasCredential } from "../config/types.js";
+import type { IaasCredential, CloudEnvironment } from "../config/types.js";
 
 /**
  * Keystone v2 /tokens 응답 구조 (최소 필드).
@@ -49,9 +49,10 @@ export async function getIaasToken(
   profile: string,
   iaas: IaasCredential,
   forceRefresh = false,
+  environment: CloudEnvironment = "real",
 ): Promise<IaasTokenEndpoints> {
   const credentialHash = credentialFingerprint(
-    JSON.stringify([iaas.tenantId, iaas.username, iaas.password]),
+    JSON.stringify([environment, iaas.tenantId, iaas.username, iaas.password]),
   );
 
   // 캐시 확인 (forceRefresh 시 건너뜀)
@@ -70,29 +71,29 @@ export async function getIaasToken(
   }
 
   // region → host 검증 (미등록 region 은 EXIT_PARAM_ERROR)
-  const host = instanceHost(iaas.region);
+  const host = instanceHost(iaas.region, environment);
   const computeEndpoint = `https://${host}/v2/${encodeURIComponent(iaas.tenantId)}`;
 
   // image(Glance v2): 같은 토큰 재사용, host 만 다르다.
   // 실측 확정 (2026-06-09): tenant segment 없음 — GET /v2/images → 200, /v2/{tenantId}/images → 404.
-  const imageEndpoint = `https://${imageHost(iaas.region)}/v2`;
+  const imageEndpoint = `https://${imageHost(iaas.region, environment)}/v2`;
 
   // network(NHN VPC): 같은 토큰 재사용, host 만 다르다.
   // 실측 확정 (2026-06-11): tenant segment 없음 — GET /v2.0/vpcs → 200 (serviceCatalog neutron 확인).
-  const networkEndpoint = `https://${networkHost(iaas.region)}/v2.0`;
+  const networkEndpoint = `https://${networkHost(iaas.region, environment)}/v2.0`;
 
   // block storage(Cinder volumev2): 같은 토큰 재사용, host 만 다르고 경로는 compute 와 동일(tenant 포함).
   // docs 확정, 첫 호출 200 으로 확인 예정 (1-27).
-  const blockStorageEndpoint = `https://${blockStorageHost(iaas.region)}/v2/${encodeURIComponent(iaas.tenantId)}`;
+  const blockStorageEndpoint = `https://${blockStorageHost(iaas.region, environment)}/v2/${encodeURIComponent(iaas.tenantId)}`;
 
   // NKS(container-infra): 같은 Keystone 토큰 재사용, tenant segment 없이 /v1.
-  const nksEndpoint = `https://${nksHost(iaas.region)}/v1`;
+  const nksEndpoint = `https://${nksHost(iaas.region, environment)}/v1`;
 
   // Keystone v2 토큰 발급
   let raw: unknown;
   try {
     raw = await ky
-      .post(keystoneIdentityUrl(), {
+      .post(keystoneIdentityUrl(environment), {
         json: {
           auth: {
             tenantId: iaas.tenantId,

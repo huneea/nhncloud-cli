@@ -108,6 +108,29 @@ describe("getOptionalServiceCredential", () => {
   });
 });
 
+describe("getProfileEnvironment", () => {
+  it("기존 profile은 일반망, gov 표기는 공공망으로 해석한다", async () => {
+    await writeCredentials({ version: 1, profiles: { old: {}, public: { environment: "gov" } } });
+    await expect(credentials.getProfileEnvironment("old")).resolves.toBe("real");
+    await expect(credentials.getProfileEnvironment("public")).resolves.toBe("gov");
+  });
+
+  it("새 profile의 configure 검증에는 일반망 기본값을 반환한다", async () => {
+    await writeCredentials({ version: 1, profiles: {} });
+    await expect(credentials.getProfileEnvironment("new", true)).resolves.toBe("real");
+  });
+
+  it("알 수 없는 환경값은 호출 전에 거부한다", async () => {
+    await writeCredentials({ version: 1, profiles: { bad: { environment: "other" } } });
+    await expect(credentials.getProfileEnvironment("bad")).rejects.toMatchObject({ exitCode: EXIT_CONFIG_ERROR });
+  });
+
+  it("지원하지 않는 서비스는 공공망 profile에서 요청 전에 거부한다", async () => {
+    await writeCredentials({ version: 1, profiles: { public: { environment: "gov" } } });
+    await expect(credentials.requireRealEnvironment("public", "NCS")).rejects.toMatchObject({ exitCode: EXIT_CONFIG_ERROR });
+  });
+});
+
 describe("warnLegacyDeployTargets", () => {
   it("deploy.targets 에 항목이 있으면 stderr 로 경고하고 계속 진행한다", async () => {
     await writeConfig({

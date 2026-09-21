@@ -5,7 +5,8 @@ import { toNhnCloudCliError } from "../../api/httpError.js";
 import { DEFAULT_TIMEOUT_MS, SYNC_TIMEOUT_MS } from "../../api/timeout.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_API_ERROR } from "../../utils/exit-codes.js";
-import type { DeployRunParams, BinaryGroup, Binary, BinaryListParams, UploadBinaryParams, UploadBinaryResult } from "./types.js";
+import type { DeployRunParams, BinaryGroup, Scenario, Binary, BinaryListParams, UploadBinaryParams, UploadBinaryResult } from "./types.js";
+import type { CloudEnvironment } from "../../config/types.js";
 
 /**
  * 응답 타입 가드 — 5-4 회피.
@@ -25,6 +26,12 @@ function isBinaryGroup(val: unknown): val is BinaryGroup {
   );
 }
 
+function isScenario(val: unknown): val is Scenario {
+  if (typeof val !== "object" || val === null) return false;
+  const obj = val as Record<string, unknown>;
+  return typeof obj["scenarioId"] === "number" && typeof obj["scenarioName"] === "string";
+}
+
 function isBinary(val: unknown): val is Binary {
   if (typeof val !== "object" || val === null) return false;
   const obj = val as Record<string, unknown>;
@@ -40,9 +47,9 @@ export class DeployClient {
   private readonly accessToken: string;
   private readonly baseUrl: string;
 
-  constructor(accessToken: string) {
+  constructor(accessToken: string, environment: CloudEnvironment = "real") {
     this.accessToken = accessToken;
-    this.baseUrl = endpointFor("deploy");
+    this.baseUrl = endpointFor("deploy", environment);
   }
 
   private authHeaders(): Record<string, string> {
@@ -135,6 +142,29 @@ export class DeployClient {
         .json<NhnEnvelope<Record<string, unknown>>>();
 
       return unwrap(res);
+    } catch (err) {
+      throw toNhnCloudCliError(err);
+    }
+  }
+
+  /** 공공망과 일반망 Deploy v2.1의 서버 그룹 시나리오 목록을 조회한다. */
+  async scenarios(appKey: string, artifactId: string, serverGroupId: string): Promise<Scenario[]> {
+    const url =
+      `${this.baseUrl}/api/v2.1/projects/${encodeURIComponent(appKey)}` +
+      `/artifacts/${encodeURIComponent(artifactId)}` +
+      `/server-groups/${encodeURIComponent(serverGroupId)}/scenarios`;
+
+    try {
+      const res = await ky.get(url, {
+        headers: this.authHeaders(),
+        retry: 0,
+        timeout: DEFAULT_TIMEOUT_MS,
+      }).json<NhnEnvelope<{ scenarios?: unknown }>>();
+      const body = unwrap(res);
+      if (!Array.isArray(body.scenarios) || !body.scenarios.every(isScenario)) {
+        throw new NhnCloudCliError("scenarios 응답 형식이 올바르지 않습니다 — scenarios 배열이 없습니다.", EXIT_API_ERROR);
+      }
+      return body.scenarios;
     } catch (err) {
       throw toNhnCloudCliError(err);
     }

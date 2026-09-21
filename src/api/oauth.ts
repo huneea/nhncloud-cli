@@ -2,8 +2,12 @@ import ky from "ky";
 import { credentialFingerprint, readToken, writeToken } from "../cache/token-store.js";
 import { toNhnCloudCliError } from "./httpError.js";
 import { DEFAULT_TIMEOUT_MS } from "./timeout.js";
+import type { CloudEnvironment } from "../config/types.js";
 
-const OAUTH_ENDPOINT = "https://oauth.api.nhncloudservice.com/oauth2/token/create";
+const OAUTH_ENDPOINT: Record<CloudEnvironment, string> = {
+  real: "https://oauth.api.nhncloudservice.com/oauth2/token/create",
+  gov: "https://oauth.api.gov-nhncloudservice.com/oauth2/token/create",
+};
 
 interface TokenResponse {
   access_token: string;
@@ -31,8 +35,9 @@ export async function getAccessToken(
   uakId: string,
   uakSecret: string,
   forceRefresh = false,
+  environment: CloudEnvironment = "real",
 ): Promise<string> {
-  const credentialHash = credentialFingerprint(JSON.stringify([uakId, uakSecret]));
+  const credentialHash = credentialFingerprint(JSON.stringify([environment, uakId, uakSecret]));
 
   // 캐시 확인 (forceRefresh 시 건너뜀)
   if (!forceRefresh) {
@@ -48,7 +53,7 @@ export async function getAccessToken(
   let raw: unknown;
   try {
     raw = await ky
-      .post(OAUTH_ENDPOINT, {
+      .post(OAUTH_ENDPOINT[environment], {
         headers: {
           Authorization: `Basic ${basicCredential}`,
           "Content-Type": "application/x-www-form-urlencoded",
