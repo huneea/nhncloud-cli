@@ -77,6 +77,7 @@ nhncloud deploy binaries --binary-group <key> --artifact-id <id> --json
 | 바이너리 목록 | `deploy binaries --binary-group <key> --artifact-id <id>` |
 
 `deploy binary-groups --json`은 `binaryGroups` wrapper를 언랩한 배열이다.
+`deploy scenarios --json`은 시나리오 배열이며, `--quiet`은 시나리오 ID를 한 줄씩 출력한다.
 `deploy binaries --json`은 `{ totalCount, binaries }` 객체다.
 
 ## 바이너리 전송

@@ -83,9 +83,14 @@ describe("DeployClient.binaryGroups", () => {
 
 describe("DeployClient.scenarios", () => {
   it("공공망 시나리오 경로로 조회하고 응답 body를 반환한다", async () => {
-    vi.mocked(ky.get).mockReturnValue({ json: async () => ({ header: { isSuccessful: true, resultCode: "SUCCESS" }, body: { scenarios: [{ scenarioId: 1 }] } }) } as never);
+    vi.mocked(ky.get).mockReturnValue({ json: async () => ({ header: { isSuccessful: true, resultCode: "SUCCESS" }, body: { scenarios: [{ scenarioId: 1, scenarioName: "deploy" }] } }) } as never);
     const result = await new DeployClient("token", "gov").scenarios("appkey", "1", "2");
-    expect(result).toEqual({ scenarios: [{ scenarioId: 1 }] });
+    expect(result).toEqual([{ scenarioId: 1, scenarioName: "deploy" }]);
     expect(ky.get).toHaveBeenCalledWith("https://api-tcd.gov-nhncloudservice.com/api/v2.1/projects/appkey/artifacts/1/server-groups/2/scenarios", expect.any(Object));
+  });
+
+  it("시나리오 필드가 빠진 응답은 형식 오류로 거부한다", async () => {
+    vi.mocked(ky.get).mockReturnValue({ json: async () => ({ header: { isSuccessful: true, resultCode: "SUCCESS" }, body: { scenarios: [{ scenarioId: 1 }] } }) } as never);
+    await expect(new DeployClient("token", "gov").scenarios("appkey", "1", "2")).rejects.toThrow("scenarios 응답 형식");
   });
 });

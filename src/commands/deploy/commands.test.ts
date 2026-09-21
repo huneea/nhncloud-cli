@@ -193,6 +193,11 @@ describe("deploy 좌표 옵션 검증", () => {
     expect(err).toMatchObject({ message: expect.stringContaining(`${flag} 가 필요합니다`) });
   });
 
+  it("scenarios 는 --server-group-id 없이 호출하면 입력 오류로 거부한다", async () => {
+    const err = await captureLeafError(scenariosCommand, ["--artifact-id", "1"]);
+    expect(err).toMatchObject({ exitCode: EXIT_PARAM_ERROR, message: expect.stringContaining("--server-group-id") });
+  });
+
   it("좌표 검증은 spinner 시작과 인증 체인보다 앞선다", async () => {
     await expect(parseLeaf(historiesCommand, [])).rejects.toThrow(
       expect.objectContaining({ exitCode: EXIT_PARAM_ERROR }),
@@ -221,6 +226,25 @@ describe("deploy 좌표 옵션 검증", () => {
     await parseLeaf(artifactsCommand, [], ["--json"]);
 
     expect(mocks.getAccessToken).toHaveBeenCalledWith("p", "<uak-id>", "<uak-secret>", false, "gov");
+  });
+
+  it.each([
+    ["기본", [], "sample scenario"],
+    ["JSON", ["--json"], '"scenarioId": 7'],
+    ["quiet", ["--quiet"], "7\n"],
+  ])("scenarios %s 출력은 시나리오를 보여준다", async (_name, globals, expected) => {
+    mocks.scenarios.mockResolvedValue([{ scenarioId: 7, scenarioName: "sample scenario" }]);
+    const chunks: string[] = [];
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+      chunks.push(String(chunk));
+      return true;
+    });
+    try {
+      await parseLeaf(scenariosCommand, ["--artifact-id", "1", "--server-group-id", "2"], globals);
+      expect(chunks.join("")).toContain(expected);
+    } finally {
+      stdout.mockRestore();
+    }
   });
 });
 

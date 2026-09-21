@@ -22,9 +22,9 @@ export const scenariosCommand = new Command("scenarios")
     const appKey = await resolveDeployAppKey(profileName);
 
     startSpinner("시나리오 목록 조회 중...");
-    let result: Record<string, unknown>;
+    let scenarios;
     try {
-      result = await client.scenarios(appKey, artifactId, serverGroupId);
+      scenarios = await client.scenarios(appKey, artifactId, serverGroupId);
     } catch (err) {
       stopSpinner(false);
       throw err;
@@ -32,9 +32,9 @@ export const scenariosCommand = new Command("scenarios")
     stopSpinner(true);
 
     output(opts, {
-      headers: ["key", "value"],
-      rows: Object.entries(result).map(([key, value]) => [key, String(value ?? "")]),
-      raw: result,
-      ids: [],
+      headers: ["scenarioId", "scenarioName"],
+      rows: scenarios.map((scenario) => [String(scenario.scenarioId), scenario.scenarioName]),
+      raw: scenarios,
+      ids: scenarios.map((scenario) => String(scenario.scenarioId)),
     });
   });

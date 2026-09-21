@@ -5,7 +5,7 @@ import { toNhnCloudCliError } from "../../api/httpError.js";
 import { DEFAULT_TIMEOUT_MS, SYNC_TIMEOUT_MS } from "../../api/timeout.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_API_ERROR } from "../../utils/exit-codes.js";
-import type { DeployRunParams, BinaryGroup, Binary, BinaryListParams, UploadBinaryParams, UploadBinaryResult } from "./types.js";
+import type { DeployRunParams, BinaryGroup, Scenario, Binary, BinaryListParams, UploadBinaryParams, UploadBinaryResult } from "./types.js";
 import type { CloudEnvironment } from "../../config/types.js";
 
 /**
@@ -24,6 +24,12 @@ function isBinaryGroup(val: unknown): val is BinaryGroup {
     typeof obj["name"] === "string" &&
     (descriptionType === "undefined" || descriptionType === "string" || obj["description"] === null)
   );
+}
+
+function isScenario(val: unknown): val is Scenario {
+  if (typeof val !== "object" || val === null) return false;
+  const obj = val as Record<string, unknown>;
+  return typeof obj["scenarioId"] === "number" && typeof obj["scenarioName"] === "string";
 }
 
 function isBinary(val: unknown): val is Binary {
@@ -142,7 +148,7 @@ export class DeployClient {
   }
 
   /** 공공망과 일반망 Deploy v2.1의 서버 그룹 시나리오 목록을 조회한다. */
-  async scenarios(appKey: string, artifactId: string, serverGroupId: string): Promise<Record<string, unknown>> {
+  async scenarios(appKey: string, artifactId: string, serverGroupId: string): Promise<Scenario[]> {
     const url =
       `${this.baseUrl}/api/v2.1/projects/${encodeURIComponent(appKey)}` +
       `/artifacts/${encodeURIComponent(artifactId)}` +
@@ -153,8 +159,12 @@ export class DeployClient {
         headers: this.authHeaders(),
         retry: 0,
         timeout: DEFAULT_TIMEOUT_MS,
-      }).json<NhnEnvelope<Record<string, unknown>>>();
-      return unwrap(res);
+      }).json<NhnEnvelope<{ scenarios?: unknown }>>();
+      const body = unwrap(res);
+      if (!Array.isArray(body.scenarios) || !body.scenarios.every(isScenario)) {
+        throw new NhnCloudCliError("scenarios 응답 형식이 올바르지 않습니다 — scenarios 배열이 없습니다.", EXIT_API_ERROR);
+      }
+      return body.scenarios;
     } catch (err) {
       throw toNhnCloudCliError(err);
     }
