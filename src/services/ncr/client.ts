@@ -6,6 +6,7 @@ import { DEFAULT_TIMEOUT_MS } from "../../api/timeout.js";
 import { isRegistry, type Registry } from "./types.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_API_ERROR } from "../../utils/exit-codes.js";
+import type { CloudEnvironment } from "../../config/types.js";
 
 /**
  * NCR Management API 응답 봉투 (실측 확정 — ADR-016).
@@ -29,10 +30,10 @@ export class NcrClient {
   private readonly uakSecret: string;
   private readonly baseUrl: string;
 
-  constructor(uakId: string, uakSecret: string, region: string) {
+  constructor(uakId: string, uakSecret: string, region: string, environment: CloudEnvironment = "real") {
     this.uakId = uakId;
     this.uakSecret = uakSecret;
-    this.baseUrl = `https://${ncrHost(region)}`;
+    this.baseUrl = `https://${ncrHost(region, environment)}`;
   }
 
   private authHeaders(): Record<string, string> {

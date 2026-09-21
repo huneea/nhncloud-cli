@@ -3,6 +3,7 @@ import { getAccessToken } from "../../api/oauth.js";
 import {
   getUserAccessKey,
   resolveProfileName,
+  requireRealEnvironment,
 } from "../../config/credentials.js";
 import { ApiGatewayClient } from "../../services/apigateway/client.js";
 import type {
@@ -127,6 +128,7 @@ export async function resolveApiGatewayClient(opts: {
   region?: string;
 }): Promise<{ client: ApiGatewayClient; profileName: string }> {
   const profileName = await resolveProfileName(opts.profile);
+  await requireRealEnvironment(profileName, "API Gateway");
   const uak = await getUserAccessKey(profileName);
   const accessToken = await getAccessToken(profileName, uak.id, uak.secret);
   const appKey = await resolveApiGatewayAppKey(profileName);

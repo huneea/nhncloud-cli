@@ -17,6 +17,7 @@ import { availableTokenCommand } from "./commands/logncrash/available-token.js";
 import { runCommand } from "./commands/deploy/run.js";
 import { artifactsCommand } from "./commands/deploy/artifacts.js";
 import { serverGroupsCommand } from "./commands/deploy/server-groups.js";
+import { scenariosCommand } from "./commands/deploy/scenarios.js";
 import { historiesCommand } from "./commands/deploy/histories.js";
 import { binaryGroupsCommand } from "./commands/deploy/binary-groups.js";
 import { binariesCommand } from "./commands/deploy/binaries.js";
@@ -210,6 +211,7 @@ deployCommand.hook("preSubcommand", async () => {
 deployCommand.addCommand(runCommand);
 deployCommand.addCommand(artifactsCommand);
 deployCommand.addCommand(serverGroupsCommand);
+deployCommand.addCommand(scenariosCommand);
 deployCommand.addCommand(historiesCommand);
 deployCommand.addCommand(binaryGroupsCommand);
 deployCommand.addCommand(binariesCommand);

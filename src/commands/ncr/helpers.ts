@@ -1,4 +1,4 @@
-import { resolveProfileName, getUserAccessKey } from "../../config/credentials.js";
+import { resolveProfileName, getUserAccessKey, getProfileEnvironment } from "../../config/credentials.js";
 import { NcrClient } from "../../services/ncr/client.js";
 import { HarborClient } from "../../services/ncr/harbor-client.js";
 import { resolveServiceAppKey } from "../service-appkey.js";
@@ -15,8 +15,9 @@ export async function createNcrClient(opts: {
 }): Promise<{ client: NcrClient; profileName: string }> {
   const profileName = await resolveProfileName(opts.profile);
   const uak = await getUserAccessKey(profileName);
+  const environment = await getProfileEnvironment(profileName);
   const region = opts.region ?? "kr1";
-  return { client: new NcrClient(uak.id, uak.secret, region), profileName };
+  return { client: new NcrClient(uak.id, uak.secret, region, environment), profileName };
 }
 
 /**

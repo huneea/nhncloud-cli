@@ -1,6 +1,7 @@
 import {
   resolveProfileName,
   getUserAccessKey,
+  getProfileEnvironment,
 } from "../../config/credentials.js";
 import { getAccessToken } from "../../api/oauth.js";
 import { DeployClient } from "../../services/deploy/client.js";
@@ -17,8 +18,9 @@ export async function createDeployClient(
 ): Promise<{ client: DeployClient; profileName: string }> {
   const profileName = await resolveProfileName(profileOpt);
   const uak = await getUserAccessKey(profileName);
-  const accessToken = await getAccessToken(profileName, uak.id, uak.secret);
-  return { client: new DeployClient(accessToken), profileName };
+  const environment = await getProfileEnvironment(profileName);
+  const accessToken = await getAccessToken(profileName, uak.id, uak.secret, false, environment);
+  return { client: new DeployClient(accessToken, environment), profileName };
 }
 
 /**

@@ -6,6 +6,7 @@ import { DEFAULT_TIMEOUT_MS, SYNC_TIMEOUT_MS } from "../../api/timeout.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_API_ERROR } from "../../utils/exit-codes.js";
 import type { DeployRunParams, BinaryGroup, Binary, BinaryListParams, UploadBinaryParams, UploadBinaryResult } from "./types.js";
+import type { CloudEnvironment } from "../../config/types.js";
 
 /**
  * 응답 타입 가드 — 5-4 회피.
@@ -40,9 +41,9 @@ export class DeployClient {
   private readonly accessToken: string;
   private readonly baseUrl: string;
 
-  constructor(accessToken: string) {
+  constructor(accessToken: string, environment: CloudEnvironment = "real") {
     this.accessToken = accessToken;
-    this.baseUrl = endpointFor("deploy");
+    this.baseUrl = endpointFor("deploy", environment);
   }
 
   private authHeaders(): Record<string, string> {
@@ -134,6 +135,25 @@ export class DeployClient {
         })
         .json<NhnEnvelope<Record<string, unknown>>>();
 
+      return unwrap(res);
+    } catch (err) {
+      throw toNhnCloudCliError(err);
+    }
+  }
+
+  /** 공공망과 일반망 Deploy v2.1의 서버 그룹 시나리오 목록을 조회한다. */
+  async scenarios(appKey: string, artifactId: string, serverGroupId: string): Promise<Record<string, unknown>> {
+    const url =
+      `${this.baseUrl}/api/v2.1/projects/${encodeURIComponent(appKey)}` +
+      `/artifacts/${encodeURIComponent(artifactId)}` +
+      `/server-groups/${encodeURIComponent(serverGroupId)}/scenarios`;
+
+    try {
+      const res = await ky.get(url, {
+        headers: this.authHeaders(),
+        retry: 0,
+        timeout: DEFAULT_TIMEOUT_MS,
+      }).json<NhnEnvelope<Record<string, unknown>>>();
       return unwrap(res);
     } catch (err) {
       throw toNhnCloudCliError(err);

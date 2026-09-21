@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import chalk from "chalk";
 import { NhnCloudCliError } from "../utils/errors.js";
 import { EXIT_CONFIG_ERROR, EXIT_PARAM_ERROR } from "../utils/exit-codes.js";
-import type { Credentials, Config, ServiceCredential, UserAccessKey, IaasCredential } from "./types.js";
+import type { Credentials, Config, ServiceCredential, UserAccessKey, IaasCredential, CloudEnvironment } from "./types.js";
 
 const CREDENTIALS_PATH = join(homedir(), ".nhncloud", "credentials.json");
 const CONFIG_PATH = join(homedir(), ".nhncloud", "config.json");
@@ -165,6 +165,27 @@ export async function getUserAccessKey(profileName: string): Promise<UserAccessK
   return uak;
 }
 
+/** 기존 profile 은 일반망으로 해석하며, 알 수 없는 값은 요청 전에 거부한다. */
+export async function getProfileEnvironment(profileName: string): Promise<CloudEnvironment> {
+  const credentials = await loadCredentials();
+  const profile = credentials.profiles[profileName];
+  if (!profile) {
+    throw new NhnCloudCliError(`profile "${profileName}" 을 찾을 수 없습니다.`, EXIT_CONFIG_ERROR);
+  }
+  const environment = profile.environment;
+  if (environment !== undefined && environment !== "gov") {
+    throw new NhnCloudCliError(`profile "${profileName}" 의 environment 는 gov 이어야 합니다. 일반망은 이 필드를 생략하세요.`, EXIT_CONFIG_ERROR);
+  }
+  return environment ?? "real";
+}
+
+/** 공공망 endpoint가 확인되지 않은 서비스로 공공망 자격증명을 보내지 않는다. */
+export async function requireRealEnvironment(profileName: string, service: string): Promise<void> {
+  if (await getProfileEnvironment(profileName) === "gov") {
+    throw new NhnCloudCliError(`${service}의 공공망 API endpoint는 아직 지원하지 않습니다.`, EXIT_CONFIG_ERROR);
+  }
+}
+
 /**
  * 지정 profile 의 서비스 자격증명 블록을 반환한다.
  * 해당 블록이 없으면 설정 안내 메시지와 함께 EXIT_CONFIG_ERROR 를 던진다.
@@ -196,7 +217,7 @@ export async function getOptionalServiceCredential(
   service: string,
   profileName: string,
 ): Promise<ServiceCredential | undefined> {
-  if (service === "userAccessKey" || service === "iaas") {
+  if (service === "userAccessKey" || service === "iaas" || service === "environment") {
     throw new NhnCloudCliError(
       `"${service}" 는 서비스 자격증명이 아닙니다 — 전용 getter 를 사용하세요.`,
       EXIT_PARAM_ERROR,

@@ -3,6 +3,8 @@ export interface UserAccessKey {
   secret: string;
 }
 
+export type CloudEnvironment = "real" | "gov";
+
 export interface ServiceCredential {
   appkey?: string;
   secret?: string;
@@ -16,8 +18,9 @@ export interface IaasCredential {
 }
 
 export interface ProfileCredentials {
+  environment?: "gov";
   userAccessKey?: UserAccessKey;
-  [service: string]: UserAccessKey | ServiceCredential | IaasCredential | undefined;
+  [service: string]: UserAccessKey | ServiceCredential | IaasCredential | CloudEnvironment | undefined;
 }
 
 export interface Credentials {

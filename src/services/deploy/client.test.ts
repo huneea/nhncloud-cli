@@ -80,3 +80,12 @@ describe("DeployClient.binaryGroups", () => {
     expect(res[0]?.description).toBeUndefined();
   });
 });
+
+describe("DeployClient.scenarios", () => {
+  it("공공망 시나리오 경로로 조회하고 응답 body를 반환한다", async () => {
+    vi.mocked(ky.get).mockReturnValue({ json: async () => ({ header: { isSuccessful: true, resultCode: "SUCCESS" }, body: { scenarios: [{ scenarioId: 1 }] } }) } as never);
+    const result = await new DeployClient("token", "gov").scenarios("appkey", "1", "2");
+    expect(result).toEqual({ scenarios: [{ scenarioId: 1 }] });
+    expect(ky.get).toHaveBeenCalledWith("https://api-tcd.gov-nhncloudservice.com/api/v2.1/projects/appkey/artifacts/1/server-groups/2/scenarios", expect.any(Object));
+  });
+});
