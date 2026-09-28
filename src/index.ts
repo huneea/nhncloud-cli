@@ -29,6 +29,7 @@ import { getCommand as volumeGetCommand } from "./commands/volume/get.js";
 import { createCommand as volumeCreateCommand } from "./commands/volume/create.js";
 import { listCommand as networkListCommand } from "./commands/network/list.js";
 import { subnetCommand } from "./commands/network/subnet.js";
+import { securityGroupCommand } from "./commands/network/security-group.js";
 import { listCommand as fipListCommand } from "./commands/floatingip/list.js";
 import { createCommand as fipCreateCommand } from "./commands/floatingip/create.js";
 import { deleteCommand as fipDeleteCommand } from "./commands/floatingip/delete.js";
@@ -102,6 +103,8 @@ const networkAgentWorkflow = `
 Agent workflow:
   1. nhncloud network list --json
   2. nhncloud network subnet list --json
+  3. nhncloud network security-group list --json
+  4. nhncloud network security-group ports <group> --json
 `;
 
 const volumeAgentWorkflow = `
@@ -246,10 +249,11 @@ program.addCommand(instanceCommand);
 
 // network 커맨드 그룹
 const networkCommand = new Command("network")
-  .description("VPC·서브넷 조회")
+  .description("VPC·서브넷·보안그룹 조회")
   .addHelpText("after", networkAgentWorkflow);
 networkCommand.addCommand(networkListCommand);
 networkCommand.addCommand(subnetCommand);
+networkCommand.addCommand(securityGroupCommand);
 
 program.addCommand(networkCommand);
 

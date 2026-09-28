@@ -1,5 +1,8 @@
 import { resolveIaasTokenContext, type IaasResolverOpts } from "../iaas.js";
 import { NetworkClient } from "../../services/network/client.js";
+import { InstanceClient } from "../../services/instance/client.js";
+import type { SecurityGroupRule } from "../../services/network/types.js";
+import { requireResourceInput, resolveFromList } from "../resource-resolver.js";
 
 /**
  * profile 해석 → iaas 자격증명 로드 → region override → Keystone 토큰 교환 → NetworkClient 생성.
@@ -11,4 +14,36 @@ export async function resolveNetworkClient(
 ): Promise<{ client: NetworkClient; profileName: string }> {
   const { profileName, tokenId, networkEndpoint } = await resolveIaasTokenContext(opts);
   return { client: new NetworkClient(tokenId, networkEndpoint), profileName };
+}
+
+export async function resolveSecurityGroupClients(
+  opts: IaasResolverOpts,
+): Promise<{ network: NetworkClient; instance: InstanceClient; profileName: string }> {
+  const { profileName, tokenId, networkEndpoint, computeEndpoint, imageEndpoint } =
+    await resolveIaasTokenContext(opts);
+  return {
+    network: new NetworkClient(tokenId, networkEndpoint),
+    instance: new InstanceClient(tokenId, computeEndpoint, imageEndpoint),
+    profileName,
+  };
+}
+
+export async function resolveSecurityGroupId(
+  client: Pick<NetworkClient, "listSecurityGroups">,
+  value: string,
+): Promise<string> {
+  const input = requireResourceInput(value, "보안그룹");
+  return resolveFromList(await client.listSecurityGroups(), input, "보안그룹");
+}
+
+export function formatRulePorts(rule: SecurityGroupRule): string {
+  if (rule.port_range_min === null && rule.port_range_max === null) return "any";
+  if (rule.port_range_min === rule.port_range_max) return String(rule.port_range_min);
+  return `${rule.port_range_min}-${rule.port_range_max}`;
+}
+
+export function formatRuleRemote(rule: SecurityGroupRule): string {
+  if (rule.remote_ip_prefix !== null) return rule.remote_ip_prefix;
+  if (rule.remote_group_id !== null) return `sg:${rule.remote_group_id}`;
+  return "any";
 }
