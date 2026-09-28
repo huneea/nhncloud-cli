@@ -1,249 +1,149 @@
 ---
 name: release
-description: "nhncloud-cli 새 버전 릴리스 자동화: 빌드 검증, 버전 범프, git tag, GitHub Release, npm publish, 해결된 이슈 자동 close 순으로 진행. /release, 릴리스, 버전 범프, npm publish, 새 버전 배포 같은 요청 시 반드시 이 스킬 사용."
+description: "nhncloud-cli 새 버전을 main 에서 태그, GitHub Release, npm 배포까지 릴리스한다. /release, 릴리스, 버전 범프, npm publish, 새 버전 배포 같은 요청이면 스킬 이름을 말하지 않아도 이 스킬을 쓴다."
 ---
 
 # /release로 nhncloud-cli 릴리스
 
-nhncloud-cli의 새 버전을 릴리스한다.
+**목표: 직전 태그 이후 main 의 변경을 검증하고, 새 버전의 태그와 한국어 GitHub Release 를 만든 뒤 사용자가 OTP 로 npm 배포를 마칠 수 있게 한다.**
 
-## 사용법
+- 입력은 새 semver 버전과, 직전 태그 이후의 커밋·머지된 PR·닫힌 이슈다.
+- 산출은 bump 커밋, `v$VERSION` 태그, GitHub Release, 사용자에게 안내한 `npm publish` 명령이다.
+- 어느 단계든 실패하면 그 자리에서 멈추고 사용자에게 보고한다.
 
-```
-/release <version> [--notes "릴리스 노트"]
-```
+## 워크플로우 개요
 
-- `<version>`: semver 버전 (예: `0.4.0`, `0.3.2`)
-- `--notes`: 릴리스 노트 (생략 시 git log에서 자동 생성)
+| 단계 | 이름 | 통과 조건 |
+| --- | --- | --- |
+| 1 | 사전 검증 | 현재 브랜치가 `main` 이고 `git status --porcelain` 이 비어 있으며 `AGENTS.md` 의 검증 명령이 모두 성공했다 |
+| 2 | 변경 분석 | 커밋·PR·닫힌 이슈 목록을 사용자에게 보였고, 아직 열린 이슈 중 이번에 닫을 것이 확정됐다 |
+| 3 | 문서 동기화 | 새 명령과 옵션이 README 와 공개 스킬 reference 에 있다. 없으면 보완 커밋이 있다 |
+| 4 | 공개 정보 검사 | `AGENTS.md` 의 grep 두 개가 모두 0건이다 |
+| 5 | 버전 범프 | bump 커밋이 `origin/main` 에 push 됐다 |
+| 6 | 태그와 GitHub Release | 태그가 push 됐고 Release 본문 점검이 0건이다 |
+| 7 | npm 배포 | 사용자가 `npm publish` 를 실행했고 npm 에 새 버전이 보인다 |
+| 8 | 남은 이슈 처리 | 2단계에서 확정한 열린 이슈를 닫았다. 없으면 건너뛴다 |
 
-## 릴리스 절차
-
-아래 단계를 **순서대로** 실행한다. 각 단계 실패 시 즉시 중단하고 사용자에게 보고한다.
-
-### 1. 사전 검증
-
-```bash
-# 작업 디렉토리가 clean한지 확인
-git status --porcelain
-
-# 빌드 성공 확인
-pnpm run build
-```
-
-- uncommitted 변경이 있으면 먼저 커밋 여부를 사용자에게 확인
-- 빌드 실패 시 중단
-
-### 2. 이전 버전 대비 변경사항 분석
-
-이전 태그 이후 커밋을 모아 사용자에게 변경 요약을 제시한다.
+아래 블록은 다음 변수를 전제로 한다. 1단계에서 한 번 채운다.
 
 ```bash
-# 직전 태그 식별
+VERSION=0.18.0                       # 새 버전으로 바꾼다
+TAG="v$VERSION"
+NOTES="/tmp/release-$TAG-notes.md"
 LAST_TAG=$(git describe --tags --abbrev=0)
-LAST_TAG_DATE=$(git log -1 --format=%cs "$LAST_TAG")
-
-# 커밋 목록
-git log --oneline ${LAST_TAG}..HEAD
-
-# 분류용 (feat/fix/refactor/docs/chore)
-git log ${LAST_TAG}..HEAD --pretty=format:"%s" | sort
+LAST_TAG_DATE=$(git log -1 --format=%cI "$LAST_TAG")
 ```
 
-다음을 도출:
-- **신규 명령** (`feat(commands)` 등): 사용자에게 노출되는 새 명령/서브커맨드
-- **신규 옵션** (`feat(...)` 메시지에 `--xxx` 등장): 기존 명령에 추가된 플래그
-- **버그 수정** / **리팩토링** / **문서/인프라**
+## 1. 사전 검증
 
-추가로 **해결된 GitHub 이슈**를 식별:
+main 가드를 가장 먼저 둔다. 3·4단계의 보완 커밋도 main 에 쌓여야 하기 때문이다.
 
 ```bash
-# 열린 이슈 목록
-gh issue list --state open --json number,title --jq '.[] | "#\(.number)  \(.title)"'
-
-# 커밋 메시지와 PR 본문에서 "Issue #N" 또는 "#N" 참조 추출
-git log ${LAST_TAG}..HEAD --grep="#[0-9]" --oneline
-gh pr list --state merged --search "merged:>=${LAST_TAG_DATE}" \
-  --json number,title,body --jq '.[] | [.number, .title, .body] | @tsv'
+[ "$(git branch --show-current)" = "main" ] || { echo "STOP: main 이 아니다"; exit 1; }
+git pull --ff-only
+git status --porcelain
 ```
 
-같은 날짜의 이전 릴리스 PR도 후보에 들어올 수 있으므로 `${LAST_TAG}..HEAD` 커밋과 대조해 제외한다.
+- `git status --porcelain` 에 출력이 있으면 커밋할지 사용자에게 확인한다.
+- 이어서 `AGENTS.md` 「빌드와 검증」 절의 명령을 모두 실행한다. `package.json` 에 `prepublishOnly` 가 없어 `npm publish` 는 빌드를 다시 돌리지 않는다.
 
-각 열린 이슈에 대해 "이번 릴리스로 해결되었는가?" 판단:
-- 이슈 제목/본문 ↔ 이번 릴리스의 신규 명령/옵션 매핑
-- 후속 이슈(`feat(... ) follow-up`)는 release 시점에 close하지 않음: 별도 task가 필요
-
-**결과를 사용자에게 제시**하고 close 대상 이슈 목록을 확정. 이 목록은:
-- GitHub Release 노트 하단에 `Closes #N, #M` 으로 기록
-- Step 10에서 release publish 후 자동 close
-
-이 결과는 다음 단계(문서 동기화 검증)와 GitHub Release 노트에 그대로 활용한다.
-
-### 3. 문서 동기화 검증 (README + nhncloud-cli 스킬)
-
-위에서 식별된 **신규 명령/옵션이 있다면**, 다음 두 위치에 반영되었는지 확인한다.
+## 2. 변경 분석
 
 ```bash
-# 신규 명령/옵션 키워드를 README.md / 공개 skill router + references에서 grep
-grep -nE "<신규 옵션|신규 명령>" README.md
-grep -nE "<신규 옵션|신규 명령>" skills/nhncloud-cli/SKILL.md skills/nhncloud-cli/references/*.md
+git log --oneline "$LAST_TAG"..HEAD
+gh pr list --state merged --search "merged:>=$LAST_TAG_DATE" --json number,title --jq '.[] | "#\(.number) \(.title)"'
+gh issue list --state closed --search "closed:>=$LAST_TAG_DATE" --json number,title --jq '.[] | "#\(.number) \(.title)"'
+gh issue list --state open --json number,title --jq '.[] | "#\(.number) \(.title)"'
 ```
 
-**검증 기준**:
+- 커밋을 새 명령, 새 옵션, 수정, 리팩터링, 문서와 인프라로 나눠 사용자에게 보인다.
+- 이슈는 대부분 PR 본문의 `Closes #N` 으로 머지 때 이미 닫힌다. 닫힌 이슈 목록을 Release 노트에 그대로 적는다.
+- 열린 이슈 중 이번 변경으로 해결된 것이 있으면 사용자와 닫을 목록을 확정한다.
+  후속 작업이 남았거나 이슈 범위와 구현 범위가 일부만 맞으면 닫지 않고 진행 상황 댓글만 남긴다.
+- `LAST_TAG_DATE` 와 같은 시각에 머지된 직전 릴리스 PR 이 목록에 섞일 수 있다. 커밋 목록과 대조해 뺀다.
 
-| 위치 | 무엇을 확인 |
-|---|---|
-| `README.md` | "사용 예" 섹션에 신규 명령/옵션이 등장. 새 명령은 적절한 카테고리(### 배포(Deploy) / ### 인스턴스(Instance) / ### 로그 검색 등)에 추가 |
-| `skills/nhncloud-cli/SKILL.md`와 `skills/nhncloud-cli/references/*.md` | AI 에이전트가 사용하는 공개 스킬 router와 서비스별 reference. 신규 명령/옵션이 적절한 reference에 반영되어야 함 |
+## 3. 문서 동기화
 
-**누락 발견 시**:
-- 사용자에게 누락 항목을 보고하고, 어느 위치에 어떤 문장으로 추가할지 제안
-- 보완 commit을 별도로 작성한 후 다음 단계 진행 (`docs(readme): document <feature>` 또는 `docs(skill): add <feature> to nhncloud-cli references`)
-- 보완을 건너뛰면 사용자가 명시적으로 동의했을 때만 (예: "이번 릴리스는 인프라만, 기능 추가 없음")
-
-**버그 수정이나 리팩토링만 있는 릴리스**라면 본 단계를 통과할 수 있다. 사용자에게 그 사실을 알리고 진행한다.
-
-### 4. 공개 저장소 정보 보호 검증 (필수, 실패 시 중단)
-
-`AGENTS.md` "공개 저장소 정보 보호" 섹션의 검증 grep 두 명령을 모두 실행한다.
-grep 패턴 정의는 거기에서 단일 소스로 관리한다. 본 skill은 실행 시점과 후속 처리만 정의한다.
-
-**히트가 있으면**:
-- 사용자에게 즉시 보고하고 위치를 보여준다.
-- AGENTS.md의 placeholder 가이드(`<tenant-id>`, `<instance-id>`, `<network-uuid>` 등)나 dummy 패턴으로 교체한 뒤 보완 commit
-- 보완 commit 후 grep 재실행 → 0건 확인 후 다음 단계 진행
-- **사용자가 "내부 사용 OK" 로 명시 동의하지 않는 한 release 차단**
-
-### 5. 버전 범프
-
-**사전 가드 (필수)**: 현재 branch가 `main`인지 확인한다. PR branch에서 bump하면 commit이 다른 branch에 남고 tag가 엉뚱한 commit을 가리킨다.
+2단계에서 새 명령이나 옵션을 찾았으면 README 와 공개 스킬에 반영됐는지 확인한다.
 
 ```bash
-CURRENT=$(git branch --show-current)
-if [ "$CURRENT" != "main" ]; then
-  echo "⚠  현재 branch: $CURRENT: main 으로 switch 필요"
-  git switch main && git pull --ff-only
-fi
+KEYWORD="security-group"             # 새 명령이나 옵션 이름으로 바꾼다
+grep -n "$KEYWORD" README.md skills/nhncloud-cli/SKILL.md skills/nhncloud-cli/references/*.md
 ```
 
-버전 변경:
+| 위치 | 확인할 것 |
+| --- | --- |
+| `README.md` | 「사용 예」 절의 알맞은 서비스 분류에 새 명령과 옵션이 있다 |
+| `skills/nhncloud-cli/references/*.md` | 해당 서비스 reference 에 새 명령과 옵션이 있다 |
 
-- `package.json`의 `version` 필드를 `<version>`으로 변경
-- `src/index.ts`의 `.version("x.y.z")`를 `<version>`으로 변경
-- 변경 후 다시 `pnpm run build`로 빌드 검증
+- 빠졌으면 무엇을 어디에 넣을지 제안하고 보완 커밋을 따로 만든다.
+- 사용자가 건너뛰기에 명시적으로 동의했을 때만 보완 없이 진행한다.
+- 새 명령이나 옵션이 없는 릴리스면 그 사실을 알리고 이 단계를 통과한다.
 
-### 6. 커밋 & 푸시
+## 4. 공개 정보 검사
+
+`AGENTS.md` 「공개 저장소 정보 보호」 절의 grep 두 개를 실행한다. 패턴은 그 절이 소유한다.
+
+- 걸린 곳이 있으면 위치를 보이고 그 절의 placeholder 로 바꾼 보완 커밋을 만든 뒤 다시 검사한다.
+- 사용자가 내부 값 사용에 명시적으로 동의하지 않으면 릴리스를 멈춘다.
+
+## 5. 버전 범프
+
+`package.json` 의 `version` 과 `src/index.ts` 의 `.version("x.y.z")` 두 곳을 `$VERSION` 으로 바꾼다.
+CLI 버전 문자열이 `src/index.ts` 에 하드코딩돼 있어 두 곳을 함께 바꿔야 한다.
 
 ```bash
-# 커밋 직전 branch 재확인 (위 가드와 중복이지만 자기 방어)
-[ "$(git branch --show-current)" = "main" ] || { echo "STOP: not on main"; exit 1; }
-
+node_modules/.bin/tsup
+[ "$(git branch --show-current)" = "main" ] || { echo "STOP: main 이 아니다"; exit 1; }
 git add package.json src/index.ts
-git commit -m "chore: bump version to v<version>"
+git commit -m "chore: bump version to $TAG"
 git push origin main
 ```
 
-**실수로 PR branch에 bump commit을 넣었을 때 복구**:
-- 해당 commit 이 main 의 linear 자식이면 (대부분의 경우): `git switch main && git merge <bump-sha> --ff-only && git push origin main`. force-push 불요
-- linear 아니면 `cherry-pick` 후 PR branch 의 commit 정리
-
-### 7. Git Tag & GitHub Release
+## 6. 태그와 GitHub Release
 
 ```bash
-git tag -a v<version> -m "v<version>"
-git push origin v<version>
+git tag -a "$TAG" -m "$TAG"
+git push origin "$TAG"
 ```
 
-릴리스 노트는 **2단계 분석 결과를 그대로 활용**해 작성한다.
+Release 노트는 2단계 결과로 `$NOTES` 파일에 한국어로 쓴다.
+CLI 명령, 경로, 패키지 이름, API 필드, `Closes`, 전체 변경 URL 은 원문을 유지한다.
 
-**언어 원칙**: AGENTS.md "한국어 표현 정책 / 마크다운 가독성"을 따른다.
-GitHub Release 노트도 사용자-facing 문서이므로 한국어로 작성한다.
-CLI 명령, 파일 경로, package 이름, API 필드, `Closes`, `Full Changelog` URL 같은 기계 계약 토큰은 원문을 유지한다.
-
-권장 섹션:
-- 주요 변경
-- 새 명령
-- 새 옵션
-- 수정
-- 문서
-- Closes
-- 전체 변경
-
-**전달 방식은 `--notes-file <path>`가 필수다.** 인라인 `--notes "..."`와 quoted heredoc은 쓰지 않는다.
+- 반드시 넣는 절: 주요 변경, `Closes`(닫힌 이슈 목록. 없으면 없다고 적는다), 전체 변경 링크
+- 필요하면 넣는 절: 새 명령, 새 옵션, 수정, 검증, 깨는 변경, 후속으로 남긴 것
 
 ```bash
-# 1. 임시 파일에 본문 작성 (Write 도구 / cat / EDITOR 어느 쪽이든 OK)
-#    → /tmp/release-v<version>-notes.md
-
-# 2. 파일 경로로 전달
-gh release create v<version> --title "v<version>: <요약>" --notes-file /tmp/release-v<version>-notes.md
+gh release create "$TAG" --title "$TAG: 요약" --notes-file "$NOTES"
+gh release view "$TAG" --json body -q .body | grep -cE '\\`|\\\$'
 ```
 
-**Why**:
+- 본문은 `--notes-file` 로만 넘긴다. 인라인 `--notes` 에 `` \` `` 나 `\$` 를 넣으면 백슬래시가 본문에 그대로 남는다. v0.10.0 에서 backtick 66개가 `` \` `` 로 출력됐다.
+- 두 번째 명령은 `` \` `` 와 `\$` 만 센다. 코드 블록의 줄 연속 `\` 는 정상이라 세지 않는다. 0 이 아니면 파일을 고쳐 `gh release edit "$TAG" --notes-file "$NOTES"` 로 다시 올린다.
+- `--generate-notes` 는 쓰지 않는다. 닫힌 이슈 목록이 빠진다.
 
-- quoted heredoc (`<<'EOF'`) 안에서는 `` ` ``·`$`·`\` 모두 이미 비활성화 → escape 불요
-- 그런데 "안전하게" `` \` ``이나 `\$`를 넣으면 backslash가 리터럴로 본문에 남아 Markdown이 깨진다.
-- `--notes-file`은 파일 경로를 전달하므로 shell quoting과 escape 함정을 피한다.
+## 7. npm 배포
 
-**자가 점검**: release create나 edit 직후 실행한다.
+npm 배포에는 2FA OTP 가 필요하다. 사용자에게 아래 명령을 직접 실행해 달라고 요청한다.
 
 ```bash
-gh release view v<version> --json body -q .body | tr -cd '\\' | wc -c
-# 기대: 0 (backslash 잔재 없음)
+npm publish --access public --otp=OTP코드
 ```
 
-0 이 아니면 `--notes-file` 로 즉시 `gh release edit v<version> --notes-file <path>` 재발행.
+완료 뒤 두 곳을 확인한다. npm 반영에는 수 분이 걸린다.
 
-릴리스 노트 본문 마지막에 다음 섹션을 포함:
+- `https://github.com/jon890/nhncloud-cli/releases/tag/$TAG`
+- `https://www.npmjs.com/package/@bifos/nhncloud-cli`
 
-```markdown
-## Closes
+## 8. 남은 이슈 처리
 
-이번 릴리스로 해결된 이슈 (release publish 후 자동 close):
-- #7 feat(instance): instance create --user-data 옵션
-```
-
-자동 생성으로 대체할 경우:
-```bash
-gh release create v<version> --title "v<version>" --generate-notes
-```
-
-### 8. npm Publish
-
-npm publish는 2FA OTP가 필요하므로 사용자에게 직접 실행을 요청한다:
-
-```
-npm publish --access public --otp=<code>
-```
-
-사용자에게 위 명령을 안내하고, 완료 후 결과를 확인한다.
-
-### 9. 최종 확인
-
-- `https://github.com/jon890/nhncloud-cli/releases/tag/v<version>` 릴리스 확인
-- `https://www.npmjs.com/package/@bifos/nhncloud-cli` 버전 확인 (반영에 수 분 소요)
-
-### 10. 해결된 이슈 close
-
-2단계에서 식별한 close 대상 이슈를 일괄 close. release publish 완료 후에만 실행 (publish 실패 시 close 금지).
+2단계에서 닫기로 확정한 열린 이슈가 있을 때만 수행한다. npm 배포가 실패했으면 닫지 않는다.
 
 ```bash
-RELEASE_URL="https://github.com/jon890/nhncloud-cli/releases/tag/v<version>"
-for n in <이슈번호 목록>; do
-  gh issue close $n --comment "v<version>에서 구현 완료되어 close합니다. ${RELEASE_URL}"
+ISSUES="101 102"                     # 2단계에서 확정한 번호
+for n in $ISSUES; do
+  gh issue close "$n" --comment "$TAG 에서 해결되어 닫습니다. https://github.com/jon890/nhncloud-cli/releases/tag/$TAG"
 done
 ```
 
-각 close에 release 링크 코멘트를 붙여 이슈에서 release notes로 바로 이동할 수 있게 한다.
-
-**close 금지 케이스**:
-- 후속 작업이 남은 이슈 (예: MVP만 구현되고 추가 옵션 후속)
-- 이슈 본문 범위와 구현 범위가 부분적으로만 일치
-→ 이런 사례는 close 대신 **comment**로 진행 상황만 기록하고 이슈를 open으로 유지한다.
-
-## 주의사항
-
-- **빌드 실패 시 릴리스하지 않는다**
-- **README/스킬 문서 동기화 누락 시**: 사용자에게 보고하고 보완 commit 후 진행 (사용자가 명시적으로 건너뛰기를 동의하지 않는 한)
-- **npm publish는 사용자가 직접 OTP를 입력해야 한다**
-- 이전 태그를 force-update하지 않는다 (새 태그만 생성)
-- **이슈 close는 publish 완료 후에만**: npm publish 실패하면 release는 미완성, close 보류
+이전 태그는 force 로 갱신하지 않는다. 새 태그만 만든다.
