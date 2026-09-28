@@ -32,6 +32,39 @@ export interface VpcSubnet {
   available_ip_count: number;
 }
 
+export interface SecurityGroupRule {
+  id: string;
+  security_group_id: string;
+  direction: string;
+  ethertype: string;
+  protocol: string | null;
+  port_range_min: number | null;
+  port_range_max: number | null;
+  remote_ip_prefix: string | null;
+  remote_group_id: string | null;
+  description: string | null;
+  tenant_id: string;
+}
+
+export interface SecurityGroup {
+  id: string;
+  name: string;
+  description: string;
+  tenant_id: string;
+  security_group_rules: SecurityGroupRule[];
+}
+
+export interface SecurityGroupPort {
+  id: string;
+  name: string;
+  status: string;
+  device_owner: string;
+  device_id: string;
+  network_id: string;
+  fixed_ips: { subnet_id: string; ip_address: string }[];
+  security_groups: string[];
+}
+
 /**
  * Floating IP 요약 — `GET /v2.0/floatingips` (NHN VPC).
  * status: ACTIVE(연결됨) / DOWN(미연결) / ERROR.
