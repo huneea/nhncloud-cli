@@ -39,6 +39,8 @@ AWS CLI 같은 통합 명령줄 도구가 없어 매번 토큰·엔드포인트�
   - `flavors`: 인스턴스 타입(flavor) 목록·상세 조회 (`--detail`, `--min-disk`/`--min-ram` 필터)
   - GPU 인스턴스도 같은 명령으로: GPU flavor id 를 `--flavor` 에 넘기면 된다 (NHN docs 가 API 호환성을 명시하진 않지만 동일 Nova v2 카탈로그를 공유)
 - `nhncloud network`·`volume`·`floatingip`: 같은 Keystone profile과 region으로 IaaS 네트워크, Block Storage와 공인 IP를 관리한다.
+  - `network security-group`: 일반망과 공공망에서 보안그룹과 규칙, 그룹에 연결된 포트를 조회한다.
+    공유 그룹을 바꾸기 전에 어느 인스턴스가 그 그룹을 쓰는지 확인하는 것이 목적이다.
 - `nhncloud ncr`: NHN Container Registry 조회.
   레지스트리 목록·단일은 Management API·UAK 정적 헤더를 쓴다([[adr-016]]).
   이미지/태그는 Harbor REST 데이터플레인·UAK Basic Auth 를 쓴다([[adr-017]]).
