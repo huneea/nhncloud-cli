@@ -68,7 +68,7 @@ worktree에서 `pnpm install`이 esbuild 실행을 차단하면 설치를 반복
 - `.agents/skills/`는 내부 개발 워크플로우의 단일 원본이며 `.claude/skills` 심볼릭 링크를 유지한다.
 - `docs/pitfalls/`는 계획·팀 실행·코드 검토에서 반복해서 발견된 회피 패턴의 단일 원본이다. `INDEX.md`에서 변경 유형에 맞는 항목만 골라 읽는다.
 - 새 반복 함정은 `docs/pitfalls/INDEX.md`의 「축적 규칙」을 통과할 때만 남긴다.
-- 새 기능은 `planning`으로 설계 문서와 task를 먼저 만들고, 승인된 계획은 `build-with-teams`로 구현한다.
+- 새 기능은 `planning`으로 설계 문서와 task를 먼저 만든다. 승인된 계획은 `orchestration`으로 worker에 넘기고, worker가 `build-with-teams`로 구현한다.
 - 설계 문서는 task보다 먼저 커밋한다.
 - 문서·스킬·외부 공개 프로젝트 설명은 한국어로 작성한다.
 - 명령, 경로, 코드 식별자, API 필드, `agent_type`, `$workflow` 같은 기계 계약은 원문을 유지한다.

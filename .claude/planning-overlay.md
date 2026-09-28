@@ -56,8 +56,8 @@ task 작성 뒤 `docs/pitfalls/INDEX.md`의 trigger와 라우터로 관련 파�
 - 브랜치: `{category}/plan{N}-{slug}`
 - PR 제목: `type(scope): description`
 - planning은 설계 문서와 task를 plan 브랜치에 커밋하고 push한다.
-- 구현은 `/build-with-teams tasks/plan{N}-{slug}`으로 넘긴다.
-- phase 구현과 커밋은 `build-with-teams`가 소유한다.
+- 구현은 `orchestration`으로 worker에 넘기고, worker가 `/build-with-teams tasks/plan{N}-{slug}`를 실행한다.
+- phase 구현과 커밋은 worker 안의 `build-with-teams`가 소유한다.
 
 ## 검증
 
