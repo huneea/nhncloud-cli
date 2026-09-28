@@ -12,10 +12,10 @@ spawn 프롬프트에는 task 절대경로와 직전 phase에서 확인한 사�
 
 ## worktree
 
-worktree는 `.agents/worktrees/{task-name}`에 둔다.
+worktree는 `.agents/worktrees/plan{N}-{slug}`에 둔다.
 
 ```bash
-git worktree add .agents/worktrees/{task-name} -b {category}/{NNN}-{task-name} origin/main
+git worktree add .agents/worktrees/plan{N}-{slug} -b {category}/plan{N}-{slug} origin/main
 ```
 
 task 경로, `index.json` 스키마, 브랜치와 PR 이름은 `.claude/planning-overlay.md`가 소유한다.

@@ -52,10 +52,8 @@ task 작성 뒤 `docs/pitfalls/INDEX.md`의 trigger와 라우터로 관련 파�
 
 ## task 경로와 스키마
 
-task 경로는 `tasks/{NNN}-{task-name}/`이다.
-현재 task, 원격 브랜치, 열린 PR과 Git 이력의 `tasks/NNN-*` 경로를 확인한 뒤 가장 큰 3자리 번호의 다음 값을 쓴다.
-삭제된 과거 task 번호는 `git log --all --name-only --format= -- tasks/`로 복원해 다시 쓰지 않는다.
-독립 작업은 새 번호를, 같은 도메인의 연속 확장은 `{NNN}-2-...` 형태를 쓴다.
+task 경로와 번호는 공용 planning 스킬을 따른다. 경로는 `tasks/plan{N}-{slug}/`이고 번호는 스킬의 `plan_number.sh`가 정한다.
+이전에 만든 `tasks/NNN-*` 디렉터리는 이력으로 두고 새 번호 계산에 쓰지 않는다.
 
 `index.json`은 공용 `task-create.md`의 스키마를 그대로 따른다.
 
@@ -70,10 +68,10 @@ task 경로는 `tasks/{NNN}-{task-name}/`이다.
 
 ## 브랜치와 핸드오프
 
-- 브랜치: `{category}/{NNN}-{task-name}`
+- 브랜치: `{category}/plan{N}-{slug}`
 - PR 제목: `type(scope): description`
 - planning은 설계 문서와 task를 plan 브랜치에 커밋하고 push한다.
-- 구현은 `/build-with-teams tasks/{NNN}-{task-name}`으로 넘긴다.
+- 구현은 `/build-with-teams tasks/plan{N}-{slug}`으로 넘긴다.
 - phase 구현과 커밋은 `build-with-teams`가 소유한다.
 
 ## 검증
