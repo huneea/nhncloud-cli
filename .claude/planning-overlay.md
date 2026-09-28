@@ -52,16 +52,7 @@ task 작성 뒤 `docs/pitfalls/INDEX.md`의 trigger와 라우터로 관련 파�
 
 ## task 스키마
 
-`index.json`은 공용 `task-create.md`의 스키마를 그대로 따른다.
-
-- task: `name`, `description`, `status`, `created_at`, `total_phases`, `current_phases`, `phases`
-- phase: `number`, `title`, `file`, `execution_profile`
-
-`execution_profile`은 `fast`, `standard`, `deep` 중 하나다.
-실행 surface가 이 값을 설치된 model과 role에 매핑하므로 provider별 `model`이나 `allowedTools`를 task에 저장하지 않는다.
-
-`total_phases`는 배열 길이와 같아야 하고, phase 번호는 1부터 연속이어야 하며 각 파일이 실제로 존재해야 한다.
-생성 직후 공용 `verify-task.sh`와 `task-create.md`의 사람 판단 항목을 적용한다.
+실행 surface가 `execution_profile`을 설치된 model과 role에 매핑하므로 provider별 `model`이나 `allowedTools`를 `index.json`에 저장하지 않는다.
 
 ## 브랜치와 핸드오프
 
