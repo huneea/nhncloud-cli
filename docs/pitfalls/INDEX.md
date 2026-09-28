@@ -65,7 +65,7 @@ related: [<다른 패턴 slug>, ...]      # 백링크
 - 빌드 검증: `pnpm tsc --noEmit && pnpm run build && pnpm test`
 - 스택: TypeScript, Commander.js, ky, tsup(CJS 번들), vitest
 - 메인 브랜치: `main`
-- 워크플로: 브랜치명 = `{category}/plan<N>-<slug>`이며 세부 규칙은 `.claude/planning-overlay.md`를 따른다.
+- 워크플로: 브랜치명 = `{category}/<NNN>-<slug>`이며 세부 규칙은 `.claude/planning-overlay.md`를 따른다.
 - tsc/vitest 가 잡는다: exitCode 타입 오류 등 정적 타입 오류, vitest 가 커버하는 로직: "도구로 못 잡음" 조건에서 제외
 
 ## 라우터: 관련 패턴 고르는 법
