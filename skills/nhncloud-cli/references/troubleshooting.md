@@ -11,6 +11,8 @@
 5. exit code를 확인한다.
 6. 서비스별 인증 모델을 대조한다.
 
+`nhncloud doctor`는 자격증명과 공개 스킬 설치 상태를 오프라인에서 진단한다.
+
 ## 인증 모델
 
 | 서비스 | 비밀 | 인증 방식 |
@@ -85,16 +87,9 @@ nhncloud ncr list --json | jq '.[0] | keys'
 
 기존 `logncrash.secret`은 Search v3 인증에 사용하지 않는다.
 
-## 쓰기 명령 confirm
+## 쓰기 명령 확인
 
-삭제, 제거, 비용 발생 가능 명령은 비대화형 환경에서 `--yes`가 필요할 수 있다.
-
-```bash
-nhncloud instance delete <instance-id> --yes
-nhncloud floatingip delete <floatingip-id> --yes
-nhncloud nks cluster delete <cluster> --yes
-nhncloud nks cluster addon remove <cluster> <addon> --yes
-```
+명령별 확인 방식은 [되돌릴 수 없는 명령](common.md#되돌릴-수-없는-명령)에서 확인한다.
 
 ## stdout/stderr 분리
 

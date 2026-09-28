@@ -189,6 +189,18 @@ nhncloud commands --json | jq '.commands[] | select(.path=="nks cluster list")'
 
 AI 에이전트는 먼저 `commands --json`으로 실제 command path와 option 이름을 확인하고, 그다음 서비스 reference를 읽는다.
 
+## 되돌릴 수 없는 명령
+
+실행 전에 대상과 변경 범위를 조회한다. 확인 방식은 명령마다 다르다.
+
+| 확인 방식 | 명령 |
+|---|---|
+| TTY 여부와 관계없이 `--yes` 필수 | `apigateway stage update`, `apigateway stage import-resources`, `apigateway stage deploy create`, `apigateway stage deploy rollback`, `apigateway resource set-path-plugin`, `apigateway resource set-method-plugin` (`--dry-run` 제외), `loadbalancer ipacl delete`, `loadbalancer ipacl target add`, `loadbalancer ipacl target remove`, `loadbalancer set-ipacl`, `loadbalancer clear-ipacl` |
+| 비대화형 환경에서는 `--yes` 필수, TTY에서는 확인 질문 | `instance delete`, `floatingip delete`, `nks cluster delete`, `nks cluster addon remove`, `nks nodegroup delete`, `ncs template delete`, `ncs template version delete`, `ncs workload delete` |
+| 확인 질문과 `--yes` 없음 | `instance keypair delete`, `deploy run`, `nks cluster resize --nodes-to-remove`, `nks nodegroup upgrade`, `ncs workload update` (PUT 전체 교체), `instance volume detach`, `loadbalancer ipacl create` |
+
+`nks cluster resize`는 `--nodes-to-remove`를 생략해도 확인 없이 실행되며, 감축 대상 노드를 API가 선택할 수 있다는 경고를 출력한다.
+
 ## JSON shape 요약
 
 | 명령 | `--json` 출력 shape |
