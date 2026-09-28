@@ -50,10 +50,7 @@ task 작성 뒤 `docs/pitfalls/INDEX.md`의 trigger와 라우터로 관련 파�
 새 패턴은 재현 가능하고 일반화되며 구체적인 검출 방법이 있을 때만 패턴당 한 파일로 추가한다.
 일회성 사건, 특정 plan 메모와 실행 통계는 PR 또는 결과 보고에만 남긴다.
 
-## task 경로와 스키마
-
-task 경로와 번호는 공용 planning 스킬을 따른다. 경로는 `tasks/plan{N}-{slug}/`이고 번호는 스킬의 `plan_number.sh`가 정한다.
-이전에 만든 `tasks/NNN-*` 디렉터리는 이력으로 두고 새 번호 계산에 쓰지 않는다.
+## task 스키마
 
 `index.json`은 공용 `task-create.md`의 스키마를 그대로 따른다.
 
