@@ -10,11 +10,10 @@
 - 하네스: `AGENTS.md`, `.claude/*.md`, `.agents/skills/*/SKILL.md`, `.claude/agents/`, `.codex/agents/`, `.github/workflows/code-review-prompt.txt`
 
 명령과 옵션 설명은 `node dist/index.js commands --json`과 실제 help를 기준으로 대조한다.
-ADR 목록과 링크 무결성을 확인하고, 문서 개수와 명령 개수 같은 변동값은 산문에 고정하지 않는다.
+ADR 목록과 링크 무결성을 확인한다.
 공개 정보 검사는 `AGENTS.md`의 명령을 그대로 사용한다.
 
 ## 의미 검증 위임
 
 부패, 과대화, 추론성, 중복, 자명성과 가독성 판정은 `nhncloud-cli-docs-verifier`에 위임한다.
 Claude Code 정의는 `.claude/agents/nhncloud-cli-docs-verifier.md`, Codex 정의는 `.codex/agents/nhncloud-cli-docs-verifier.toml`이다.
-에이전트는 수정하지 않고 근거와 판정만 반환한다.

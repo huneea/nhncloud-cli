@@ -39,7 +39,7 @@ NHN Cloud 서비스를 AWS CLI 방식으로 호출하는 TypeScript 와 Commande
   전체 결과를 최종 경로 교체 실패 때문에 삭제하지 않으며 Log & Crash 세부 정책은 ADR-034를 따른다.
 - 자동화 가능한 명령은 대화형 입력을 기다리지 않게 설계한다.
 - 위험한 변경은 API 호출 전에 `--yes`를 검증하고, `--json`·`--quiet` 출력과 종료 코드를 결정적으로 유지한다.
-- profile 우선순위는 `--profile` > `NHNCLOUD_PROFILE` > `config.defaultProfile` > `default`다.
+- profile 해석 순서는 `docs/data-schema.md`가 소유한다.
 - 자격증명은 `~/.nhncloud/credentials.json`, 일반 설정은 `~/.nhncloud/config.json`에 두며 자격증명 파일 권한은 `0600`으로 유지한다.
 - 새 의존성을 추가하기보다 기존 유틸리티와 패턴을 우선한다.
 
@@ -64,12 +64,10 @@ worktree에서 `pnpm install`이 esbuild 실행을 차단하면 설치를 반복
 ## 문서와 스킬
 
 - `skills/nhncloud-cli/SKILL.md`는 공개 CLI 사용 흐름의 라우터로 유지하고, 서비스 상세는 `references/*.md`에 둔다.
-- `nhncloud skills`는 공개 스킬의 상태 조회·관리 저장소 설치·현재 CLI 버전 갱신·활성 링크 제거를 담당한다.
-- `skills install`과 `skills update`는 사용자 항목이나 수정·손상된 관리 저장소를 기본적으로 보존하며, `--force`에서도 삭제하지 않고 같은 상위 디렉터리에 백업한 뒤 교체한다.
-- `skills uninstall`은 관리 저장소 또는 인식 가능한 기존 패키지·저장소를 가리키는 활성 링크만 제거한다. 관리 저장소 자체와 실제 디렉터리, 알 수 없는 유효 링크·깨진 링크는 보존하고 제거를 거부한다.
+- `nhncloud skills`를 바꿀 때는 ADR-025와 `docs/flow.md`의 「공개 스킬 수명주기」 절이 정한 보존·거부 규칙을 유지한다.
 - `.agents/skills/`는 내부 개발 워크플로우의 단일 원본이며 `.claude/skills` 심볼릭 링크를 유지한다.
 - `docs/pitfalls/`는 계획·팀 실행·코드 검토에서 반복해서 발견된 회피 패턴의 단일 원본이다. `INDEX.md`에서 변경 유형에 맞는 항목만 골라 읽는다.
-- 새 반복 함정은 재현 가능하고 일반화되며 검출 방법이 있을 때만 `docs/pitfalls/`에 패턴당 한 파일로 남긴다. 원시 회고와 실행 통계는 저장소 문서로 누적하지 않는다.
+- 새 반복 함정은 `docs/pitfalls/INDEX.md`의 「축적 규칙」을 통과할 때만 남긴다.
 - 새 기능은 `planning`으로 설계 문서와 task를 먼저 만들고, 승인된 계획은 `build-with-teams`로 구현한다.
 - 설계 문서는 task보다 먼저 커밋한다.
 - 문서·스킬·외부 공개 프로젝트 설명은 한국어로 작성한다.
