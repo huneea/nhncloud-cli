@@ -17,29 +17,9 @@ API 요청은 공통 UAK로 발급한 Bearer 토큰을 `X-NHN-Authorization` 헤
 nhncloud apigateway service list --region kr1 --json
 ```
 
-## 명령
+## 명령 탐색
 
-아래 표의 공통 옵션은 `--region <region>`, `--profile <name>`이다.
-루트 전역 옵션인 `--json`과 `--quiet`도 사용할 수 있다.
-
-| 명령 경로 | 인수 | 명령 옵션 |
-|---|---|---|
-| `nhncloud apigateway service list` | 없음 | 공통 옵션 |
-| `nhncloud apigateway service get` | `<service-id>` | 공통 옵션 |
-| `nhncloud apigateway resource list` | `<service-id>` | 공통 옵션 |
-| `nhncloud apigateway resource parameters` | `<service-id> <resource-id>` | 공통 옵션 |
-| `nhncloud apigateway resource responses` | `<service-id> <resource-id>` | 공통 옵션 |
-| `nhncloud apigateway resource set-path-plugin` | `<service-id> <resource-id>` | 공통 옵션, `--config-file <path>`, `--dry-run`, `--yes` |
-| `nhncloud apigateway resource set-method-plugin` | `<service-id> <resource-id>` | 공통 옵션, `--config-file <path>`, `--dry-run`, `--yes` |
-| `nhncloud apigateway stage list` | `<service-id>` | 공통 옵션 |
-| `nhncloud apigateway stage swagger` | `<service-id> <stage-id>` | 공통 옵션, `--output <file>`, `--force` |
-| `nhncloud apigateway stage resources` | `<service-id> <stage-id>` | 공통 옵션 |
-| `nhncloud apigateway stage update` | `<service-id> <stage-id>` | 공통 옵션, `--backend-endpoint-url <url>`, `--description <text>`, `--yes` |
-| `nhncloud apigateway stage import-resources` | `<service-id> <stage-id>` | 공통 옵션, `--yes` |
-| `nhncloud apigateway stage deploy create` | `<service-id> <stage-id>` | 공통 옵션, `--description <text>`, `--no-wait`, `--timeout <sec>`, `--yes` |
-| `nhncloud apigateway stage deploy list` | `<service-id> <stage-id>` | 공통 옵션 |
-| `nhncloud apigateway stage deploy latest` | `<service-id> <stage-id>` | 공통 옵션 |
-| `nhncloud apigateway stage deploy rollback` | `<service-id> <stage-id> <deploy-id>` | 공통 옵션, `--yes` |
+정확한 명령 경로와 옵션은 `nhncloud commands --json`에서 확인한다.
 
 `--quiet`가 식별자를 출력하는 명령은 다음과 같다.
 
@@ -94,9 +74,7 @@ nhncloud apigateway service list --region kr1 --json
 `delete` 가 `true`면 해당 플러그인을 삭제하므로 `pluginConfigJson`을 생략할 수 있다.
 `applyChildPath`는 경로 플러그인에만 사용하며 메서드 설정에 넣으면 입력 오류로 거부된다.
 
-`set-path-plugin`과 `set-method-plugin`만 `--dry-run`을 제공한다.
-하위 적용 범위를 서버가 판정하고 CORS 플러그인이 기존 OPTIONS 메서드를 삭제·대체하므로,
-다른 위험 명령의 `--yes` 확인만으로는 되돌릴 수 없는 범위를 적용 전에 확인할 수 없기 때문이다.
+플러그인은 `--dry-run`을 먼저 실행해 변경 범위를 확인한다.
 
 리소스 플러그인 변경을 스테이지에 반영하려면 별도의 리소스 반영과 배포가 필요하다.
 
@@ -144,22 +122,9 @@ nhncloud apigateway stage deploy rollback <service-id> <stage-id> <deploy-id> --
 
 ## JSON 구조
 
-API 응답 봉투의 `header`를 검사한 뒤 CLI는 아래 데이터를 꺼내 `--json`으로 출력한다.
-따라서 목록은 JSON 배열, 단건은 JSON 객체로 출력된다.
-특히 서비스 목록의 최상위 키는 `apigwServiceList`이고 서비스 단건은 `apigwService`로 서로 다르다.
-
-| 명령 | API 응답의 최상위 키 | CLI JSON 구조 |
-|---|---|---|
-| `service list` | `apigwServiceList`, `paging` | service 객체 배열 |
-| `service get` | `apigwService` | service 객체 |
-| `resource list` | `resourceList` | resource 객체 배열 |
-| `resource parameters` | `queryStringList`, `headerList`, `formDataList`, `requestBody`, `contentTypeList` | 같은 키를 가진 객체 |
-| `resource responses` | `responseList`, `contentTypeList` | 같은 키를 가진 객체 |
-| `stage list` | `stageList`, `paging` | stage 객체 배열 |
-| `stage swagger` | `swaggerData` | Swagger 객체 |
-| `stage resources` | `stageResourceList` | stage resource 객체 배열 |
-| `stage deploy list` | `stageDeployHistoryList`, `paging` | deploy 객체 배열 |
-| `stage deploy latest` | `latestStageDeployResult` | 최신 deploy 객체 |
+`--json`은 목록을 배열, 단건을 객체로 출력한다.
+`resource parameters`와 `resource responses`는 각각 파라미터와 응답 설정 객체를 반환한다.
+`stage swagger`는 Swagger 객체를, `stage deploy latest`는 최신 배포 객체를 반환한다.
 
 `stage list`의 `resourceUpdatedAt`은 배포 시점이 아니다.
 서비스 리소스를 해당 스테이지로 가져온 일시를 뜻하며, 실제 배포 시점은 배포 응답의 `deployedAt`으로 확인한다.

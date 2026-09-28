@@ -38,13 +38,7 @@
 
 ## Profile 누락
 
-profile은 다음 순서로 해석된다.
-
-1. `--profile <name>`
-2. `NHNCLOUD_PROFILE`
-3. `~/.nhncloud/config.json`의 `defaultProfile`
-4. `default`
-
+profile 선택 순서는 [Profile 우선순위](common.md#profile-우선순위)를 확인한다.
 자동화에서 의도와 다른 profile이 쓰이면 `--profile`을 명시한다.
 
 ## Region mismatch
@@ -76,9 +70,9 @@ nhncloud ncr list --json | jq '.[0] | keys'
 - `--from`은 최근 90일 이내여야 한다.
 - `--to - --from` 범위는 31일 이하여야 한다.
 - `--page`는 0만 허용한다. 다음 페이지는 JSON의 `nextCursor`를 `--cursor`로 그대로 전달한다.
-- 검색 `--size`는 1~100이다.
-- export `--size`는 폐기 예정 호환 옵션이며 10~100 검증 후 경고하고 v3 요청에서는 무시한다.
-- export가 중간 실패하면 보존된 원본 오류를 확인하고 검색 범위를 좁혀 다시 실행한다.
+- 검색 `--size`는 1부터 100까지 허용한다.
+- export `--size`는 폐기 예정 호환 옵션이며 10부터 100까지 검증 후 경고하고 v3 요청에서는 무시한다.
+- export가 중간 실패하면 보존된 원본 오류를 확인하고 검색 범위를 줄여 다시 실행한다.
 
 검색 또는 export에서 설정 오류가 나면 profile에 다음 두 값이 모두 있는지 확인한다.
 

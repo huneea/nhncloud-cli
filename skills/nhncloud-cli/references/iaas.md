@@ -117,12 +117,3 @@ nhncloud floatingip delete <floatingip-id> --yes
 
 `floatingip create --quiet`는 발급된 Floating IP id를 출력한다.
 `floatingip associate`는 instance→port_id 매핑 경로 미확정으로 아직 제공하지 않는다.
-
-## 에러 코드
-
-| 상황 | exit code |
-|------|-----------|
-| IaaS 자격증명 누락 또는 불완전 | 4 |
-| Keystone 인증 실패 | 2 |
-| 미등록 region, 필수 옵션 누락, `--yes` 누락 | 3 |
-| API 오류 또는 wait timeout | 1 |
