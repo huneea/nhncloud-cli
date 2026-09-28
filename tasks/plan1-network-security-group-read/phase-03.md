@@ -47,7 +47,7 @@ nhncloud network security-group ports <group> --quiet   # 연결된 인스턴스
 
 ### 3. `tasks/plan1-network-security-group-read/index.json` 완료 처리
 
-`status`를 `"completed"`, `current_phases`를 `3`으로 바꾼다.
+`status`를 `"completed"`, `current_phase`를 `3`으로 바꾼다.
 
 ## 검증
 
@@ -57,7 +57,7 @@ pnpm test
 pnpm run build
 node dist/index.js commands --json > /tmp/nhncloud-commands.json
 grep -n 'security-group' README.md skills/nhncloud-cli/references/iaas.md
-jq -e '.status == "completed" and .current_phases == .total_phases and (.total_phases == (.phases | length))' tasks/plan1-network-security-group-read/index.json
+jq -e '.status == "completed" and .current_phase == .total_phases and (.total_phases == (.phases | length))' tasks/plan1-network-security-group-read/index.json
 git diff --check
 ```
 
