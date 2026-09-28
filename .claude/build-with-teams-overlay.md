@@ -4,7 +4,6 @@
 
 ## 역할
 
-- executor: `nhncloud-cli-executor`
 - docs-verifier: `nhncloud-cli-docs-verifier`
 
 Claude Code 정의는 `.claude/agents/`, Codex 정의는 `.codex/agents/`에 있다.
