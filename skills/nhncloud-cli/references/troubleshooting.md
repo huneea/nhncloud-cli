@@ -17,11 +17,13 @@
 |--------|------|-----------|
 | Log & Crash 검색/export | appkey 와 공통 UAK id/secret | UAK OAuth `X-NHN-Authorization: Bearer <token>` |
 | Log & Crash send | appkey | body `projectName=appkey`, 인증 헤더 없음 |
-| Deploy | UAK id 와 secret | OAuth Bearer token |
+| Deploy | UAK id 와 secret, Deploy appkey | OAuth Bearer token |
 | Instance/network/volume/floatingip | tenantId, username, API password | Keystone `X-Auth-Token` |
 | NKS | tenantId, username, API password | Keystone `X-Auth-Token` 과 container-infra API version |
 | NCR registry | UAK id, secret, NCR appkey | `X-TC-AUTHENTICATION-*` |
 | NCR images/tags | UAK id 와 secret | HTTP Basic Auth to Harbor REST |
+| NCS | UAK id 와 secret, NCS appkey | OAuth Bearer token (`X-NHN-Authorization`) |
+| API Gateway | UAK id 와 secret, API Gateway appkey | OAuth Bearer token (`X-NHN-Authorization`) |
 
 ## Exit code
 
@@ -57,9 +59,10 @@ nhncloud ncr list --region kr2 --json
 
 ## JSON shape 혼동
 
-CLI는 API wrapper를 일관되게 언랩한다.
-예를 들어 `instance get --json`은 `.server.status`가 아니라 `.status`다.
-목록과 단건의 shape가 다를 수 있으므로 jq path를 쓰기 전에 `--json` 원문을 확인한다.
+서비스와 명령에 따라 API wrapper 처리 방식이 다르다.
+`instance get --json`은 `.server.status`가 아니라 `.status`를 반환하지만, NKS 단건·설정 조회는 raw 객체를 보존한다.
+NCR의 Harbor 이미지·태그 조회에는 NHN 공통 wrapper 언랩을 적용하지 않는다.
+jq path를 쓰기 전에 `--json` 원문을 확인한다.
 
 ```bash
 nhncloud instance get <instance-id> --json | jq keys

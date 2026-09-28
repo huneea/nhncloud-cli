@@ -167,7 +167,7 @@ nhncloud ncs workload history <workload-id> --json | jq -r '.[0].id' # 최신 hi
 |------|------|
 | `--region <region>` | NCS region. 기본 `kr1`. `kr1`·`kr3`만 지원 |
 | `--profile <name>` | 사용할 profile |
-| `--page <page>` / `--size <size>` | 페이지네이션 (기본 size는 명령별 상이 — `--help` 확인) |
+| `--page <page>` / `--size <size>` | 페이지네이션. `workload logs`의 기본 size는 100, 다른 노출 명령은 10 |
 | `--q <query>` | workload list·events 필터 |
 | `--task <taskId>` | `workload logs`·`workload events`·`workload restart` 필수 |
 | `--container <name>` | `workload logs` 필수 |
@@ -185,7 +185,7 @@ nhncloud ncs workload history <workload-id> --json | jq -r '.[0].id' # 최신 hi
 - `workload logs`·`workload events` 데이터는 stdout, 진행 상황과 오류는 stderr에 출력한다.
 - 시간 필터를 생략하면 CLI가 임의 기본값을 만들지 않고 API 기본 범위를 유지한다.
 - `workload restart`도 task 단위라 `--task` 없이는 입력 오류다.
-- `workload schedule-history`는 page/size를 아직 노출하지 않는다(대량 이력 시 첫 페이지만 반환될 수 있음 — ADR-020).
+- `workload schedule-history`는 page/size를 아직 노출하지 않아 대량 이력에서 첫 페이지만 반환될 수 있다.
 - template/workload id, history id 인수가 공백이면 입력 오류다.
 - `template version create`의 `--file` payload 는 `sourceVersion` 필드가 필수다 — 누락 시 API 오류로 반환된다(클라이언트가 사전 검증하지 않음).
 - `--file` 로 지정한 JSON payload 파일은 1MB 를 넘거나 디렉터리면 입력 오류다.
