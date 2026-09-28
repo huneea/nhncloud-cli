@@ -45,7 +45,7 @@ nhncloud network security-group ports <group> --quiet   # 연결된 인스턴스
 
 `nhncloud network list` 줄 아래에 `nhncloud network security-group list` 와 설명 `# 보안그룹 목록`을 같은 열 정렬로 넣는다.
 
-### 3. `tasks/070-network-security-group-read/index.json` 완료 처리
+### 3. `tasks/plan1-network-security-group-read/index.json` 완료 처리
 
 `status`를 `"completed"`, `current_phases`를 `3`으로 바꾼다.
 
@@ -57,7 +57,7 @@ pnpm test
 pnpm run build
 node dist/index.js commands --json > /tmp/nhncloud-commands.json
 grep -n 'security-group' README.md skills/nhncloud-cli/references/iaas.md
-jq -e '.status == "completed" and .current_phases == .total_phases and (.total_phases == (.phases | length))' tasks/070-network-security-group-read/index.json
+jq -e '.status == "completed" and .current_phases == .total_phases and (.total_phases == (.phases | length))' tasks/plan1-network-security-group-read/index.json
 git diff --check
 ```
 
@@ -69,4 +69,4 @@ AGENTS.md의 「공개 저장소 정보 보호」 절 grep 두 개가 모두 0�
 |---|---|
 | `skills/nhncloud-cli/references/iaas.md` | 수정 |
 | `README.md` | 수정 |
-| `tasks/070-network-security-group-read/index.json` | 수정 |
+| `tasks/plan1-network-security-group-read/index.json` | 수정 |

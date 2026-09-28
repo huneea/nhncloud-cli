@@ -1,5 +1,5 @@
 {
-  "name": "070-network-security-group-read",
+  "name": "plan1-network-security-group-read",
   "description": "이슈 #110 1차: 일반망과 공공망에서 보안그룹, 규칙과 연결 포트를 조회하는 network security-group 명령을 추가한다",
   "status": "pending",
   "created_at": "2026-09-28",
