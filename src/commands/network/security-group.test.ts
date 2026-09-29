@@ -6,7 +6,7 @@ import type { SecurityGroup, SecurityGroupPort, SecurityGroupRule } from "../../
 import { output } from "../../formatters/table.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_API_ERROR, EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
-import { resolveSecurityGroupClients } from "./helpers.js";
+import { formatRulePorts, resolveSecurityGroupClients } from "./helpers.js";
 import { securityGroupCommand } from "./security-group.js";
 
 vi.mock("./helpers.js", async (importOriginal) => {
@@ -139,5 +139,24 @@ describe("network security-group 명령", () => {
   it("빈 그룹 인수는 client 해석 전에 거부한다", async () => {
     await expect(run("security-group", "ports", " ")).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
     expect(resolveSecurityGroupClients).not.toHaveBeenCalled();
+  });
+});
+
+describe("formatRulePorts", () => {
+  const base: SecurityGroupRule = {
+    id: "rule-1", security_group_id: "sg-1", direction: "ingress", ethertype: "IPv4",
+    protocol: "tcp", port_range_min: null, port_range_max: null,
+    remote_ip_prefix: null, remote_group_id: null, description: null, tenant_id: "tenant-1",
+  };
+
+  it("한쪽 경계만 있으면 비어 있는 쪽을 any 로 표시한다", () => {
+    expect(formatRulePorts({ ...base, port_range_min: 22 })).toBe("22-any");
+    expect(formatRulePorts({ ...base, port_range_max: 443 })).toBe("any-443");
+  });
+
+  it("양쪽이 모두 없거나 같거나 다른 경우를 구분한다", () => {
+    expect(formatRulePorts(base)).toBe("any");
+    expect(formatRulePorts({ ...base, port_range_min: 22, port_range_max: 22 })).toBe("22");
+    expect(formatRulePorts({ ...base, port_range_min: 1000, port_range_max: 2000 })).toBe("1000-2000");
   });
 });

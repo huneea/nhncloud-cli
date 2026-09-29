@@ -40,7 +40,7 @@ export async function resolveSecurityGroupId(
 export function formatRulePorts(rule: SecurityGroupRule): string {
   if (rule.port_range_min === null && rule.port_range_max === null) return "any";
   if (rule.port_range_min === rule.port_range_max) return String(rule.port_range_min);
-  return `${rule.port_range_min}-${rule.port_range_max}`;
+  return `${rule.port_range_min ?? "any"}-${rule.port_range_max ?? "any"}`;
 }
 
 export function formatRuleRemote(rule: SecurityGroupRule): string {
