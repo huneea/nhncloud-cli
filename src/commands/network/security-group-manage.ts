@@ -91,11 +91,10 @@ export const deleteCommand = withOptions(new Command("delete")
     const groupInput = requireResourceInput(value, "보안그룹");
     const { network } = await resolveSecurityGroupClients(opts);
     startSpinner("보안그룹 삭제 중...");
-    let id: string;
+    let groupId: string;
     let referencingRules: SecurityGroupRule[];
     try {
-      const groupId = await resolveSecurityGroupId(network, groupInput);
-      id = groupId;
+      groupId = await resolveSecurityGroupId(network, groupInput);
       const ports = await network.listSecurityGroupPorts(groupId);
       if (ports.length > 0) {
         const deviceIds = [...new Set(ports.map((port) => port.device_id).filter((deviceId) => deviceId !== ""))];
@@ -121,11 +120,11 @@ export const deleteCommand = withOptions(new Command("delete")
         `경고: 다른 보안그룹 규칙 ${referencingRules.length}개가 이 그룹을 원격 그룹으로 참조했습니다: ${refs.join(", ")}\n`,
       );
     }
-    const result = { operation: "security-group-delete", status: "succeeded", security_group_id: id };
+    const result = { operation: "security-group-delete", status: "succeeded", security_group_id: groupId };
     output(opts, {
       headers: ["field", "value"],
       rows: Object.entries(result).map(([key, field]) => [key, field]),
       raw: result,
-      ids: [id],
+      ids: [groupId],
     });
   });

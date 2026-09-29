@@ -251,7 +251,7 @@ program.addCommand(instanceCommand);
 
 // network 커맨드 그룹
 const networkCommand = new Command("network")
-  .description("VPC·서브넷·보안그룹 조회")
+  .description("VPC·서브넷 조회와 보안그룹 관리")
   .addHelpText("after", networkAgentWorkflow);
 networkCommand.addCommand(networkListCommand);
 networkCommand.addCommand(subnetCommand);
