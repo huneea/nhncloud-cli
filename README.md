@@ -121,6 +121,7 @@ nhncloud instance list                                        # 인스턴스 목
 nhncloud instance get <instance-id>                           # 인스턴스 상세
 nhncloud network list                                         # VPC 목록
 nhncloud network security-group list                          # 보안그룹 목록
+nhncloud instance security-group add <instance-id> <group> --yes  # 인스턴스에 보안그룹 연결
 nhncloud volume list                                          # 블록 스토리지 볼륨
 nhncloud floatingip list                                      # Floating IP
 nhncloud loadbalancer list                                    # 로드밸런서
