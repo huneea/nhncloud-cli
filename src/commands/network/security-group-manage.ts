@@ -93,6 +93,7 @@ export const deleteCommand = withOptions(new Command("delete")
     startSpinner("보안그룹 삭제 중...");
     let groupId: string;
     let referencingRules: SecurityGroupRule[];
+    let referenceCheckFailed = false;
     try {
       groupId = await resolveSecurityGroupId(network, groupInput);
       const ports = await network.listSecurityGroupPorts(groupId);
@@ -104,16 +105,25 @@ export const deleteCommand = withOptions(new Command("delete")
           EXIT_PARAM_ERROR,
         );
       }
+      // 참조 조회는 경고 재료일 뿐이라 실패해도 삭제를 막지 않는다 (ADR-038).
       // 서버가 remote_group_id 쿼리를 적용하는지 확인하지 못해 응답을 다시 거른다.
-      referencingRules = (await network.listSecurityGroupRulesByRemoteGroup(groupId)).filter(
-        (rule) => rule.remote_group_id === groupId && rule.security_group_id !== groupId,
-      );
+      try {
+        referencingRules = (await network.listSecurityGroupRulesByRemoteGroup(groupId)).filter(
+          (rule) => rule.remote_group_id === groupId && rule.security_group_id !== groupId,
+        );
+      } catch {
+        referencingRules = [];
+        referenceCheckFailed = true;
+      }
       await network.deleteSecurityGroup(groupId);
     } catch (err) {
       stopSpinner(false);
       throw err;
     }
     stopSpinner(true);
+    if (referenceCheckFailed) {
+      process.stderr.write("경고: 다른 보안그룹 규칙의 원격 그룹 참조를 확인하지 못했습니다. 삭제는 진행했습니다.\n");
+    }
     if (referencingRules.length > 0) {
       const refs = referencingRules.map((rule) => sanitizeForTerminal(`${rule.security_group_id}/${rule.id}`));
       process.stderr.write(

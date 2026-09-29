@@ -221,6 +221,14 @@ describe("network security-group 쓰기 명령", () => {
     expect(stderrText()).toContain("경고: 다른 보안그룹 규칙 1개가 이 그룹을 원격 그룹으로 참조했습니다: group-2/rule-a\n");
   });
 
+  it("delete는 참조 규칙 조회가 실패해도 삭제를 진행하고 확인 실패를 경고한다", async () => {
+    listRulesByRemote.mockRejectedValue(new NhnCloudCliError("조회 실패", EXIT_API_ERROR));
+    await run("security-group", "delete", "default", "--yes");
+    expect(deleteGroup).toHaveBeenCalledWith("group-1");
+    expect(stderrText()).toContain("경고: 다른 보안그룹 규칙의 원격 그룹 참조를 확인하지 못했습니다. 삭제는 진행했습니다.\n");
+    expect(output).toHaveBeenCalled();
+  });
+
   it("create는 공백 이름을 client 해석 전에 거부하고, 이름을 trim해 보낸다", async () => {
     await expect(run("security-group", "create", "--name", "  ")).rejects.toMatchObject({
       exitCode: EXIT_PARAM_ERROR, message: "--name은 비어 있을 수 없습니다.",
