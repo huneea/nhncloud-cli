@@ -119,7 +119,7 @@ gh release view "$TAG" --json body -q .body | grep -cE '\\`|\\\$'
 ```
 
 - 본문은 `--notes-file` 로만 넘긴다. 인라인 `--notes` 에 `` \` `` 나 `\$` 를 넣으면 백슬래시가 본문에 그대로 남는다. v0.10.0 에서 backtick 66개가 `` \` `` 로 출력됐다.
-- 두 번째 명령은 `` \` `` 와 `\$` 만 센다. 코드 블록의 줄 연속 `\` 는 정상이라 세지 않는다. 0 이 아니면 파일을 고쳐 `gh release edit "$TAG" --notes-file "$NOTES"` 로 다시 올린다.
+- 두 번째 명령은 `` \` `` 나 `\$` 가 든 줄의 수를 낸다. 코드 블록의 줄 연속 `\` 는 정상이라 걸리지 않는다. 0 이 아니면 파일을 고쳐 `gh release edit "$TAG" --notes-file "$NOTES"` 로 다시 올린다.
 - `--generate-notes` 는 쓰지 않는다. 닫힌 이슈 목록이 빠진다.
 
 ## 7. npm 배포
