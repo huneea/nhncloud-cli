@@ -156,7 +156,7 @@ const program = new Command();
 program
   .name("nhncloud")
   .description("NHN Cloud CLI — AI agent & terminal friendly")
-  .version("0.17.0")
+  .version("0.18.0")
   .option("--json", "JSON 형식으로 출력")
   .option("--quiet", "최소 출력 (자동화용)")
   .option("--no-color", "색상 비활성화")
