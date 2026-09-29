@@ -130,10 +130,17 @@ npm 배포에는 2FA OTP 가 필요하다. 사용자에게 아래 명령을 직�
 npm publish --access public --otp=OTP코드
 ```
 
-완료 뒤 두 곳을 확인한다. npm 반영에는 수 분이 걸린다.
+명령은 저장소 루트에서 실행해야 한다. 다른 디렉터리에서 실행하면 그곳의 `package.json` 을 배포한다.
 
-- `https://github.com/jon890/nhncloud-cli/releases/tag/$TAG`
-- `https://www.npmjs.com/package/@bifos/nhncloud-cli`
+사용자의 완료 알림만으로 8단계로 가지 않는다. registry 에 새 버전이 보이는지 직접 확인한다.
+
+```bash
+npm view "@bifos/nhncloud-cli@$VERSION" version
+```
+
+- 버전이 출력되면 통과다. 404 면 8단계를 멈추고 사용자에게 `npm publish` 출력을 확인한다.
+- v0.18.0 에서는 완료 알림을 받고 조회했을 때 404 였고, registry 의 배포 시각은 그 조회보다 4분 뒤였다.
+- Release 페이지는 `https://github.com/jon890/nhncloud-cli/releases/tag/$TAG` 에서 확인한다.
 
 ## 8. 남은 이슈 처리
 
