@@ -3,7 +3,8 @@ import { toNhnCloudCliError } from "../../api/httpError.js";
 import { DEFAULT_TIMEOUT_MS } from "../../api/timeout.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_API_ERROR } from "../../utils/exit-codes.js";
-import type { Vpc, VpcSubnet, FloatingIp, CreateFloatingIpParams, SecurityGroup, SecurityGroupRule, SecurityGroupPort } from "./types.js";
+import { toNetworkWriteError } from "./errors.js";
+import type { Vpc, VpcSubnet, FloatingIp, CreateFloatingIpParams, SecurityGroup, SecurityGroupRule, SecurityGroupPort, CreateSecurityGroupRuleParams } from "./types.js";
 
 // ── 응답 타입 가드 ─────────────────────────────────────────────────────────────
 
@@ -122,6 +123,11 @@ function isSecurityGroupPort(val: unknown): val is SecurityGroupPort {
   );
 }
 
+/** 값이 undefined 인 키를 뺀다 — 요청 본문에 선택 필드를 null 이나 빈 값으로 보내지 않기 위함. */
+function omitUndefined<T extends object>(obj: T): Partial<T> {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
+}
+
 // ── NetworkClient ───────────────────────────────────────────────────────────────
 
 export class NetworkClient {
@@ -204,6 +210,86 @@ export class NetworkClient {
         throw new NhnCloudCliError("network security-group ports 응답 형식이 올바르지 않습니다 — security_group_ports 배열이 없습니다.", EXIT_API_ERROR);
       }
       return ports;
+    } catch (err) { throw toNhnCloudCliError(err); }
+  }
+
+  /** 보안그룹을 생성한다 (POST /v2.0/security-groups). 송신 규칙 두 개가 자동으로 함께 생성된다. */
+  async createSecurityGroup(params: { name: string; description?: string }): Promise<SecurityGroup> {
+    try {
+      const raw: unknown = await ky.post(`${this.networkEndpoint}/security-groups`, {
+        headers: this.authHeaders(), json: { security_group: omitUndefined(params) }, retry: 0, timeout: DEFAULT_TIMEOUT_MS,
+      }).json();
+      const group = typeof raw === "object" && raw !== null
+        ? (raw as Record<string, unknown>)["security_group"] : undefined;
+      if (!isSecurityGroup(group)) {
+        throw new NhnCloudCliError("network security-group create 응답 형식이 올바르지 않습니다 — security_group 객체가 없습니다.", EXIT_API_ERROR);
+      }
+      return group;
+    } catch (err) { throw await toNetworkWriteError(err); }
+  }
+
+  /** 보안그룹 이름·설명을 변경한다 (PUT /v2.0/security-groups/{id}). */
+  async updateSecurityGroup(id: string, params: { name?: string; description?: string }): Promise<SecurityGroup> {
+    try {
+      const raw: unknown = await ky.put(`${this.networkEndpoint}/security-groups/${encodeURIComponent(id)}`, {
+        headers: this.authHeaders(), json: { security_group: omitUndefined(params) }, retry: 0, timeout: DEFAULT_TIMEOUT_MS,
+      }).json();
+      const group = typeof raw === "object" && raw !== null
+        ? (raw as Record<string, unknown>)["security_group"] : undefined;
+      if (!isSecurityGroup(group)) {
+        throw new NhnCloudCliError("network security-group update 응답 형식이 올바르지 않습니다 — security_group 객체가 없습니다.", EXIT_API_ERROR);
+      }
+      return group;
+    } catch (err) { throw await toNetworkWriteError(err); }
+  }
+
+  /** 보안그룹을 삭제한다 (DELETE /v2.0/security-groups/{id}, 204 무본문). */
+  async deleteSecurityGroup(id: string): Promise<void> {
+    try {
+      await ky.delete(`${this.networkEndpoint}/security-groups/${encodeURIComponent(id)}`, {
+        headers: this.authHeaders(), retry: 0, timeout: DEFAULT_TIMEOUT_MS,
+      });
+    } catch (err) { throw await toNetworkWriteError(err); }
+  }
+
+  /** 보안그룹 규칙을 생성한다 (POST /v2.0/security-group-rules). ethertype 은 IPv4 로 고정한다. */
+  async createSecurityGroupRule(params: CreateSecurityGroupRuleParams): Promise<SecurityGroupRule> {
+    try {
+      const raw: unknown = await ky.post(`${this.networkEndpoint}/security-group-rules`, {
+        headers: this.authHeaders(),
+        json: { security_group_rule: { ...omitUndefined(params), ethertype: "IPv4" } },
+        retry: 0, timeout: DEFAULT_TIMEOUT_MS,
+      }).json();
+      const rule = typeof raw === "object" && raw !== null
+        ? (raw as Record<string, unknown>)["security_group_rule"] : undefined;
+      if (!isSecurityGroupRule(rule)) {
+        throw new NhnCloudCliError("network security-group rule create 응답 형식이 올바르지 않습니다 — security_group_rule 객체가 없습니다.", EXIT_API_ERROR);
+      }
+      return rule;
+    } catch (err) { throw await toNetworkWriteError(err); }
+  }
+
+  /** 보안그룹 규칙을 삭제한다 (DELETE /v2.0/security-group-rules/{id}, 204 무본문). */
+  async deleteSecurityGroupRule(id: string): Promise<void> {
+    try {
+      await ky.delete(`${this.networkEndpoint}/security-group-rules/${encodeURIComponent(id)}`, {
+        headers: this.authHeaders(), retry: 0, timeout: DEFAULT_TIMEOUT_MS,
+      });
+    } catch (err) { throw await toNetworkWriteError(err); }
+  }
+
+  /** 다른 보안그룹을 원격 그룹으로 참조하는 규칙을 조회한다 (GET /v2.0/security-group-rules?remote_group_id=). */
+  async listSecurityGroupRulesByRemoteGroup(remoteGroupId: string): Promise<SecurityGroupRule[]> {
+    try {
+      const raw: unknown = await ky.get(`${this.networkEndpoint}/security-group-rules`, {
+        headers: this.authHeaders(), searchParams: { remote_group_id: remoteGroupId }, retry: 0, timeout: DEFAULT_TIMEOUT_MS,
+      }).json();
+      const rules = typeof raw === "object" && raw !== null
+        ? (raw as Record<string, unknown>)["security_group_rules"] : undefined;
+      if (!Array.isArray(rules) || !rules.every(isSecurityGroupRule)) {
+        throw new NhnCloudCliError("network security-group rule list 응답 형식이 올바르지 않습니다 — security_group_rules 배열이 없습니다.", EXIT_API_ERROR);
+      }
+      return rules;
     } catch (err) { throw toNhnCloudCliError(err); }
   }
 

@@ -87,3 +87,15 @@ export interface FloatingIp {
 export interface CreateFloatingIpParams {
   floating_network_id: string;
 }
+
+/** 보안그룹 규칙 생성 요청 파라미터. ethertype 은 client 가 IPv4 로 고정한다. */
+export interface CreateSecurityGroupRuleParams {
+  security_group_id: string;
+  direction: "ingress" | "egress";
+  protocol?: string;
+  port_range_min?: number;
+  port_range_max?: number;
+  remote_ip_prefix?: string;
+  remote_group_id?: string;
+  description?: string;
+}
