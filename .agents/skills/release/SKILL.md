@@ -93,7 +93,7 @@ grep -n "$KEYWORD" README.md skills/nhncloud-cli/SKILL.md skills/nhncloud-cli/re
 CLI 버전 문자열이 `src/index.ts` 에 하드코딩돼 있어 두 곳을 함께 바꿔야 한다.
 
 ```bash
-node_modules/.bin/tsup
+pnpm run build
 [ "$(git branch --show-current)" = "main" ] || { echo "STOP: main 이 아니다"; exit 1; }
 git add package.json src/index.ts
 git commit -m "chore: bump version to $TAG"
