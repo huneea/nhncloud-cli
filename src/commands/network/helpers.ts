@@ -3,7 +3,7 @@ import type { Command } from "commander";
 import { resolveIaasTokenContext, type IaasResolverOpts } from "../iaas.js";
 import { NetworkClient } from "../../services/network/client.js";
 import { InstanceClient } from "../../services/instance/client.js";
-import type { CreateSecurityGroupRuleParams, SecurityGroupRule } from "../../services/network/types.js";
+import type { CreateSecurityGroupRuleParams, SecurityGroup, SecurityGroupRule } from "../../services/network/types.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
 import { parseIntegerOption } from "../parse-options.js";
@@ -39,6 +39,24 @@ export async function resolveSecurityGroupId(
 ): Promise<string> {
   const input = requireResourceInput(value, "보안그룹");
   return resolveFromList(await client.listSecurityGroups(), input, "보안그룹");
+}
+
+/**
+ * 서버 액션은 보안그룹을 이름으로 지정하므로, 같은 이름의 그룹이 둘 이상이면 어느 그룹에
+ * 적용될지 보장할 수 없다. 그런 경우 요청하지 않고 입력 오류로 끝낸다.
+ */
+export function requireUniqueGroupName(groups: SecurityGroup[], groupId: string): SecurityGroup {
+  const group = groups.find((candidate) => candidate.id === groupId);
+  if (!group) paramError(`보안그룹을 찾을 수 없습니다: ${JSON.stringify(groupId)}`);
+  const sameName = groups.filter((candidate) => candidate.name === group.name);
+  if (sameName.length > 1) {
+    const candidateIds = sameName.map((candidate) => candidate.id).sort();
+    paramError(
+      `이름이 같은 보안그룹이 ${sameName.length}개 있어 인스턴스 연결을 변경할 수 없습니다: ${group.name} `
+        + `(후보 UUID: ${candidateIds.join(", ")}). network security-group update로 이름을 먼저 바꾸세요.`,
+    );
+  }
+  return group;
 }
 
 export function formatRulePorts(rule: SecurityGroupRule): string {

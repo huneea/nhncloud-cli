@@ -45,6 +45,7 @@ import { keypairsCommand } from "./commands/instance/keypairs.js";
 import { keypairCommand } from "./commands/instance/keypair.js";
 import { volumeCommand as instanceVolumeCommand } from "./commands/instance/volume.js";
 import { volumesCommand } from "./commands/instance/volumes.js";
+import { securityGroupCommand as instanceSecurityGroupCommand } from "./commands/instance/security-group.js";
 import { listCommand as ncrListCommand } from "./commands/ncr/list.js";
 import { getCommand as ncrGetCommand } from "./commands/ncr/get.js";
 import { imagesCommand as ncrImagesCommand } from "./commands/ncr/images.js";
@@ -244,6 +245,7 @@ instanceCommand.addCommand(keypairsCommand);
 instanceCommand.addCommand(keypairCommand);
 instanceCommand.addCommand(instanceVolumeCommand); // instance volume attach/detach
 instanceCommand.addCommand(volumesCommand);        // instance volumes
+instanceCommand.addCommand(instanceSecurityGroupCommand); // instance security-group add/remove
 
 program.addCommand(instanceCommand);
 

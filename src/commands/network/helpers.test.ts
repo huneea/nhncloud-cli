@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
-import { parseRuleInput, toCreateRuleParams } from "./helpers.js";
+import type { SecurityGroup } from "../../services/network/types.js";
+import { parseRuleInput, requireUniqueGroupName, toCreateRuleParams } from "./helpers.js";
 
 type RuleOptions = Parameters<typeof parseRuleInput>[0];
 
@@ -103,6 +104,30 @@ describe("toCreateRuleParams", () => {
     expect(params).toStrictEqual({
       security_group_id: "group-1", direction: "egress", protocol: "tcp",
       port_range_min: 80, port_range_max: 443, remote_ip_prefix: "192.0.2.0/24",
+    });
+  });
+});
+
+describe("requireUniqueGroupName", () => {
+  const web: SecurityGroup = { id: "group-b", name: "web", description: "", tenant_id: "tenant-1", security_group_rules: [] };
+  const db: SecurityGroup = { ...web, id: "group-c", name: "db" };
+
+  it("이름이 유일하면 그 그룹을 반환한다", () => {
+    expect(requireUniqueGroupName([web, db], "group-b")).toBe(web);
+  });
+
+  it("같은 이름 그룹이 둘이면 정렬된 후보 UUID와 함께 거부한다", () => {
+    const twin: SecurityGroup = { ...web, id: "group-a" };
+    let caught: unknown;
+    try {
+      requireUniqueGroupName([web, db, twin], "group-b");
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught, "같은 이름 그룹이 둘인데 거부되지 않았다").toMatchObject({
+      exitCode: EXIT_PARAM_ERROR,
+      message: "이름이 같은 보안그룹이 2개 있어 인스턴스 연결을 변경할 수 없습니다: web "
+        + "(후보 UUID: group-a, group-b). network security-group update로 이름을 먼저 바꾸세요.",
     });
   });
 });
