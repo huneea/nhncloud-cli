@@ -100,6 +100,11 @@ IaaS 서비스는 profile의 Keystone 자격증명과 region을 해석하고 토
 - delete, 전원 제어와 resize는 대상 확인을 먼저 수행한다.
 - Network, Floating IP, Volume과 Load Balancer는 같은 Keystone 토큰을 재사용하되 서로 다른 endpoint 경계를 쓴다.
 - Load Balancer IP ACL 대상 변경은 기존 binding을 보존해 재바인딩하고, 부분 실패를 숨기지 않는다.
+- 보안그룹은 이름이나 UUID로 지정한다. UUID가 일치하면 그 그룹을 쓰고, 이름이 없거나 중복되면 후보 UUID와 함께 입력 오류로 끝난다.
+- 보안그룹 연결 포트 조회는 연결 API 결과에 Compute 인스턴스 목록의 이름을 붙인다.
+  `device_owner`가 `compute:`로 시작하는 포트만 대상이다.
+  인스턴스 목록 조회가 실패하면 이름 칸을 비우고 stderr에 경고를 남기며, 연결 정보는 그대로 출력하고 성공으로 끝난다.
+  `--quiet`은 다음 명령에 넘길 인스턴스 UUID를 중복 없이 출력한다.
 
 ## 서비스 고유 흐름
 

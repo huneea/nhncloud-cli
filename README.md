@@ -120,6 +120,7 @@ CLI 를 새 버전으로 올린 뒤에는 `nhncloud skills update` 를 실행해
 nhncloud instance list                                        # 인스턴스 목록
 nhncloud instance get <instance-id>                           # 인스턴스 상세
 nhncloud network list                                         # VPC 목록
+nhncloud network security-group list                          # 보안그룹 목록
 nhncloud volume list                                          # 블록 스토리지 볼륨
 nhncloud floatingip list                                      # Floating IP
 nhncloud loadbalancer list                                    # 로드밸런서

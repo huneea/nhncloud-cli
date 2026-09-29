@@ -84,10 +84,23 @@ nhncloud instance keypair delete <name>
 ```bash
 nhncloud network list --json
 nhncloud network subnet list --json
+nhncloud network security-group list --json
+nhncloud network security-group get <group> --json
+nhncloud network security-group rule list <group> --json
+nhncloud network security-group rule get <rule-id> --json
+nhncloud network security-group ports <group> --json
+nhncloud network security-group ports <group> --quiet   # 연결된 인스턴스 UUID
 ```
 
 `instance create --network <uuid>`에는 `network list`의 VPC id를 사용한다.
 subnet id가 아니다.
+
+보안그룹 조회의 `<group>`에는 이름 또는 UUID를 지정한다.
+이름이 중복되면 후보 UUID를 보여 주고 종료 코드 3으로 끝난다.
+한 포트에 보안그룹이 여러 개면 모든 그룹의 허용 규칙이 함께 적용된다.
+공유 그룹의 규칙을 바꾸면 그 그룹을 쓰는 모든 포트에 영향을 주므로 먼저 `ports`로 연결 대상을 확인한다.
+`ports`의 `instance_name`은 Compute 인스턴스 목록에서 얻는다.
+인스턴스 조회가 실패하면 이름 칸은 비어 있고 stderr에 경고가 남는다.
 
 ## Volume
 

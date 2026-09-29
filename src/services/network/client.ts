@@ -3,7 +3,7 @@ import { toNhnCloudCliError } from "../../api/httpError.js";
 import { DEFAULT_TIMEOUT_MS } from "../../api/timeout.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_API_ERROR } from "../../utils/exit-codes.js";
-import type { Vpc, VpcSubnet, FloatingIp, CreateFloatingIpParams } from "./types.js";
+import type { Vpc, VpcSubnet, FloatingIp, CreateFloatingIpParams, SecurityGroup, SecurityGroupRule, SecurityGroupPort } from "./types.js";
 
 // ── 응답 타입 가드 ─────────────────────────────────────────────────────────────
 
@@ -70,6 +70,58 @@ function isFloatingIpResponse(val: unknown): val is { floatingip: FloatingIp } {
   return isFloatingIp((obj as Record<string, unknown>)["floatingip"]);
 }
 
+function isSecurityGroupRule(val: unknown): val is SecurityGroupRule {
+  if (typeof val !== "object" || val === null) return false;
+  const obj = val as Record<string, unknown>;
+  return (
+    typeof obj["id"] === "string" &&
+    typeof obj["security_group_id"] === "string" &&
+    typeof obj["direction"] === "string" &&
+    typeof obj["ethertype"] === "string" &&
+    (obj["protocol"] === null || typeof obj["protocol"] === "string") &&
+    (obj["port_range_min"] === null || typeof obj["port_range_min"] === "number") &&
+    (obj["port_range_max"] === null || typeof obj["port_range_max"] === "number") &&
+    (obj["remote_ip_prefix"] === null || typeof obj["remote_ip_prefix"] === "string") &&
+    (obj["remote_group_id"] === null || typeof obj["remote_group_id"] === "string") &&
+    (obj["description"] === null || typeof obj["description"] === "string") &&
+    typeof obj["tenant_id"] === "string"
+  );
+}
+
+function isSecurityGroup(val: unknown): val is SecurityGroup {
+  if (typeof val !== "object" || val === null) return false;
+  const obj = val as Record<string, unknown>;
+  return (
+    typeof obj["id"] === "string" &&
+    typeof obj["name"] === "string" &&
+    typeof obj["description"] === "string" &&
+    typeof obj["tenant_id"] === "string" &&
+    Array.isArray(obj["security_group_rules"]) &&
+    obj["security_group_rules"].every(isSecurityGroupRule)
+  );
+}
+
+function isSecurityGroupPort(val: unknown): val is SecurityGroupPort {
+  if (typeof val !== "object" || val === null) return false;
+  const obj = val as Record<string, unknown>;
+  return (
+    typeof obj["id"] === "string" &&
+    typeof obj["name"] === "string" &&
+    typeof obj["status"] === "string" &&
+    typeof obj["device_owner"] === "string" &&
+    typeof obj["device_id"] === "string" &&
+    typeof obj["network_id"] === "string" &&
+    Array.isArray(obj["fixed_ips"]) &&
+    obj["fixed_ips"].every((ip: unknown) => {
+      if (typeof ip !== "object" || ip === null) return false;
+      const fixedIp = ip as Record<string, unknown>;
+      return typeof fixedIp["subnet_id"] === "string" && typeof fixedIp["ip_address"] === "string";
+    }) &&
+    Array.isArray(obj["security_groups"]) &&
+    obj["security_groups"].every((id: unknown) => typeof id === "string")
+  );
+}
+
 // ── NetworkClient ───────────────────────────────────────────────────────────────
 
 export class NetworkClient {
@@ -83,6 +135,76 @@ export class NetworkClient {
 
   private authHeaders(): Record<string, string> {
     return { "X-Auth-Token": this.tokenId };
+  }
+
+  async listSecurityGroups(): Promise<SecurityGroup[]> {
+    try {
+      const raw: unknown = await ky.get(`${this.networkEndpoint}/security-groups`, {
+        headers: this.authHeaders(), retry: 0, timeout: DEFAULT_TIMEOUT_MS,
+      }).json();
+      const groups = typeof raw === "object" && raw !== null
+        ? (raw as Record<string, unknown>)["security_groups"] : undefined;
+      if (!Array.isArray(groups) || !groups.every(isSecurityGroup)) {
+        throw new NhnCloudCliError("network security-group list 응답 형식이 올바르지 않습니다 — security_groups 배열이 없습니다.", EXIT_API_ERROR);
+      }
+      return groups;
+    } catch (err) { throw toNhnCloudCliError(err); }
+  }
+
+  async getSecurityGroup(id: string): Promise<SecurityGroup> {
+    try {
+      const raw: unknown = await ky.get(`${this.networkEndpoint}/security-groups/${encodeURIComponent(id)}`, {
+        headers: this.authHeaders(), retry: 0, timeout: DEFAULT_TIMEOUT_MS,
+      }).json();
+      const group = typeof raw === "object" && raw !== null
+        ? (raw as Record<string, unknown>)["security_group"] : undefined;
+      if (!isSecurityGroup(group)) {
+        throw new NhnCloudCliError("network security-group get 응답 형식이 올바르지 않습니다 — security_group 객체가 없습니다.", EXIT_API_ERROR);
+      }
+      return group;
+    } catch (err) { throw toNhnCloudCliError(err); }
+  }
+
+  async listSecurityGroupRules(securityGroupId: string): Promise<SecurityGroupRule[]> {
+    try {
+      const raw: unknown = await ky.get(`${this.networkEndpoint}/security-group-rules`, {
+        headers: this.authHeaders(), searchParams: { security_group_id: securityGroupId }, retry: 0, timeout: DEFAULT_TIMEOUT_MS,
+      }).json();
+      const rules = typeof raw === "object" && raw !== null
+        ? (raw as Record<string, unknown>)["security_group_rules"] : undefined;
+      if (!Array.isArray(rules) || !rules.every(isSecurityGroupRule)) {
+        throw new NhnCloudCliError("network security-group rule list 응답 형식이 올바르지 않습니다 — security_group_rules 배열이 없습니다.", EXIT_API_ERROR);
+      }
+      return rules;
+    } catch (err) { throw toNhnCloudCliError(err); }
+  }
+
+  async getSecurityGroupRule(id: string): Promise<SecurityGroupRule> {
+    try {
+      const raw: unknown = await ky.get(`${this.networkEndpoint}/security-group-rules/${encodeURIComponent(id)}`, {
+        headers: this.authHeaders(), retry: 0, timeout: DEFAULT_TIMEOUT_MS,
+      }).json();
+      const rule = typeof raw === "object" && raw !== null
+        ? (raw as Record<string, unknown>)["security_group_rule"] : undefined;
+      if (!isSecurityGroupRule(rule)) {
+        throw new NhnCloudCliError("network security-group rule get 응답 형식이 올바르지 않습니다 — security_group_rule 객체가 없습니다.", EXIT_API_ERROR);
+      }
+      return rule;
+    } catch (err) { throw toNhnCloudCliError(err); }
+  }
+
+  async listSecurityGroupPorts(securityGroupId: string): Promise<SecurityGroupPort[]> {
+    try {
+      const raw: unknown = await ky.get(`${this.networkEndpoint}/security-group-ports`, {
+        headers: this.authHeaders(), searchParams: { security_group_id: securityGroupId }, retry: 0, timeout: DEFAULT_TIMEOUT_MS,
+      }).json();
+      const ports = typeof raw === "object" && raw !== null
+        ? (raw as Record<string, unknown>)["security_group_ports"] : undefined;
+      if (!Array.isArray(ports) || !ports.every(isSecurityGroupPort)) {
+        throw new NhnCloudCliError("network security-group ports 응답 형식이 올바르지 않습니다 — security_group_ports 배열이 없습니다.", EXIT_API_ERROR);
+      }
+      return ports;
+    } catch (err) { throw toNhnCloudCliError(err); }
   }
 
   /**
