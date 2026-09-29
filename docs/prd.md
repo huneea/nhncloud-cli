@@ -41,6 +41,7 @@ AWS CLI 같은 통합 명령줄 도구가 없어 매번 토큰·엔드포인트�
 - `nhncloud network`·`volume`·`floatingip`: 같은 Keystone profile과 region으로 IaaS 네트워크, Block Storage와 공인 IP를 관리한다.
   - `network security-group`: 일반망과 공공망에서 보안그룹과 규칙, 그룹에 연결된 포트를 조회한다.
     공유 그룹을 바꾸기 전에 어느 인스턴스가 그 그룹을 쓰는지 확인하는 것이 목적이다.
+    그룹과 규칙을 생성·삭제하고 인스턴스의 그룹 연결을 추가·해제해, 공유 그룹을 쓰는 개발 DB를 전용 그룹으로 분리할 수 있다([[adr-038]]).
 - `nhncloud ncr`: NHN Container Registry 조회.
   레지스트리 목록·단일은 Management API·UAK 정적 헤더를 쓴다([[adr-016]]).
   이미지/태그는 Harbor REST 데이터플레인·UAK Basic Auth 를 쓴다([[adr-017]]).

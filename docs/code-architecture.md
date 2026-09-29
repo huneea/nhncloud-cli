@@ -82,6 +82,7 @@ skill ──> config와 독립된 사용자 데이터 경계
 자동화 가능한 명령은 대화형 입력을 기다리지 않는다.
 여러 서비스가 공유하는 appkey 필수값 검증은 `commands`의 공통 경계에서 처리한다.
 이름 또는 UUID로 리소스를 고르는 규칙은 `src/commands/resource-resolver.ts`가 소유하고 Load Balancer와 보안그룹 명령이 함께 쓴다.
+Network 쓰기 요청의 400·409 응답은 `src/services/network/errors.ts`가 서버의 `NeutronError.message`를 덧붙여 사용자 오류로 바꾼다.
 `config`는 파일과 profile 오류를 보존하면서 서비스 블록 부재를 구분해 반환하고,
 공통 명령 경계는 블록이나 appkey가 없을 때만 서비스별 설정 안내로 바꾼다.
 Log & Crash export는 API 수집 상태와 로컬 파일 완결 상태를 분리하고, 완료 결과를 최종 경로 교체 실패 때문에 삭제하지 않는다(ADR-034).
