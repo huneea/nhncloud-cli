@@ -400,6 +400,16 @@ export class InstanceClient {
     }
   }
 
+  /** 인스턴스에 보안그룹을 연결한다 (addSecurityGroup action, 이름 기준). */
+  async addSecurityGroup(id: string, groupName: string): Promise<void> {
+    return this.serverAction(id, { addSecurityGroup: { name: groupName } });
+  }
+
+  /** 인스턴스에서 보안그룹 연결을 해제한다 (removeSecurityGroup action, 이름 기준). */
+  async removeSecurityGroup(id: string, groupName: string): Promise<void> {
+    return this.serverAction(id, { removeSecurityGroup: { name: groupName } });
+  }
+
   /** 인스턴스를 시작한다 (SHUTOFF → ACTIVE). */
   async start(id: string): Promise<void> {
     return this.serverAction(id, { "os-start": null });

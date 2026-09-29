@@ -5,6 +5,7 @@ import { NhnCloudCliError } from "../../utils/errors.js";
 import { startSpinner, stopSpinner } from "../../utils/spinner.js";
 import { requireResourceInput } from "../resource-resolver.js";
 import { resolveSecurityGroupClients, resolveSecurityGroupId, withOptions } from "./helpers.js";
+import { createCommand, deleteCommand, updateCommand } from "./security-group-manage.js";
 import { ruleCommand } from "./security-group-rule.js";
 
 interface SecurityGroupOpts extends OutputOptions {
@@ -105,8 +106,11 @@ const portsCommand = withOptions(new Command("ports")
   });
 
 export const securityGroupCommand = new Command("security-group")
-  .description("보안그룹 조회")
+  .description("보안그룹 조회와 변경")
   .addCommand(listCommand)
   .addCommand(getCommand)
   .addCommand(portsCommand)
+  .addCommand(createCommand)
+  .addCommand(updateCommand)
+  .addCommand(deleteCommand)
   .addCommand(ruleCommand);
