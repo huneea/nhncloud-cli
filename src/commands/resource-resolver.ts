@@ -9,6 +9,16 @@ export function requireResourceInput(value: string, label: string): string {
   return normalized;
 }
 
+export function requireYes(yes: boolean | undefined, operation: string): true {
+  if (!yes) {
+    throw new NhnCloudCliError(
+      `${operation}에는 --yes 플래그가 필요합니다.`,
+      EXIT_PARAM_ERROR,
+    );
+  }
+  return true;
+}
+
 function resolvedId(resource: { id: string }, label: string): string {
   const id = resource.id.trim();
   if (!id) {

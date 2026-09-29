@@ -11,6 +11,7 @@ import { EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
 import { requireResourceInput, resolveFromList } from "../resource-resolver.js";
 
 export { requireResourceInput } from "../resource-resolver.js";
+export { requireYes } from "../resource-resolver.js";
 
 type LoadBalancerResolverClient = Pick<
   LoadBalancerClient,
@@ -20,16 +21,6 @@ type LoadBalancerResolverClient = Pick<
 export function optionalTrimmed(value: string | undefined): string | undefined {
   if (value === undefined) return undefined;
   return value.trim();
-}
-
-export function requireYes(yes: boolean | undefined, operation: string): true {
-  if (!yes) {
-    throw new NhnCloudCliError(
-      `${operation}에는 --yes 플래그가 필요합니다.`,
-      EXIT_PARAM_ERROR,
-    );
-  }
-  return true;
 }
 
 export function parseIpAclAction(value: string): IpAclAction {
