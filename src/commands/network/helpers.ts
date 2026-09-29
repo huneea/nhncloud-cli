@@ -1,3 +1,4 @@
+import type { Command } from "commander";
 import { resolveIaasTokenContext, type IaasResolverOpts } from "../iaas.js";
 import { NetworkClient } from "../../services/network/client.js";
 import { InstanceClient } from "../../services/instance/client.js";
@@ -46,4 +47,11 @@ export function formatRuleRemote(rule: SecurityGroupRule): string {
   if (rule.remote_ip_prefix !== null) return rule.remote_ip_prefix;
   if (rule.remote_group_id !== null) return `sg:${rule.remote_group_id}`;
   return "any";
+}
+
+/** 보안그룹 조회 명령이 공유하는 `--region`·`--profile` 옵션을 붙인다. */
+export function withOptions(command: Command): Command {
+  return command
+    .option("--region <region>", "region override (기본: iaas 자격증명의 region)")
+    .option("--profile <name>", "사용할 profile 이름");
 }

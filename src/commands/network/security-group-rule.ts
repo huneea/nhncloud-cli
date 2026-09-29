@@ -3,17 +3,11 @@ import { output, type OutputOptions } from "../../formatters/table.js";
 import type { SecurityGroupRule } from "../../services/network/types.js";
 import { startSpinner, stopSpinner } from "../../utils/spinner.js";
 import { requireResourceInput } from "../resource-resolver.js";
-import { formatRulePorts, formatRuleRemote, resolveSecurityGroupClients, resolveSecurityGroupId } from "./helpers.js";
+import { formatRulePorts, formatRuleRemote, resolveSecurityGroupClients, resolveSecurityGroupId, withOptions } from "./helpers.js";
 
 interface RuleOpts extends OutputOptions {
   region?: string;
   profile?: string;
-}
-
-function withOptions(command: Command): Command {
-  return command
-    .option("--region <region>", "region override (기본: iaas 자격증명의 region)")
-    .option("--profile <name>", "사용할 profile 이름");
 }
 
 const listCommand = withOptions(new Command("list")

@@ -4,7 +4,7 @@ import type { SecurityGroup, SecurityGroupPort } from "../../services/network/ty
 import { NhnCloudCliError } from "../../utils/errors.js";
 import { startSpinner, stopSpinner } from "../../utils/spinner.js";
 import { requireResourceInput } from "../resource-resolver.js";
-import { resolveSecurityGroupClients, resolveSecurityGroupId } from "./helpers.js";
+import { resolveSecurityGroupClients, resolveSecurityGroupId, withOptions } from "./helpers.js";
 import { ruleCommand } from "./security-group-rule.js";
 
 interface SecurityGroupOpts extends OutputOptions {
@@ -14,12 +14,6 @@ interface SecurityGroupOpts extends OutputOptions {
 
 function optsOf(cmd: Command): SecurityGroupOpts {
   return cmd.optsWithGlobals<SecurityGroupOpts>();
-}
-
-function withOptions(command: Command): Command {
-  return command
-    .option("--region <region>", "region override (기본: iaas 자격증명의 region)")
-    .option("--profile <name>", "사용할 profile 이름");
 }
 
 const listCommand = withOptions(new Command("list")
