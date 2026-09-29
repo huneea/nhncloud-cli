@@ -13,6 +13,7 @@
 - Phase 01: `InstanceClient.addSecurityGroup(id, groupName)`, `removeSecurityGroup(id, groupName)`.
 - Phase 02: `requireYes`가 `src/commands/resource-resolver.ts`에 있다.
 - 공용 helper(`src/commands/network/helpers.ts`): `resolveSecurityGroupClients(opts)`가 같은 Keystone 토큰으로 `{ network, instance }`를 만든다. `resolveSecurityGroupId`, `withOptions`.
+- `resolveFromList`(`src/commands/resource-resolver.ts`)는 입력이 이름이고 그 이름의 그룹이 둘 이상이면 스스로 `보안그룹 이름이 중복됩니다: ... (후보 UUID: ...)`를 `EXIT_PARAM_ERROR`로 던진다. 그래서 `requireUniqueGroupName`이 실제로 막는 경우는 UUID로 입력했는데 다른 그룹이 같은 이름을 가진 경우다.
 - 연결 판정은 `NetworkClient.listSecurityGroupPorts(groupId)` 결과에서 `device_id === <instance-id>`인 포트가 있는지로 한다.
 - 인스턴스 명령 등록은 `src/index.ts`의 `instanceCommand.addCommand(...)`다. 하위 그룹 선례는 `instanceVolumeCommand`(`src/commands/instance/volume.ts`)다.
 
@@ -21,7 +22,8 @@
 ## 의도 메모
 
 - 서버 액션은 그룹 이름을 받는다. 같은 이름의 그룹이 둘 이상이면 어느 그룹에 적용될지 CLI가 보장할 수 없어 요청하지 않는다.
-- 사후 확인이 어긋나도 실패로 끝내지 않는다. 서버가 202로 받았고, 반영 시점이 늦을 수 있다.
+- 사후 확인이 어긋나거나 사후 조회 자체가 실패해도 실패로 끝내지 않는다. 서버가 202로 받았고, 반영 시점이 늦을 수 있다. 실패로 끝내면 사용자가 다시 실행했을 때 `remove`가 「연결되어 있지 않습니다」 입력 오류를 받는다.
+- stderr 경고에 넣는 그룹 UUID는 `sanitizeForTerminal`(`src/utils/terminal.ts`)을 거친다.
 
 ## 작업 항목
 
@@ -51,28 +53,35 @@ export function requireUniqueGroupName(groups: SecurityGroup[], groupId: string)
 | `remove` | `instance.removeSecurityGroup(id, name)` 후 `status: "succeeded"` | spinner를 닫고 `인스턴스 <id>에 보안그룹 <name>이 연결되어 있지 않습니다.`를 `EXIT_PARAM_ERROR` |
 
 5. 요청했으면 `listSecurityGroupPorts(groupId)`를 다시 조회해 기대 상태와 다르면 spinner를 닫은 뒤 `경고: 요청은 접수됐지만 연결 조회에 아직 반영되지 않았습니다. network security-group ports <groupId>로 다시 확인하세요.`를 stderr에 쓴다.
+   사후 조회가 예외를 던지면 `try/catch`로 잡고 spinner를 닫은 뒤 `경고: 요청은 접수됐지만 연결 상태를 확인하지 못했습니다. network security-group ports <groupId>로 다시 확인하세요.`를 stderr에 쓴다. 두 경우 모두 `status`는 `"succeeded"`, 종료 코드는 0이다.
 6. 출력: `{ operation: "instance-security-group-add" | "instance-security-group-remove", status, instance_id, security_group_id, security_group_name }`를 field/value와 `raw`로, `ids: [instance_id]`.
 
 ### 3. `src/index.ts`에 등록
 
 `instanceCommand.addCommand(instanceSecurityGroupCommand)`로 붙인다. import 이름은 network의 `securityGroupCommand`와 겹치지 않게 `securityGroupCommand as instanceSecurityGroupCommand`로 한다.
 
-### 4. 테스트 `src/commands/instance/security-group.test.ts` 신규
+### 4. 테스트 `src/commands/network/helpers.test.ts`에 추가
+
+- `requireUniqueGroupName` 정상: 이름이 유일하면 그 그룹을 반환한다.
+- 중복: 같은 이름 그룹이 둘이면 `EXIT_PARAM_ERROR`, 메시지에 정렬된 후보 UUID 두 개와 `network security-group update`가 있다.
+
+### 5. 테스트 `src/commands/instance/security-group.test.ts` 신규
 
 `resolveSecurityGroupClients`를 mock하고 `output`, spinner를 mock한다.
 
 - `--yes`가 없으면 client 해석 전에 `EXIT_PARAM_ERROR`.
-- 같은 이름의 그룹이 둘이면 `addSecurityGroup`을 부르지 않고 `EXIT_PARAM_ERROR`, 메시지에 후보 UUID 두 개가 있다.
+- 같은 이름의 그룹이 둘일 때 `<group>`을 그중 하나의 UUID로 입력하면 `addSecurityGroup`을 부르지 않고 `EXIT_PARAM_ERROR`, 메시지에 `인스턴스 연결을 변경할 수 없습니다`와 `network security-group update`와 후보 UUID 두 개가 있다.
 - `add`에서 이미 연결돼 있으면 `addSecurityGroup`을 부르지 않고 `status: "unchanged"`.
 - `add` 정상: `addSecurityGroup(instanceId, groupName)` 호출, 사후 조회에 반영되면 경고 없음.
 - `add` 후 사후 조회에 반영되지 않으면 stderr 경고가 한 줄 나오고 종료 코드는 0.
+- `add` 후 사후 조회가 reject되면 stderr에 `연결 상태를 확인하지 못했습니다` 경고가 나오고, 결과 `status`는 `"succeeded"`, 종료 코드는 0.
 - `remove`에서 연결돼 있지 않으면 `removeSecurityGroup`을 부르지 않고 `EXIT_PARAM_ERROR`.
 - `addSecurityGroup`이 `EXIT_API_ERROR`로 reject되면 그대로 전파된다.
 
 ## 검증
 
 ```bash
-node_modules/.bin/vitest run src/commands/instance/security-group.test.ts src/commands/network
+node_modules/.bin/vitest run src/commands/instance/security-group.test.ts src/commands/network/helpers.test.ts src/commands/network
 pnpm tsc --noEmit
 pnpm test
 pnpm run build

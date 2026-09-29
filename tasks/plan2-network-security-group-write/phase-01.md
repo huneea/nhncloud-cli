@@ -34,7 +34,8 @@
 ## 의도 메모
 
 - 오류 변환은 쓰기 메서드에만 적용한다. 조회 메서드의 오류 문구는 바꾸지 않는다.
-- 서버 메시지는 터미널 제어 문자를 제거한 뒤 붙인다(`sanitizeForTerminal`, `src/utils/terminal.ts`).
+- 서버 메시지는 터미널 제어 문자를 정제한 뒤 붙인다(`sanitizeForTerminal`, `src/utils/terminal.ts`). 이 함수는 제어 문자를 지우지 않고 `?`로 바꾼다.
+- 서버 메시지는 400·409 응답에만 붙인다(`docs/code-architecture.md`의 「명령 실행 경계」 절). 404 등 그 밖의 상태 코드는 공용 변환 결과를 그대로 쓴다.
 - 본문이 JSON이 아니거나 `NeutronError.message`가 없으면 공용 변환 결과를 그대로 쓴다.
 
 ## Blocked 조건
@@ -49,7 +50,7 @@
 export async function toNetworkWriteError(err: unknown): Promise<NhnCloudCliError>;
 ```
 
-- `err`가 `HTTPError`이면 `err.response.json()`을 시도해 `NeutronError.message`가 string이면 기본 변환 메시지 뒤에 `\n서버 응답: <sanitize 한 message>`를 붙인다. 종료 코드는 `toNhnCloudCliError(err).exitCode`를 유지한다.
+- `err`가 `HTTPError`이고 `err.response.status`가 400 또는 409이면 `err.response.json()`을 시도해 `NeutronError.message`가 string이면 기본 변환 메시지 뒤에 `\n서버 응답: <sanitize 한 message>`를 붙인다. 종료 코드는 `toNhnCloudCliError(err).exitCode`를 유지한다.
 - 그 밖은 `toNhnCloudCliError(err)`를 반환한다.
 
 ### 2. `src/services/network/client.ts`에 쓰기 메서드 추가
@@ -81,7 +82,7 @@ export interface CreateSecurityGroupRuleParams {
 }
 ```
 
-값이 `undefined`인 키는 요청 본문에서 빠져야 한다(`ky`의 JSON 직렬화가 `undefined` 키를 버리는지 테스트로 확인한다).
+값이 `undefined`인 키는 요청 본문에서 빠져야 한다. `ky`에 넘기기 전에 client가 `undefined` 값인 키를 직접 제거한다(`createSecurityGroup`, `updateSecurityGroup`, `createSecurityGroupRule` 모두). 테스트는 `ky`를 mock하므로 `toEqual`이 아닌 `toStrictEqual`로 `json` 인자를 단언해 `undefined` 키가 없음을 확인한다.
 
 ### 3. `src/services/instance/client.ts`에 연결 메서드 추가
 
@@ -93,13 +94,15 @@ async removeSecurityGroup(id: string, groupName: string): Promise<void>  // serv
 ### 4. 테스트 `src/services/network/errors.test.ts` 신규
 
 - 400 `HTTPError`에 `NeutronError.message`가 있으면 메시지에 `서버 응답: Only remote_ip_prefix or remote_group_id may be provided.`가 들어가고 종료 코드는 `EXIT_API_ERROR`다.
+- 409도 같은 방식으로 `서버 응답:`을 붙인다.
+- 404 `HTTPError`에 `NeutronError.message`가 있어도 메시지는 `toNhnCloudCliError(err).message`와 같다(`서버 응답:` 없음).
 - 403은 `EXIT_AUTH_ERROR`를 유지한다.
 - 본문이 JSON이 아니면 공용 변환 메시지와 같다.
-- message 안의 ANSI escape(`\u001b[31m`)가 제거된다.
+- message 안의 ANSI escape(`\u001b[31m`)는 `sanitizeForTerminal`이 `?`로 바꾼다. 결과 메시지에 `\u001b`가 없고 `?[31m`가 있다.
 
 ### 5. 테스트 `src/services/network/client.test.ts`에 추가
 
-- 메서드 여섯 개의 URL·HTTP 메서드·본문을 단언한다. 규칙 생성 본문에 `ethertype: "IPv4"`가 들어가고 `undefined` 키가 없다.
+- 메서드 여섯 개의 URL·HTTP 메서드·본문을 단언한다. 규칙 생성 본문에 `ethertype: "IPv4"`가 들어가고, `description` 등 선택 필드를 `undefined`로 넘겨도 `json` 인자에 그 키가 없다(`toStrictEqual`).
 - 규칙 생성 400 거부가 `서버 응답:`을 담은 오류로 바뀐다.
 - 원격 그룹 조회는 `searchParams`에 `remote_group_id`만 담는다.
 
