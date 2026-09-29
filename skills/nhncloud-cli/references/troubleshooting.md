@@ -11,17 +11,21 @@
 5. exit code를 확인한다.
 6. 서비스별 인증 모델을 대조한다.
 
+`nhncloud doctor`는 자격증명과 공개 스킬 설치 상태를 오프라인에서 진단한다.
+
 ## 인증 모델
 
 | 서비스 | 비밀 | 인증 방식 |
 |--------|------|-----------|
 | Log & Crash 검색/export | appkey 와 공통 UAK id/secret | UAK OAuth `X-NHN-Authorization: Bearer <token>` |
 | Log & Crash send | appkey | body `projectName=appkey`, 인증 헤더 없음 |
-| Deploy | UAK id 와 secret | OAuth Bearer token |
+| Deploy | UAK id 와 secret, Deploy appkey | OAuth Bearer token |
 | Instance/network/volume/floatingip | tenantId, username, API password | Keystone `X-Auth-Token` |
 | NKS | tenantId, username, API password | Keystone `X-Auth-Token` 과 container-infra API version |
 | NCR registry | UAK id, secret, NCR appkey | `X-TC-AUTHENTICATION-*` |
 | NCR images/tags | UAK id 와 secret | HTTP Basic Auth to Harbor REST |
+| NCS | UAK id 와 secret, NCS appkey | OAuth Bearer token (`X-NHN-Authorization`) |
+| API Gateway | UAK id 와 secret, API Gateway appkey | OAuth Bearer token (`X-NHN-Authorization`) |
 
 ## Exit code
 
@@ -34,13 +38,7 @@
 
 ## Profile 누락
 
-profile은 다음 순서로 해석된다.
-
-1. `--profile <name>`
-2. `NHNCLOUD_PROFILE`
-3. `~/.nhncloud/config.json`의 `defaultProfile`
-4. `default`
-
+profile 선택 순서는 [Profile 우선순위](common.md#profile-우선순위)를 확인한다.
 자동화에서 의도와 다른 profile이 쓰이면 `--profile`을 명시한다.
 
 ## Region mismatch
@@ -57,9 +55,10 @@ nhncloud ncr list --region kr2 --json
 
 ## JSON shape 혼동
 
-CLI는 API wrapper를 일관되게 언랩한다.
-예를 들어 `instance get --json`은 `.server.status`가 아니라 `.status`다.
-목록과 단건의 shape가 다를 수 있으므로 jq path를 쓰기 전에 `--json` 원문을 확인한다.
+서비스와 명령에 따라 API wrapper 처리 방식이 다르다.
+`instance get --json`은 `.server.status`가 아니라 `.status`를 반환하지만, NKS 단건·설정 조회는 raw 객체를 보존한다.
+NCR의 Harbor 이미지·태그 조회에는 NHN 공통 wrapper 언랩을 적용하지 않는다.
+jq path를 쓰기 전에 `--json` 원문을 확인한다.
 
 ```bash
 nhncloud instance get <instance-id> --json | jq keys
@@ -71,9 +70,9 @@ nhncloud ncr list --json | jq '.[0] | keys'
 - `--from`은 최근 90일 이내여야 한다.
 - `--to - --from` 범위는 31일 이하여야 한다.
 - `--page`는 0만 허용한다. 다음 페이지는 JSON의 `nextCursor`를 `--cursor`로 그대로 전달한다.
-- 검색 `--size`는 1~100이다.
-- export `--size`는 폐기 예정 호환 옵션이며 10~100 검증 후 경고하고 v3 요청에서는 무시한다.
-- export가 중간 실패하면 보존된 원본 오류를 확인하고 검색 범위를 좁혀 다시 실행한다.
+- 검색 `--size`는 1부터 100까지 허용한다.
+- export `--size`는 폐기 예정 호환 옵션이며 10부터 100까지 검증 후 경고하고 v3 요청에서는 무시한다.
+- export가 중간 실패하면 보존된 원본 오류를 확인하고 검색 범위를 줄여 다시 실행한다.
 
 검색 또는 export에서 설정 오류가 나면 profile에 다음 두 값이 모두 있는지 확인한다.
 
@@ -82,16 +81,9 @@ nhncloud ncr list --json | jq '.[0] | keys'
 
 기존 `logncrash.secret`은 Search v3 인증에 사용하지 않는다.
 
-## 쓰기 명령 confirm
+## 쓰기 명령 확인
 
-삭제, 제거, 비용 발생 가능 명령은 비대화형 환경에서 `--yes`가 필요할 수 있다.
-
-```bash
-nhncloud instance delete <instance-id> --yes
-nhncloud floatingip delete <floatingip-id> --yes
-nhncloud nks cluster delete <cluster> --yes
-nhncloud nks cluster addon remove <cluster> <addon> --yes
-```
+명령별 확인 방식은 [되돌릴 수 없는 명령](common.md#되돌릴-수-없는-명령)에서 확인한다.
 
 ## stdout/stderr 분리
 

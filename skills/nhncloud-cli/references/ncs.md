@@ -1,12 +1,8 @@
 # NCS Reference
 
-`ncs` 명령군은 NHN Container Service 의 template(설계도)과 workload(런타임 실행)를 조회·관리한다.
-template 의 생성·삭제, workload 의 생성·변경(update/patch)·실행제어(일시정지/재개/재시작/삭제), 악성코드 검사(malware) 설정·결과 조회를 지원한다.
-
 ## 설정
 
 공통 UAK와 NCS appkey가 필요하다.
-인증은 Deploy 와 같은 UAK OAuth Bearer 토큰을 재사용한다(profile 토큰 캐시 공유).
 
 `nhncloud configure` (대화형 또는 `--ncs-appkey`) 로 설정한다.
 
@@ -53,6 +49,7 @@ nhncloud ncs workload get <workload-id> --json
 
 컨테이너 로그와 이벤트는 특정 task 를 지정해야 한다.
 `--task`는 `workload get` 응답의 `tasks[].id`에서 얻는다.
+`--size`의 API 기본값은 `workload logs`에서 100, 나머지 `--size` 지원 명령에서 10이다.
 
 ```bash
 nhncloud ncs workload logs <workload-id> --task <task-id> --container <name> --json
@@ -161,46 +158,9 @@ nhncloud ncs workload get <workload-id> --json | jq -r '.tasks[].id'
 nhncloud ncs workload history <workload-id> --json | jq -r '.[0].id' # 최신 historyId
 ```
 
-## 옵션
-
-| 옵션 | 설명 |
-|------|------|
-| `--region <region>` | NCS region. 기본 `kr1`. `kr1`·`kr3`만 지원 |
-| `--profile <name>` | 사용할 profile |
-| `--page <page>` / `--size <size>` | 페이지네이션 (기본 size는 명령별 상이 — `--help` 확인) |
-| `--q <query>` | workload list·events 필터 |
-| `--task <taskId>` | `workload logs`·`workload events`·`workload restart` 필수 |
-| `--container <name>` | `workload logs` 필수 |
-| `--from <time>` / `--to <time>` | `workload logs`·`workload events` 시간 필터. 시간대 포함 RFC3339, `now`, 0 이상의 정수와 `m`·`h`·`d` 단위 |
-| `--sort <sort>` | `workload history` 정렬 (역순은 필드명 앞에 `-`) |
-| `--file <path>` | `template create`·`template version create`·`workload create`·`workload update`·`workload patch` 필수 — JSON payload 파일 경로 (`patch`는 JSON Patch 배열) |
-| `--wait` / `--timeout <sec>` | `workload create` — Running 상태 폴링(`--timeout` 기본 300초) |
-| `--enabled <value>` | `malware config set` 필수. `true` 또는 `false` |
-| `--yes` | `template delete`·`template version delete`·`workload delete` — 비대화형 환경 필수, TTY 는 생략 시 확인 프롬프트 |
-
 ## 주의사항
 
-- appkey는 NCS service appkey다. 인증 secret은 공통 UAK secret을 사용한다.
-- `workload logs`·`workload events`는 task 단위 조회라 `--task` 없이는 입력 오류다.
-- `workload logs`·`workload events` 데이터는 stdout, 진행 상황과 오류는 stderr에 출력한다.
-- 시간 필터를 생략하면 CLI가 임의 기본값을 만들지 않고 API 기본 범위를 유지한다.
-- `workload restart`도 task 단위라 `--task` 없이는 입력 오류다.
-- `workload schedule-history`는 page/size를 아직 노출하지 않는다(대량 이력 시 첫 페이지만 반환될 수 있음 — ADR-020).
+- `workload schedule-history`는 page/size를 아직 노출하지 않아 대량 이력에서 첫 페이지만 반환될 수 있다.
 - template/workload id, history id 인수가 공백이면 입력 오류다.
-- `template version create`의 `--file` payload 는 `sourceVersion` 필드가 필수다 — 누락 시 API 오류로 반환된다(클라이언트가 사전 검증하지 않음).
 - `--file` 로 지정한 JSON payload 파일은 1MB 를 넘거나 디렉터리면 입력 오류다.
-- 삭제 명령(`template delete`·`template version delete`·`workload delete`)은 비대화형 환경에서 `--yes` 없이 실행하면 입력 오류다.
 - `workload create --wait`는 타임아웃까지 `Running` 상태에 도달하지 못하면 마지막 상태를 메시지에 포함해 API 오류로 반환한다.
-- `workload patch`는 `Content-Type: application/json-patch+json`으로 전송된다 — `--file`에는 JSON Patch 배열(`op`/`path`/`value`)을 담아야 한다.
-- `malware config set --enabled`는 `true`·`false` 외의 값이면 입력 오류다.
-
-## 에러 코드
-
-| 상황 | exit code |
-|------|-----------|
-| UAK 누락 또는 NCS appkey 미설정 | 4 |
-| UAK 인증 실패 | 2 |
-| 지원하지 않는 region, 빈 id 인수, `--task`·`--container` 누락 | 3 |
-| 잘못된 logs·events 시간 필터 | 3 |
-| `--file` 파일 오류, 잘못된 `--enabled`, 비대화형 삭제 시 `--yes` 누락 | 3 |
-| NCS API 오류 (payload 필수값 누락, `workload create --wait` 타임아웃 등 서버측 검증·폴링 실패 포함) | 1 |

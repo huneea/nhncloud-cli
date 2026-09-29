@@ -143,12 +143,3 @@ nhncloud nks cluster set-control-plane-log <cluster> --file ./control-plane-log.
 단건 조회와 설정 조회는 API raw 객체를 보존하는 쪽을 우선한다.
 생성, resize, 설정 변경, 노드 action, 애드온 변경은 `{ uuid }` 응답을 반환한다.
 삭제 명령은 성공 메시지만 stderr에 쓰고 stdout은 비운다.
-
-## 에러 코드
-
-| 상황 | exit code |
-|------|-----------|
-| IaaS 자격증명 누락 또는 불완전 | 4 |
-| Keystone 또는 NKS 인증 실패 | 2 |
-| 지원하지 않는 region, payload JSON 파싱 실패, `--yes` 누락 | 3 |
-| NKS API 오류 또는 응답 형식 불일치 | 1 |

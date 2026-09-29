@@ -28,8 +28,7 @@ description: >-
 
 | 작업 | 읽을 파일 |
 |---|---|
-| CLI 설치, `configure`, profile, 출력 모드, 명령 카탈로그, 종료 코드 | [common.md](references/common.md) |
-| 공개 스킬 상태 확인·설치·갱신·제거와 상태별 복구 | [common.md](references/common.md) |
+| CLI 설치·설정·출력, 공개 스킬 관리 | [common.md](references/common.md) |
 | Log & Crash Search v3 커서 검색·scroll 대량 추출·collector 전송<br>반복 조회 자동화의 호출 비용 설계 | [logncrash.md](references/logncrash.md) |
 | Deploy 실행·조회·바이너리 전송 | [deploy.md](references/deploy.md) |
 | Compute, VPC, Block Storage, Floating IP | [iaas.md](references/iaas.md) |
@@ -37,6 +36,5 @@ description: >-
 | Container Registry | [ncr.md](references/ncr.md) |
 | Kubernetes Service | [nks.md](references/nks.md) |
 | Container Service | [ncs.md](references/ncs.md) |
-| API Gateway 서비스·리소스·스테이지·배포 조회와 Swagger export | [apigateway.md](references/apigateway.md) |
-| API Gateway `stage update`·`stage import-resources`·`stage deploy create`·`stage deploy rollback`, `resource set-path-plugin`·`set-method-plugin` | [apigateway.md](references/apigateway.md) |
+| API Gateway 조회·변경·배포·Swagger export | [apigateway.md](references/apigateway.md) |
 | 인증·profile·region·출력·검색 제한 문제 해결 | [troubleshooting.md](references/troubleshooting.md) |

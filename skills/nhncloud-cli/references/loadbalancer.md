@@ -20,22 +20,6 @@ nhncloud loadbalancer ipacl target list <group> \
   --json
 ```
 
-## 명령
-
-| 명령 | 용도 | 기본 테이블 컬럼 |
-|------|------|------------------|
-| `loadbalancer list` | Load Balancer 목록 조회 | `id`, `name`, `vip_address`, `provisioning_status`, `operating_status`, `ipacl_group_action` |
-| `loadbalancer get <loadbalancer>` | 이름 또는 UUID로 단건 조회 | `field`, `value` |
-| `loadbalancer ipacl list` | IP ACL 그룹 목록 조회 | `id`, `name`, `action`, `ipacl_target_count`, `loadbalancer_count` |
-| `loadbalancer ipacl get <group>` | 이름 또는 UUID로 IP ACL 그룹 단건 조회 | `field`, `value` |
-| `loadbalancer ipacl target list <group>` | 그룹의 IP ACL 대상 목록 조회 | `id`, `cidr_address`, `description`, `ipacl_group_id` |
-| `loadbalancer ipacl create` | IP ACL 그룹 생성 | `field`, `value` |
-| `loadbalancer ipacl delete <group>` | IP ACL 그룹과 하위 대상·연결 규칙 삭제 | `field`, `value` |
-| `loadbalancer ipacl target add <group>` | 대상 추가 후 관련 Load Balancer 재바인딩 | `field`, `value` |
-| `loadbalancer ipacl target remove <target-id>` | 대상 삭제 후 관련 Load Balancer 재바인딩 | `field`, `value` |
-| `loadbalancer set-ipacl <loadbalancer>` | IP ACL 그룹 연결 전체 교체 | `field`, `value` |
-| `loadbalancer clear-ipacl <loadbalancer>` | IP ACL 그룹 연결 전체 해제 | `field`, `value` |
-
 단건 Load Balancer 테이블에는 `id`, `name`, `vip_address`, `provisioning_status`, `operating_status`, `ipacl_group_action`, `ipacl_group_ids`가 행으로 출력된다.
 단건 IP ACL 그룹 테이블에는 `id`, `name`, `action`, `ipacl_target_count`, `loadbalancer_ids`가 행으로 출력된다.
 
@@ -156,22 +140,6 @@ nhncloud loadbalancer ipacl target remove <target-id> \
 목록이 비어 있으면 기본 모드는 `결과 없음`을 stdout에 출력하고, `--json`은 빈 배열을 출력하며, `--quiet`는 출력하지 않는다.
 `--json`은 NHN Cloud 응답의 최상위 래퍼를 제거한 객체 또는 배열이다.
 
-## 공통 옵션
-
-| 옵션 | 설명 |
-|------|------|
-| `--region <region>` | region override. 생략하면 IaaS 자격증명의 region을 사용 |
-| `--profile <name>` | 사용할 profile |
-| `--json` | 객체 또는 배열을 JSON으로 stdout에 출력 |
-| `--quiet` | 리소스 UUID만 stdout에 출력 |
-
-## 쓰기 전용 옵션
-
-| 옵션 | 적용 명령 | 설명 |
-|------|-----------|------|
-| `--yes` | `ipacl delete`, `ipacl target add/remove`, `set-ipacl`, `clear-ipacl` | 삭제·연결 교체·대상 변경을 비대화형으로 확인 |
-| `--no-rebind` | `ipacl target add/remove` | 대상 변경 후 자동 재바인딩 생략 |
-
 ## stdout과 stderr
 
 - 테이블, JSON, UUID, 정상 빈 결과는 stdout에 출력한다.
@@ -225,13 +193,3 @@ stdout JSON의 `status`는 `partial`이며, 실패마다 기계 실행용 `retry
 AI 에이전트는 `retry_command`를 셸에서 다시 해석하지 말고 `retry_argv` 배열을 직접 실행한다.
 빈 그룹 snapshot의 복구 배열은 `clear-ipacl`을 사용한다.
 복구 명령이 성공한 뒤 원래 대상 추가·삭제를 반복하지 않는다.
-
-## 에러 코드
-
-| 상황 | exit code |
-|------|-----------|
-| Load Balancer 또는 IP ACL API 오류 | 1 |
-| 대상 변경 후 재바인딩 부분 실패 | 1 |
-| Keystone 인증 실패 | 2 |
-| 빈 이름·UUID, 리소스 없음, 중복 이름 | 3 |
-| IaaS 자격증명 누락 또는 미등록 region | 4 |

@@ -113,18 +113,8 @@ CLI가 UAK를 OAuth 토큰으로 교환하므로 별도 logncrash secret은 저�
 }
 ```
 
-주요 옵션:
-
-| 옵션 | 설명 |
-|------|------|
-| `--profile <name>` | 대상 profile. 기본값은 `default` |
-| `--uak-id <id>` / `--uak-secret <secret>` | 공통 User Access Key |
-| `--logncrash-appkey <key>` | Log & Crash 서비스 appkey |
-| `--logncrash-secret <secret>` | 폐기 예정 호환 옵션. 경고 후 사용·저장하지 않음 |
-| `--ncr-appkey <key>` | NCR appkey |
-| `--iaas-tenant-id <id>` / `--iaas-username <name>` / `--iaas-password <password>` | IaaS/NKS 자격증명 |
-| `--iaas-region <region>` | IaaS 기본 region |
-| `--no-verify` | 연결 테스트 생략 |
+설정 가능한 전체 옵션은 `nhncloud configure --help`에서 확인한다.
+폐기 예정인 `--logncrash-secret`은 경고 후 사용·저장하지 않는다.
 
 저장 파일은 `~/.nhncloud/credentials.json`이고 mode 0600으로 관리된다.
 기본 profile은 선택적으로 `~/.nhncloud/config.json`의 `defaultProfile`로 지정한다.
@@ -148,9 +138,7 @@ profile 해석 순서:
 | `--json` | JSON stdout | 파싱, 자동화, AI 에이전트 |
 | `--quiet` | 명령이 문서화한 핵심 값 한 줄을 stdout으로 출력 | 단순 체이닝 |
 
-`--json`은 CLI 출력 계약이다.
-API 원본 wrapper를 항상 보존하지 않는다.
-예를 들어 `nhncloud instance get <instance-id> --json`은 `.server.status`가 아니라 `.status`를 읽는다.
+`--json`의 응답 구조는 서비스 reference에서 확인한다.
 
 ## 요청 타임아웃
 
@@ -189,72 +177,14 @@ nhncloud commands --json | jq '.commands[] | select(.path=="nks cluster list")'
 
 AI 에이전트는 먼저 `commands --json`으로 실제 command path와 option 이름을 확인하고, 그다음 서비스 reference를 읽는다.
 
-## JSON shape 요약
+## 되돌릴 수 없는 명령
 
-| 명령 | `--json` 출력 shape |
-|------|---------------------|
-| `commands` | `{ commands: [{ path, description, arguments, options, subcommands }] }` |
-| `logncrash search` | `{ totalItems, pageNumber, pageSize, data, nextCursor? }` |
-| `logncrash export` | 파일 출력 전용. stdout JSON 없음 |
-| `deploy artifacts` | Deploy API `body` 객체 |
-| `deploy server-groups` | Deploy API `body` 객체 |
-| `deploy histories` | Deploy API `body` 객체 |
-| `deploy binary-groups` | `binaryGroups` wrapper를 언랩한 배열 |
-| `deploy binaries` | `{ totalCount, binaries }` |
-| `deploy upload` | `{ downloadUrl, binaryKey }` |
-| `instance list` | `servers` wrapper를 언랩한 server 배열 |
-| `instance get` | `server` wrapper를 언랩한 단일 server |
-| `instance create --wait` | `server` wrapper를 언랩한 단일 server |
-| `instance flavors` | `flavors` wrapper를 언랩한 flavor 배열 |
-| `instance images` | `images` wrapper를 언랩한 image 배열 |
-| `instance availability-zones` | `availabilityZoneInfo` wrapper를 언랩한 배열 |
-| `instance keypairs` | `keypairs[].keypair`를 flatten한 keypair 배열 |
-| `instance volumes` | `volumeAttachments` wrapper를 언랩한 attachment 배열 |
-| `network list` | VPC 배열 |
-| `network subnet list` | subnet 배열 |
-| `volume list` | volume 배열 |
-| `volume get` | 단일 volume 객체 |
-| `volume create` | 단일 volume 객체 |
-| `floatingip list` | Floating IP 배열 |
-| `floatingip create` | 단일 Floating IP 객체 |
-| `loadbalancer list` | Load Balancer 배열 |
-| `loadbalancer get` | 단일 Load Balancer 객체 |
-| `loadbalancer ipacl list` | IP ACL 그룹 배열 |
-| `loadbalancer ipacl get` | 단일 IP ACL 그룹 객체 |
-| `loadbalancer ipacl target list` | IP ACL 대상 배열 |
-| `loadbalancer ipacl create/delete` | 작업 상태와 IP ACL 그룹 UUID 객체 |
-| `loadbalancer ipacl target add/remove` | 대상 UUID와 재바인딩 결과 객체 |
-| `loadbalancer set-ipacl/clear-ipacl` | 작업 상태와 Load Balancer UUID·그룹 UUID 객체 |
-| `ncr list` | `registries` wrapper를 언랩한 registry 배열 |
-| `ncr get` | `registry` wrapper를 언랩한 단일 registry |
-| `ncr images` | repository 배열 |
-| `ncr tags` | tag 배열 |
-| `nks supports` | 지원 Kubernetes version / event type 객체 |
-| `nks cluster list` | cluster 배열 |
-| `nks cluster events` | event 배열 |
-| `nks nodegroup list` | nodegroup 배열 |
-| `nks addon-type list` | addon type 배열 |
-| `nks addon list` | addon 배열 |
-| `nks cluster addon list` | cluster addon 배열 |
+되돌릴 수 없거나 서비스를 중단시키는 명령이다. 실행 전에 대상과 변경 범위를 조회한다. 확인 방식은 명령마다 다르다.
 
-NKS 단건 조회와 일부 설정 조회는 table 출력용 최소 컬럼을 만들고 `--json`에서는 raw 객체를 보존한다.
-NKS 쓰기 명령 중 생성, resize, 설정 변경, 노드 action, 애드온 변경은 `{ uuid }` 응답을 반환한다.
-삭제 명령은 성공 메시지를 stderr에 쓰고 stdout은 비운다.
-`nks cluster kubeconfig`는 kubeconfig 문자열을 stdout 또는 파일로 저장한다.
+| 확인 방식 | 명령 |
+|---|---|
+| TTY 여부와 관계없이 `--yes` 필수 | `apigateway stage update`, `apigateway stage import-resources`, `apigateway stage deploy create`, `apigateway stage deploy rollback`, `apigateway resource set-path-plugin`, `apigateway resource set-method-plugin` (`--dry-run` 제외), `loadbalancer ipacl delete`, `loadbalancer ipacl target add`, `loadbalancer ipacl target remove`, `loadbalancer set-ipacl`, `loadbalancer clear-ipacl` |
+| 비대화형 환경에서는 `--yes` 필수, TTY에서는 확인 질문 | `instance delete`, `floatingip delete`, `nks cluster delete`, `nks cluster addon remove`, `nks nodegroup delete`, `ncs template delete`, `ncs template version delete`, `ncs workload delete` |
+| 확인 질문과 `--yes` 없음 | `instance keypair delete`, `deploy run`, `nks cluster resize --nodes-to-remove`, `nks nodegroup upgrade`, `ncs workload update` (PUT 전체 교체), `instance volume detach`, `instance resize`, `instance stop`, `instance reboot`, `nks nodegroup update-flavor`, `nks cluster set-ipacl`, `nks cluster set-control-plane-log`, `nks cluster update-sgw`, `ncs workload patch` (JSON Patch `remove` 포함 가능) |
 
-## 에러 코드
-
-| 상황 | exit code |
-|------|-----------|
-| API 오류 / 봉투 실패 | 1 |
-| 인증 실패 | 2 |
-| 입력 오류 / 필수 옵션 누락 / confirm 누락 | 3 |
-| 자격증명 또는 config 오류 | 4 |
-
-## Agent 기본 규칙
-
-- 조회는 먼저 `--json`으로 실행하고 필요한 id를 추출한다.
-- 쓰기 명령 전에 `--profile`, `--region`, 대상 id를 명시한다.
-- `--quiet`는 해당 명령이 핵심 값 한 줄 출력을 문서화한 경우에만 사용한다.
-- 삭제 명령은 비대화형 환경에서 `--yes`를 명시한다.
-- stdout은 데이터로만 취급하고, 진행 메시지는 stderr로 분리된다고 가정한다.
+`nks cluster resize`는 `--nodes-to-remove`를 생략해도 확인 없이 실행되며, 감축 대상 노드를 API가 선택할 수 있다는 경고를 출력한다.
