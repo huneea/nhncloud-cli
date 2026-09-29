@@ -73,7 +73,7 @@ grep -n "$KEYWORD" README.md skills/nhncloud-cli/SKILL.md skills/nhncloud-cli/re
 
 | 위치 | 확인할 것 |
 | --- | --- |
-| `README.md` | 「사용 예」 절의 알맞은 서비스 분류에 새 명령과 옵션이 있다 |
+| `README.md` | 「에이전트 없이 직접 쓰기」 목록에 새 명령이 있다 |
 | `skills/nhncloud-cli/references/*.md` | 해당 서비스 reference 에 새 명령과 옵션이 있다 |
 
 - 빠졌으면 무엇을 어디에 넣을지 제안하고 보완 커밋을 따로 만든다.
