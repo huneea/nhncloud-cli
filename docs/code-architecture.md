@@ -29,7 +29,7 @@
 
 `src/services/`와 `src/commands/`는 가능한 한 같은 서비스 이름으로 짝을 이룬다.
 
-- `logncrash`, `deploy`, `ncr`, `ncs`, `apigateway`
+- `logncrash`, `deploy`, `ncr`, `ncs`, `apigateway`, `skm`
 - `instance`, `network`, `blockstorage`, `loadbalancer`, `nks`
 
 `floatingip`과 `volume` 명령은 각각 network와 blockstorage 서비스 경계를 재사용한다.
@@ -58,7 +58,7 @@ skill ──> config와 독립된 사용자 데이터 경계
 
 | 서비스군 | 인증 경계 | endpoint 경계 |
 |---|---|---|
-| deploy, ncs, Log & Crash 검색, API Gateway | `api/oauth.ts`, `cache/token-store.ts` | `api/endpoints.ts`와 서비스 client |
+| deploy, ncs, Log & Crash 검색, API Gateway, Secure Key Manager | `api/oauth.ts`, `cache/token-store.ts` | `api/endpoints.ts`와 서비스 client |
 | instance, network, blockstorage, loadbalancer, nks | `api/keystone.ts`, `cache/token-store.ts` | region별 IaaS endpoint |
 | NCR Management API | profile 공통 UAK 정적 헤더 | region별 NCR host |
 | NCR Harbor data plane | UAK Basic Auth | registry 응답에서 검증한 host |

@@ -85,6 +85,9 @@ UAK 는 개인/계정 단위라 OAuth 쓰는 서비스가 공유하고, 서비�
       "apigateway": {
         "appkey": "<appkey>"
       },
+      "skm": {
+        "appkey": "<appkey>"
+      },
       "iaas": {
         "tenantId": "<tenant-id>",
         "username": "<account-email>",
@@ -109,11 +112,12 @@ UAK 는 개인/계정 단위라 OAuth 쓰는 서비스가 공유하고, 서비�
 - `ncr`: Management API 경로에 넣을 appkey만 저장한다. 인증은 공통 UAK 정적 헤더를 사용하고 OAuth 토큰으로 교환하지 않는다 ([[adr-016]])
 - `ncs`: appkey(path)만. 인증 토큰은 `userAccessKey` OAuth 를 재사용한다(secret 불요, [[adr-020]])
 - `apigateway`: appkey(path)만. 인증 토큰은 `userAccessKey` OAuth 를 재사용하며 헤더 이름이 `X-NHN-Authorization` 이다(secret 불요, [[adr-027]])
+- `skm`: appkey(path)만. 인증 토큰은 `userAccessKey` OAuth 를 재사용하며 헤더 이름이 `X-NHN-Authorization` 이다. 키 저장소의 MAC 인증 값은 저장하지 않고 명령 옵션으로 받는다([[adr-039]])
 - `iaas`: OpenStack Keystone 자격증명. instance 등 IaaS 서비스가 공유 ([[adr-010]])
   - `password` 는 NHN 콘솔 IAM 에서 별도 발급하는 API 비밀번호 (로그인 비밀번호가 아님)
   - `region`: `kr1` / `kr2` / `kr3` / `jp1` 중 하나. 명령의 `--region` 으로 override
 - 예약 키 `userAccessKey`와 `environment` 외 키는 서비스명 = 서비스별 블록
-- `environment: "gov"`: 공공망 profile에만 명시한다. 생략한 기존 profile은 일반망을 사용한다. 현재 공공망 endpoint 선택 대상은 OAuth, Deploy, NCR, IaaS다([[adr-037]]).
+- `environment: "gov"`: 공공망 profile에만 명시한다. 생략한 기존 profile은 일반망을 사용한다. 현재 공공망 endpoint 선택 대상은 OAuth, Deploy, NCR, IaaS, Secure Key Manager다([[adr-037]], [[adr-039]]).
 
 ## config.json
 
@@ -136,8 +140,8 @@ UAK 는 개인/계정 단위라 OAuth 쓰는 서비스가 공유하고, 서비�
 ```
 
 - user-access-token: OAuth `access_token` 을 만료시각과 함께 저장한다 ([[adr-007]]).
-  deploy·ncs·logncrash 검색·apigateway가 같은 계정 토큰이라 이 캐시를 공유한다
-  ([[adr-020]], [[adr-024]], [[adr-027]]).
+  deploy·ncs·logncrash 검색·apigateway·skm이 같은 계정 토큰이라 이 캐시를 공유한다
+  ([[adr-020]], [[adr-024]], [[adr-027]], [[adr-039]]).
 - iaas: Keystone token 과 region 별 정적 host 맵으로 구성한 compute·image·network·blockStorage·nks endpoint 캐시 ([[adr-005]], [[adr-010]], [[adr-013]], [[adr-019]])
 - `credentialHash`: 발급 자격 배열을 `JSON.stringify`한 값의 SHA-256 지문이다. OAuth는 `[environment, uakId, uakSecret]`, IaaS는 `[environment, tenantId, username, password]`를 사용한다. 현재 자격이나 망 선택이 다르면 캐시를 무효화하고 다시 발급한다([[adr-021]], [[adr-037]]).
 - 만료 전 재사용, 만료 시 재발급한다. logncrash 검색도 같은 user-access-token 캐시를 쓴다.
@@ -151,11 +155,11 @@ UAK 는 개인/계정 단위라 OAuth 쓰는 서비스가 공유하고, 서비�
 
 자격증명 파일 손상과 존재하지 않는 profile은 원인을 보존한
 `NhnCloudCliError(EXIT_CONFIG_ERROR)`로 종료한다.
-NCR, NCS, API Gateway와 Deploy의 서비스 블록이나 필수 appkey가 없으면
+NCR, NCS, API Gateway, Secure Key Manager와 Deploy의 서비스 블록이나 필수 appkey가 없으면
 같은 종료 코드와 함께 해당 서비스의 `configure` 명령을 안내한다.
 
 ## 캐시 범위
 
-- logncrash search·export, deploy, ncs와 apigateway: 공통 OAuth access_token만 캐시한다. 검색 결과와 서비스 응답은 캐시하지 않는다.
+- logncrash search·export, deploy, ncs, apigateway와 skm: 공통 OAuth access_token만 캐시한다. SKM 비밀값과 키 원문은 파일에 쓰지 않는다. 검색 결과와 서비스 응답은 캐시하지 않는다.
 - instance, network, volume, floatingip, loadbalancer와 nks: Keystone token과 compute·image·network·blockStorage·nks endpoint를 region별로 캐시한다.
 - 목록성 데이터 캐시는 필요 시 후속 도입

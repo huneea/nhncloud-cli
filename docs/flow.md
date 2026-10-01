@@ -62,6 +62,7 @@ nhncloud instance create --help
 | NKS | 지원 버전과 리소스를 조회한 뒤 변경 | [nks.md](../skills/nhncloud-cli/references/nks.md) |
 | NCS | template을 기준으로 workload를 만들고 관찰 | [ncs.md](../skills/nhncloud-cli/references/ncs.md) |
 | API Gateway | service·stage·resource 탐색 뒤 설정·배포 | [apigateway.md](../skills/nhncloud-cli/references/apigateway.md) |
+| Secure Key Manager | 키 저장소와 키 탐색 뒤 기밀 데이터 조회, 암복호화, 서명과 검증 | [skm.md](../skills/nhncloud-cli/references/skm.md) |
 
 ## 조회와 페이지 이동
 
@@ -132,6 +133,27 @@ image와 tag 조회는 registry 응답의 host를 검증한 뒤 Harbor REST에 U
 배포 생성 응답만으로 완료를 단정하지 않고 배포 상태를 조회한다.
 rollback도 새 상태 전이를 만들 수 있으므로 완료와 실패를 같은 방식으로 확인한다.
 
+### Secure Key Manager
+
+공통 UAK를 OAuth access token으로 교환하고 profile의 `skm.appkey`를 경로에 쓴다. 망은 profile `environment`로 고른다.
+`skm keystore list`와 `skm key list`로 키 저장소 ID와 키 ID를 찾은 뒤 데이터 명령에 키 ID를 넘긴다.
+키 목록은 응답에 전체 개수가 없어, 받은 개수가 요청한 페이지 크기보다 적을 때까지 다음 페이지를 요청해 모은다.
+
+데이터 명령은 키 저장소의 클라이언트 인증을 통과해야 한다.
+
+- IPv4 인증은 서버가 본 요청 출발지 IP로 판정하므로 CLI가 따로 보내는 값이 없다.
+- MAC 인증은 `--mac-address`로 준 콜론 구분 값을 소문자로 바꿔 헤더로 보낸다. 형식이 틀리면 자격증명을 읽기 전에 종료 코드 3으로 끝난다.
+- 인증서 인증만 켠 키 저장소는 지원하지 않는다. 인증 실패는 서버의 `resultMessage`를 담은 API 오류로 끝난다.
+- `skm confirm`은 서버가 본 클라이언트 IP, MAC 헤더와 인증서 사용 여부를 보여 준다. 인증 실패 원인을 좁힐 때 먼저 실행한다.
+
+암호화·서명할 데이터는 `--plaintext`, `--file`, 표준 입력 순으로 읽고 받은 바이트를 그대로 보낸다. 끝 줄바꿈도 지우지 않는다.
+암호문과 서명값은 base64 문자열이라 앞뒤 공백을 지운다.
+입력 크기 한도(암호화 32KB, 일반 서명 245바이트, 표준 스킴 서명 64KB)는 자격증명을 읽기 전에 검사한다.
+
+비밀값을 받으려고 부른 명령(기밀 데이터 조회, 복호화, 키 원문 조회, local key 생성)은 값을 숨기지 않는다. `--quiet`과 `--json`은 원문을, 사람이 읽는 기본 출력은 제어 문자만 `?`로 바꾼 값을 출력한다.
+인증서 인증 정보 조회는 모든 출력 형식에서 `password`를 `***`로 가린다([[adr-039]]).
+서명 검증 결과가 `false`면 결과를 stdout에 출력하고 stderr에 실패를 알린 뒤 종료 코드 1로 끝난다.
+
 ## 공개 스킬 수명주기
 
 `nhncloud skills status`는 활성 링크, 관리 저장소 매니페스트와 콘텐츠 해시를 비교한다.
@@ -143,7 +165,7 @@ uninstall은 인식 가능한 활성 링크만 제거하고 실제 디렉터리�
 
 - 설정 오류, 인수 오류, 인증 오류와 API 오류는 서로 다른 종료 코드로 구분한다.
 - 자격증명 파일 손상과 존재하지 않는 profile 오류는 원인을 그대로 표시한다.
-  NCR, NCS, API Gateway와 Deploy의 서비스 자격증명 블록이나 필수 appkey만 없을 때
+  NCR, NCS, API Gateway, Secure Key Manager와 Deploy의 서비스 자격증명 블록이나 필수 appkey만 없을 때
   해당 서비스의 `configure` 명령을 안내한다.
 - JSON 모드에서도 경고와 오류를 stdout에 섞지 않는다.
 - API 문서와 실제 응답이 다르면 타입을 추측해 넓히지 않고 실측 근거를 남긴다.
