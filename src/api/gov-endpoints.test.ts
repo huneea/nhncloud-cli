@@ -8,6 +8,7 @@ import { EXIT_PARAM_ERROR } from "../utils/exit-codes.js";
 describe("공공망 endpoint 선택", () => {
   it("기본값은 기존 일반망 주소를 유지한다", () => {
     expect(endpointFor("deploy")).toBe("https://api-deploy.nhncloudservice.com");
+    expect(endpointFor("skm")).toBe("https://api-keymanager.nhncloudservice.com");
     expect(keystoneIdentityUrl()).toBe("https://api-identity-infrastructure.nhncloudservice.com/v2.0/tokens");
     expect(ncrHost("kr1")).toBe("kr1-ncr.api.nhncloudservice.com");
     expect(instanceHost("kr1")).toBe("kr1-api-instance-infrastructure.nhncloudservice.com");
@@ -15,6 +16,7 @@ describe("공공망 endpoint 선택", () => {
 
   it("gov profile은 공식 공공망 주소를 사용한다", () => {
     expect(endpointFor("deploy", "gov")).toBe("https://api-tcd.gov-nhncloudservice.com");
+    expect(endpointFor("skm", "gov")).toBe("https://api-keymanager.gov-nhncloudservice.com");
     expect(keystoneIdentityUrl("gov")).toBe("https://api-identity-infrastructure.gov-nhncloudservice.com/v2.0/tokens");
     expect(ncrHost("kr1", "gov")).toBe("kr1-ncr.api.gov-nhncloudservice.com");
     expect(instanceHost("kr2", "gov")).toBe("kr2-api-instance-infrastructure.gov-nhncloudservice.com");

@@ -273,4 +273,40 @@ describe("configure logncrash Search v3", () => {
       { appkey: "apigateway-appkey" },
     );
   });
+
+  it("--skm-appkey 단독 호출이 skm 자격증명으로 저장된다", async () => {
+    await programWithConfigure().parseAsync([
+      "node",
+      "nhncloud",
+      "configure",
+      "--profile",
+      "profile-skm",
+      "--no-verify",
+      "--skm-appkey",
+      "skm-appkey",
+    ]);
+
+    expect(setServiceCredential).toHaveBeenCalledWith(
+      "profile-skm",
+      "skm",
+      { appkey: "skm-appkey" },
+    );
+  });
+
+  it("--skm-appkey 공백 값은 EXIT_PARAM_ERROR 로 거부된다", async () => {
+    await expect(
+      programWithConfigure().parseAsync([
+        "node",
+        "nhncloud",
+        "configure",
+        "--profile",
+        "profile-skm",
+        "--no-verify",
+        "--skm-appkey",
+        "  ",
+      ]),
+    ).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+
+    expect(setServiceCredential).not.toHaveBeenCalled();
+  });
 });
