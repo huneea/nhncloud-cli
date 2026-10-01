@@ -117,6 +117,27 @@ describe("readSkmInput", () => {
     );
   });
 
+  it("fileFlag를 주면 함께 지정 오류와 입력 없음 오류에 그 옵션 이름을 쓴다", () => {
+    const passwordSpec: SkmInputSpec = {
+      textFlag: "--password", fileFlag: "--password-file", label: "인증서 비밀번호", maxBytes: 3,
+    };
+    const file = join(dir, "pw.txt");
+    writeFileSync(file, "a");
+    expect(() => readSkmInput({ text: "a", file }, passwordSpec, ttyStdin)).toThrow(
+      expect.objectContaining({
+        message: "--password와 --password-file은 함께 지정할 수 없습니다.",
+        exitCode: EXIT_PARAM_ERROR,
+      }),
+    );
+    expect(() => readSkmInput({}, passwordSpec, ttyStdin)).toThrow(
+      expect.objectContaining({
+        message:
+          "인증서 비밀번호가 필요합니다. --password <값>, --password-file <경로>, 표준 입력(파이프) 중 하나로 전달하세요.",
+        exitCode: EXIT_PARAM_ERROR,
+      }),
+    );
+  });
+
   it("빈 stdin과 빈 직접 값은 비어 있다고 거부한다", () => {
     const expected = expect.objectContaining({ message: "암호화할 데이터가 비어 있습니다.", exitCode: EXIT_PARAM_ERROR });
     expect(() => readSkmInput({}, spec, pipedStdin(Buffer.alloc(0)))).toThrow(expected);

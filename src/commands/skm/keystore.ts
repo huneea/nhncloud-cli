@@ -12,7 +12,16 @@ import {
   type SkmCommandOptions,
   withSkmOptions,
   withSkmSpinner,
+  withTypeOption,
 } from "./helpers.js";
+import {
+  authAddCommand,
+  authDeleteCommand,
+  authPurgeCommand,
+  createCommand,
+  deleteCommand,
+  updateCommand,
+} from "./keystore-manage.js";
 
 interface AuthOptions extends SkmCommandOptions {
   type: string;
@@ -57,10 +66,6 @@ const getCommand = withSkmOptions(
     ids: [String(store.keyStoreId)],
   });
 });
-
-function withTypeOption(command: Command): Command {
-  return command.requiredOption("--type <type>", "인증 정보 종류 (ipv4|mac|certificate)");
-}
 
 const authListCommand = withTypeOption(
   withSkmOptions(
@@ -114,12 +119,18 @@ const authGetCommand = withTypeOption(
 });
 
 const authCommand = new Command("auth")
-  .description("키 저장소 IPv4·MAC·인증서 인증 정보 조회")
+  .description("키 저장소 IPv4·MAC·인증서 인증 정보 조회·관리")
   .addCommand(authListCommand)
-  .addCommand(authGetCommand);
+  .addCommand(authGetCommand)
+  .addCommand(authAddCommand)
+  .addCommand(authDeleteCommand)
+  .addCommand(authPurgeCommand);
 
 export const keystoreCommand = new Command("keystore")
-  .description("SKM 키 저장소와 인증 정보 조회")
+  .description("SKM 키 저장소와 인증 정보 조회·관리")
   .addCommand(listCommand)
   .addCommand(getCommand)
+  .addCommand(createCommand)
+  .addCommand(updateCommand)
+  .addCommand(deleteCommand)
   .addCommand(authCommand);
