@@ -342,7 +342,7 @@ program.addCommand(apiGatewayCommand);
 
 // Secure Key Manager 커맨드 그룹
 const skmCommand = new Command("skm")
-  .description("NHN Secure Key Manager 조회와 데이터 명령");
+  .description("NHN Secure Key Manager 키 저장소·키 관리와 기밀 데이터·암복호화·서명 명령");
 skmCommand.addCommand(skmConfirmCommand);
 skmCommand.addCommand(skmKeystoreCommand);
 skmCommand.addCommand(skmKeyCommand);
