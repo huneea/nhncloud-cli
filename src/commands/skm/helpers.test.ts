@@ -112,9 +112,14 @@ describe("skm 키 저장소 쓰기 파서", () => {
 
   it("인증 정보 값은 종류별 형식을 검사한다", () => {
     expect(parseAuthValue("ipv4", "10.0.0.1")).toBe("10.0.0.1");
+    expect(parseAuthValue("ipv4", "10.0.0.0/24")).toBe("10.0.0.0/24");
+    expect(parseAuthValue("ipv4", "10.0.0.0/32")).toBe("10.0.0.0/32");
+    paramErrorMessage(() => parseAuthValue("ipv4", "10.0.0.0/33"), 'IPv4 주소나 CIDR 대역 형식이 아닙니다 (입력: "10.0.0.0/33").');
+    paramErrorMessage(() => parseAuthValue("ipv4", "10.0.0.0/"), 'IPv4 주소나 CIDR 대역 형식이 아닙니다 (입력: "10.0.0.0/").');
+    paramErrorMessage(() => parseAuthValue("ipv4", "10.0.0.0/24/1"), 'IPv4 주소나 CIDR 대역 형식이 아닙니다 (입력: "10.0.0.0/24/1").');
     expect(parseAuthValue("mac", "AA:BB:CC:DD:EE:FF")).toBe("aa:bb:cc:dd:ee:ff");
     expect(parseAuthValue("certificate", " cert1 ")).toBe("cert1");
-    paramErrorMessage(() => parseAuthValue("ipv4", "999.0.0.1"), 'IPv4 주소 형식이 아닙니다 (입력: "999.0.0.1").');
+    paramErrorMessage(() => parseAuthValue("ipv4", "999.0.0.1"), 'IPv4 주소나 CIDR 대역 형식이 아닙니다 (입력: "999.0.0.1").');
     paramErrorMessage(
       () => parseAuthValue("mac", "AA-BB-CC-DD-EE-FF"),
       'MAC 주소는 aa:bb:cc:dd:ee:ff 형식이어야 합니다 (입력: "AA-BB-CC-DD-EE-FF").',

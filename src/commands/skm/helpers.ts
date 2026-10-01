@@ -109,13 +109,22 @@ export function parseDescriptionOption(value: string | undefined, maxLength: num
 }
 
 /**
- * 인증 정보 값을 검증한다. ipv4 는 IPv4 형식, mac 은 --mac-address 와 같은 콜론 형식을 소문자로,
- * certificate 는 trim 한 이름을 돌려준다.
+ * 인증 정보 값을 검증한다. ipv4 는 IPv4 주소나 CIDR 대역(키 저장소가 대역으로도 등록한다),
+ * mac 은 --mac-address 와 같은 콜론 형식을 소문자로, certificate 는 trim 한 이름을 돌려준다.
  */
+function isIpv4OrCidr(value: string): boolean {
+  const [address, prefix, ...rest] = value.split("/");
+  if (rest.length > 0 || address === undefined || isIP(address) !== 4) return false;
+  return prefix === undefined || /^(\d|[12]\d|3[0-2])$/.test(prefix);
+}
+
 export function parseAuthValue(type: SkmAuthType, value: string): string {
   if (type === "ipv4") {
-    if (isIP(value) !== 4) {
-      throw new NhnCloudCliError(`IPv4 주소 형식이 아닙니다 (입력: ${JSON.stringify(value)}).`, EXIT_PARAM_ERROR);
+    if (!isIpv4OrCidr(value)) {
+      throw new NhnCloudCliError(
+        `IPv4 주소나 CIDR 대역 형식이 아닙니다 (입력: ${JSON.stringify(value)}).`,
+        EXIT_PARAM_ERROR,
+      );
     }
     return value;
   }

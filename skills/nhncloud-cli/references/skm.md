@@ -54,6 +54,7 @@ nhncloud skm secret get <key-id> --quiet
 ```bash
 nhncloud skm keystore create --name <name> --auth ipv4
 nhncloud skm keystore auth add <keystore-id> 10.0.0.1 --type ipv4
+nhncloud skm keystore auth add <keystore-id> 10.0.0.0/24 --type ipv4   # CIDR 대역도 등록할 수 있다
 printf '%s' "$SECRET" | nhncloud skm key create <keystore-id> --type secret --name <name>
 ```
 
