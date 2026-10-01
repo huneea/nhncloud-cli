@@ -1,8 +1,6 @@
 import { Command } from "commander";
 import { output } from "../../formatters/table.js";
-import type { SkmClientInfo } from "../../services/skm/types.js";
-import { startSpinner, stopSpinner } from "../../utils/spinner.js";
-import { formatCell, parseMacAddressOption, resolveSkmClient, type SkmCommandOptions, withSkmOptions } from "./helpers.js";
+import { formatCell, parseMacAddressOption, resolveSkmClient, type SkmCommandOptions, withSkmOptions, withSkmSpinner } from "./helpers.js";
 
 export const confirmCommand = withSkmOptions(
   new Command("confirm").description("SKM 서버가 본 클라이언트 IP, MAC 헤더와 인증서 사용 여부를 조회한다"),
@@ -11,15 +9,7 @@ export const confirmCommand = withSkmOptions(
   const macAddress = parseMacAddressOption(opts.macAddress);
   const { client } = await resolveSkmClient({ profile: opts.profile, macAddress });
 
-  startSpinner("SKM 클라이언트 정보 조회 중...");
-  let info: SkmClientInfo;
-  try {
-    info = await client.confirm();
-  } catch (err) {
-    stopSpinner(false);
-    throw err;
-  }
-  stopSpinner(true);
+  const info = await withSkmSpinner("SKM 클라이언트 정보 조회 중...", () => client.confirm());
 
   output(opts, {
     headers: ["field", "value"],

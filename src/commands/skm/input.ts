@@ -8,7 +8,9 @@ export interface StdinSource {
 }
 
 export const processStdin: StdinSource = {
-  isTTY: process.stdin.isTTY,
+  get isTTY() {
+    return process.stdin.isTTY;
+  },
   read: () => readFileSync(0),
 };
 
@@ -44,6 +46,15 @@ function readInputFile(file: string, spec: SkmInputSpec): Buffer {
   return readFileSync(file);
 }
 
+function readStdin(stdin: StdinSource, spec: SkmInputSpec): Buffer {
+  try {
+    return stdin.read();
+  } catch (e) {
+    const reason = (e as NodeJS.ErrnoException).code ?? (e instanceof Error ? e.message : String(e));
+    throw new NhnCloudCliError(`${spec.label}를 표준 입력에서 읽을 수 없습니다 (${reason}).`, EXIT_PARAM_ERROR);
+  }
+}
+
 /**
  * textFlag 값 > --file > stdin 순으로 읽어 Buffer 로 돌려준다.
  * 받은 바이트를 그대로 쓰므로 끝 줄바꿈도 지우지 않는다.
@@ -63,7 +74,7 @@ export function readSkmInput(
   } else if (source.file !== undefined) {
     input = readInputFile(source.file, spec);
   } else if (!stdin.isTTY) {
-    input = stdin.read();
+    input = readStdin(stdin, spec);
   } else {
     throw new NhnCloudCliError(
       `${spec.label}가 필요합니다. ${spec.textFlag} <값>, --file <경로>, 표준 입력(파이프) 중 하나로 전달하세요.`,

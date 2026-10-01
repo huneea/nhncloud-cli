@@ -92,6 +92,21 @@ describe("readSkmInput", () => {
     expect(readSkmInput({}, spec, pipedStdin(content))).toEqual(content);
   });
 
+  it("stdin 읽기가 시스템 오류로 실패하면 오류 코드를 담아 매개변수 오류로 바꾼다", () => {
+    const failingStdin: StdinSource = {
+      isTTY: false,
+      read: () => {
+        throw Object.assign(new Error("x"), { code: "EAGAIN" });
+      },
+    };
+    expect(() => readSkmInput({}, spec, failingStdin)).toThrow(
+      expect.objectContaining({
+        message: "암호화할 데이터를 표준 입력에서 읽을 수 없습니다 (EAGAIN).",
+        exitCode: EXIT_PARAM_ERROR,
+      }),
+    );
+  });
+
   it("입력이 없고 stdin이 TTY면 전달 방법을 안내하며 거부한다", () => {
     expect(() => readSkmInput({}, spec, ttyStdin)).toThrow(
       expect.objectContaining({

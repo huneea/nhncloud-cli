@@ -1,7 +1,6 @@
 import { Command } from "commander";
 import { output } from "../../formatters/table.js";
 import type { SkmKey } from "../../services/skm/types.js";
-import { startSpinner, stopSpinner } from "../../utils/spinner.js";
 import { parseRequiredArgument } from "../parse-options.js";
 import {
   formatCell,
@@ -13,6 +12,7 @@ import {
   resolveSkmClient,
   type SkmCommandOptions,
   withSkmOptions,
+  withSkmSpinner,
 } from "./helpers.js";
 
 interface KeyListOptions extends SkmCommandOptions {
@@ -48,15 +48,9 @@ const listCommand = withSkmOptions(
     ...(name !== undefined && { name }),
     ...(status !== undefined && { status }),
   };
-  startSpinner(`SKM 키 저장소 ${parsedId} 키 목록 조회 중...`);
-  let keys: SkmKey[];
-  try {
-    keys = await client.listKeys(parsedId, filter);
-  } catch (err) {
-    stopSpinner(false);
-    throw err;
-  }
-  stopSpinner(true);
+  const keys = await withSkmSpinner(`SKM 키 저장소 ${parsedId} 키 목록 조회 중...`, () =>
+    client.listKeys(parsedId, filter),
+  );
 
   output(opts, {
     headers: ["keyId", "name", "keyType", "currentKeyValueVersion", "lastAccessDatetime", "deletionDatetime"],
@@ -81,15 +75,9 @@ const getCommand = withSkmOptions(
   const macAddress = parseMacAddressOption(opts.macAddress);
   const { client } = await resolveSkmClient({ profile: opts.profile, macAddress });
 
-  startSpinner(`SKM 키 ${formatCell(parsedKeyId)} 조회 중...`);
-  let key: SkmKey;
-  try {
-    key = await client.getKey(parsedId, parsedKeyId);
-  } catch (err) {
-    stopSpinner(false);
-    throw err;
-  }
-  stopSpinner(true);
+  const key = await withSkmSpinner(`SKM 키 ${formatCell(parsedKeyId)} 조회 중...`, () =>
+    client.getKey(parsedId, parsedKeyId),
+  );
 
   output(opts, {
     headers: ["field", "value"],

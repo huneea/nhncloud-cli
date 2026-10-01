@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { output } from "../../formatters/table.js";
 import type { SkmAuthDetail, SkmKeyStore } from "../../services/skm/types.js";
-import { startSpinner, stopSpinner } from "../../utils/spinner.js";
+import { parseRequiredArgument } from "../parse-options.js";
 import {
   formatCell,
   maskAuthDetail,
@@ -11,23 +11,11 @@ import {
   resolveSkmClient,
   type SkmCommandOptions,
   withSkmOptions,
+  withSkmSpinner,
 } from "./helpers.js";
-import { parseRequiredArgument } from "../parse-options.js";
 
 interface AuthOptions extends SkmCommandOptions {
   type: string;
-}
-
-async function withSpinner<T>(message: string, task: () => Promise<T>): Promise<T> {
-  startSpinner(message);
-  try {
-    const result = await task();
-    stopSpinner(true);
-    return result;
-  } catch (err) {
-    stopSpinner(false);
-    throw err;
-  }
 }
 
 const KEYSTORE_FIELDS: ReadonlyArray<keyof SkmKeyStore> = [
@@ -41,7 +29,7 @@ const listCommand = withSkmOptions(new Command("list").description("키 저장�
     const macAddress = parseMacAddressOption(opts.macAddress);
     const { client } = await resolveSkmClient({ profile: opts.profile, macAddress });
 
-    const stores = await withSpinner("SKM 키 저장소 목록 조회 중...", () => client.listKeyStores());
+    const stores = await withSkmSpinner("SKM 키 저장소 목록 조회 중...", () => client.listKeyStores());
     output(opts, {
       headers: ["keyStoreId", "name", "ip4AuthUse", "macAuthUse", "certificateAuthUse", "lastChangeDatetime"],
       rows: stores.map((s) => [
@@ -61,7 +49,7 @@ const getCommand = withSkmOptions(
   const macAddress = parseMacAddressOption(opts.macAddress);
   const { client } = await resolveSkmClient({ profile: opts.profile, macAddress });
 
-  const store = await withSpinner(`SKM 키 저장소 ${parsedId} 조회 중...`, () => client.getKeyStore(parsedId));
+  const store = await withSkmSpinner(`SKM 키 저장소 ${parsedId} 조회 중...`, () => client.getKeyStore(parsedId));
   output(opts, {
     headers: ["field", "value"],
     rows: KEYSTORE_FIELDS.map((field) => [field, formatCell(store[field])]),
@@ -85,7 +73,7 @@ const authListCommand = withTypeOption(
   const macAddress = parseMacAddressOption(opts.macAddress);
   const { client } = await resolveSkmClient({ profile: opts.profile, macAddress });
 
-  const values = await withSpinner(`SKM ${type} 인증 정보 목록 조회 중...`, () => client.listAuths(parsedId, type));
+  const values = await withSkmSpinner(`SKM ${type} 인증 정보 목록 조회 중...`, () => client.listAuths(parsedId, type));
   output(opts, {
     headers: ["value"],
     rows: values.map((v) => [formatCell(v)]),
@@ -109,7 +97,7 @@ const authGetCommand = withTypeOption(
   const macAddress = parseMacAddressOption(opts.macAddress);
   const { client } = await resolveSkmClient({ profile: opts.profile, macAddress });
 
-  const details = await withSpinner(`SKM ${type} 인증 정보 조회 중...`, () =>
+  const details = await withSkmSpinner(`SKM ${type} 인증 정보 조회 중...`, () =>
     client.getAuth(parsedId, type, parsedValue),
   );
   const masked: SkmAuthDetail[] = details.map(maskAuthDetail);

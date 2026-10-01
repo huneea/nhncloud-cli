@@ -126,7 +126,7 @@ function keyMaterialCommand(
     new Command(name)
       .description(description)
       .argument("<key-id>", "키 ID")
-      .option("--key-version <n>", "조회할 키 버전 (0 이상, 미지정 시 최신)"),
+      .option("--key-version <n>", "조회할 키 버전 (0 이상, 생략하면 버전을 지정하지 않고 요청)"),
   ).action(async (keyId: string, _opts: unknown, command: Command) => {
     const opts = command.optsWithGlobals<KeyVersionOptions>();
     const parsedKeyId = parseRequiredArgument(keyId, "key-id");

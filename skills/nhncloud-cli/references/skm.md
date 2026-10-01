@@ -50,7 +50,10 @@ nhncloud skm secret get <key-id> --quiet
 
 - `--plaintext`로 넘긴 값은 셸 히스토리와 프로세스 목록에 남는다. 비밀 평문은 `--file`이나 표준 입력으로 넘긴다.
 - 입력의 끝 줄바꿈과 BOM을 지우지 않는다. 줄바꿈 없는 값은 `echo` 대신 `printf`로 넘긴다.
-- 한도는 대칭키 암복호화 32KB, 비대칭키 서명·검증 245바이트다. `--standard`는 64KB까지 받는다.
+- 크기 한도는 명령마다 다르다.
+  - `symmetric-key encrypt`: 평문 32KB(32768바이트)
+  - `symmetric-key decrypt`: 암호문 1MB(1,000,000바이트)
+  - `asymmetric-key sign`·`verify`: 245바이트, `--standard`를 주면 64KB(65536바이트)
 - `--standard`는 바이너리 입력을 base64로 바꿔 보낸다.
 
 ```bash
