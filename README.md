@@ -7,7 +7,7 @@
 
 [NHN Cloud](https://www.nhncloud.com) 를 AI 에이전트가 다룰 수 있게 만든 CLI 다.
 
-Compute·Network·Block Storage·Load Balancer·Container Registry·Kubernetes·Container Service·Log & Crash·Deploy·API Gateway 를 명령 한 줄로 다루고, 결과를 `--json` 으로 내보낸다.
+Compute·Network·Block Storage·Load Balancer·Container Registry·Kubernetes·Container Service·Log & Crash·Deploy·API Gateway·Secure Key Manager 를 명령 한 줄로 다루고, 결과를 `--json` 으로 내보낸다.
 Claude Code 같은 에이전트에 스킬로 설치하면 "인스턴스 목록 보여줘" 같은 자연어 지시를 그대로 처리한다.
 
 ```bash
@@ -74,7 +74,7 @@ CI·자동화는 flag 로 비대화형 설정한다. 비밀번호는 환경변�
 NHNCLOUD_IAAS_PASSWORD=<api-password> nhncloud configure \
   --uak-id <uak-id> --uak-secret <uak-secret> \
   --logncrash-appkey <appkey> \
-  [--deploy-appkey <appkey>] [--ncr-appkey <appkey>] [--ncs-appkey <appkey>] \
+  [--deploy-appkey <appkey>] [--ncr-appkey <appkey>] [--ncs-appkey <appkey>] [--skm-appkey <appkey>] \
   --iaas-tenant-id <tenant-id> --iaas-username <iam-username> --iaas-region kr1 \
   --no-verify
 ```
@@ -136,6 +136,8 @@ nhncloud apigateway service list                               # API Gateway 서
 nhncloud apigateway stage update <service-id> <stage-id> --description "설명" --yes  # API Gateway 스테이지 수정
 nhncloud apigateway stage import-resources <service-id> <stage-id> --yes             # 리소스를 스테이지로 반영
 nhncloud apigateway stage deploy create <service-id> <stage-id> --yes                 # API Gateway 스테이지 배포
+nhncloud skm key list <keystore-id>                            # Secure Key Manager 키 목록
+nhncloud skm secret get <key-id> --quiet                       # 기밀 데이터 원문
 ```
 
 전체 명령과 옵션은 `--help` 로 본다.

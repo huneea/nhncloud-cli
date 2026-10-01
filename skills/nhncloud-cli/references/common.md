@@ -90,6 +90,7 @@ nhncloud configure \
   --uak-id <uak-id> --uak-secret <uak-secret> \
   --logncrash-appkey <appkey> \
   --ncr-appkey <appkey> \
+  --skm-appkey <appkey> \
   --no-verify
 ```
 

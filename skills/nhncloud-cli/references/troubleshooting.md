@@ -26,6 +26,7 @@
 | NCR images/tags | UAK id 와 secret | HTTP Basic Auth to Harbor REST |
 | NCS | UAK id 와 secret, NCS appkey | OAuth Bearer token (`X-NHN-Authorization`) |
 | API Gateway | UAK id 와 secret, API Gateway appkey | OAuth Bearer token (`X-NHN-Authorization`) |
+| Secure Key Manager | UAK id 와 secret, SKM appkey, 키 저장소 IPv4·MAC 인증 | OAuth Bearer token (`X-NHN-Authorization`), MAC 은 `X-TOAST-CLIENT-MAC-ADDR` |
 
 ## Exit code
 

@@ -6,7 +6,7 @@ description: >-
   Claude Code 공개 스킬의 상태를 확인하거나
   `skills status|install|update|uninstall`로 관리하고 상태별 복구 방법을 안내할 때도 사용한다.
   Log & Crash, Deploy, Compute, Network, Block Storage, Floating IP,
-  Load Balancer, NCR, NKS, NCS, API Gateway 작업을 서비스별 참조와 명령 카탈로그로 안내한다.
+  Load Balancer, NCR, NKS, NCS, API Gateway, Secure Key Manager 작업을 서비스별 참조와 명령 카탈로그로 안내한다.
 ---
 
 # nhncloud-cli
@@ -37,4 +37,5 @@ description: >-
 | Kubernetes Service | [nks.md](references/nks.md) |
 | Container Service | [ncs.md](references/ncs.md) |
 | API Gateway 조회·변경·배포·Swagger export | [apigateway.md](references/apigateway.md) |
+| Secure Key Manager 키 조회·기밀 데이터·암복호화·서명 검증 | [skm.md](references/skm.md) |
 | 인증·profile·region·출력·검색 제한 문제 해결 | [troubleshooting.md](references/troubleshooting.md) |

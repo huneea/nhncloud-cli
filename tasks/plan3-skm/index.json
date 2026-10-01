@@ -1,10 +1,10 @@
 {
   "name": "plan3-skm",
   "description": "Secure Key Manager 조회 API와 데이터 API(기밀 데이터, 대칭키 암복호화, 비대칭키 서명·검증, 키 원문 조회)를 일반망·공공망 profile에서 쓰는 skm 명령군을 추가한다",
-  "status": "pending",
+  "status": "completed",
   "created_at": "2026-10-01",
   "total_phases": 4,
-  "current_phase": 1,
+  "current_phase": 4,
   "phases": [
     { "number": 1, "title": "SKM endpoint, configure --skm-appkey와 service client", "file": "phase-01.md", "execution_profile": "standard" },
     { "number": 2, "title": "skm confirm, keystore, key 조회 명령", "file": "phase-02.md", "execution_profile": "standard" },
