@@ -62,17 +62,17 @@ export function parseAuthValue(type: SkmAuthType, value: string): string;
 ### 3. `src/commands/skm/keystore-manage.ts` 신규
 
 `createCommand`, `updateCommand`, `deleteCommand`, `authAddCommand`, `authDeleteCommand`, `authPurgeCommand`를 export한다.
-`keystore.ts`가 앞 셋을 `keystoreCommand`에, 뒤 셋을 `authCommand`에 붙인다. `withTypeOption`을 `keystore.ts`에서 export해 재사용한다.
-설명을 `keystoreCommand`는 `SKM 키 저장소와 인증 정보 조회·관리`, `authCommand`는 `키 저장소 IPv4·MAC·인증서 인증 정보 조회·관리`로 바꾼다. 모든 말단 명령에 `withSkmOptions`를 쓴다.
+`keystore.ts`가 앞 셋을 `keystoreCommand`에, 뒤 셋을 `authCommand`에 붙인다. `keystore.ts`의 로컬 `withTypeOption`을 `src/commands/skm/helpers.ts`로 옮겨 export하고, `keystore.ts`와 `keystore-manage.ts`가 둘 다 helpers에서 import한다. `keystore-manage.ts`는 `keystore.ts`를 import하지 않는다(명령 파일끼리 import하면 순환과 초기화 순서 오류가 생긴다).
+설명을 `keystoreCommand`는 `SKM 키 저장소와 인증 정보 조회·관리`, `authCommand`는 `키 저장소 IPv4·MAC·인증서 인증 정보 조회·관리`로 바꾼다. 모든 말단 명령에 `withSkmOptions`를 쓰고, `parseMacAddressOption(opts.macAddress)` 결과를 `resolveSkmClient({ profile: opts.profile, macAddress })`에 넘긴다.
 
 | 명령 | 인수·옵션 | 동작 | 출력 |
 |---|---|---|---|
 | `create` | `--name <name>` 필수, `--auth <list>` 필수, `--auth-mode <mode>`(기본 `and`), `--description <text>` | `parseKeyNameOption`, `parseAuthListOption`, `parseAuthModeOption`, `parseDescriptionOption(…, 1000)` → `createKeyStore` | 응답 body, ids `[String(keyStoreId)]` |
 | `update <keystore-id>` | `--auth-mode <mode>` 필수, `--name`, `--description`, `--auth <list>` | 아래 | `{ operation: "keystore-update", status: "succeeded", keyStoreId, ...보낸 input }`, ids `[String(keyStoreId)]` |
 | `delete <keystore-id>` | `--yes` | `requireYes(opts.yes, "키 저장소 삭제")` → `deleteKeyStore` | `{ operation: "keystore-delete", status: "succeeded", keyStoreId }` |
-| `auth add <keystore-id> <value>` | `--type` 필수, `--description`, `--life-time <days>`, `--password <pw>`, `--password-file <path>` | 아래 | `{ operation: "auth-add", type, keyStoreId, ...응답 }`, ids `[value 또는 name]` |
-| `auth delete <keystore-id> <value>` | `--type` 필수, `--yes` | `requireYes(opts.yes, "인증 정보 삭제 예약")` → `parseAuthValue` → 이름 조회 → `scheduleAuthDeletion` | `{ operation: "auth-delete-scheduled", type, keyStoreId, ...응답 }` |
-| `auth purge <keystore-id> <value>` | `--type` 필수, `--yes` | `requireYes(opts.yes, "인증 정보 즉시 삭제")` → 같음 → `deleteAuthNow` | `{ operation: "auth-purge", type, keyStoreId, ...응답 }` |
+| `auth add <keystore-id> <value>` | `--type` 필수, `--description`, `--life-time <days>`, `--password <pw>`, `--password-file <path>` | 아래 | `{ operation: "auth-add", type, keyStoreId, ...응답 }`, ids `[parseAuthValue 결과]` (응답 값은 null일 수 있어 쓰지 않는다) |
+| `auth delete <keystore-id> <value>` | `--type` 필수, `--yes` | `requireYes(opts.yes, "인증 정보 삭제 예약")` → `parseAuthValue` → 이름 조회 → `scheduleAuthDeletion` | `{ operation: "auth-delete-scheduled", type, keyStoreId, ...응답 }`, ids `[parseAuthValue 결과]` |
+| `auth purge <keystore-id> <value>` | `--type` 필수, `--yes` | `requireYes(opts.yes, "인증 정보 즉시 삭제")` → 같음 → `deleteAuthNow` | `{ operation: "auth-purge", type, keyStoreId, ...응답 }`, ids `[parseAuthValue 결과]` |
 
 모든 쓰기 결과는 `outputSkmWriteResult`로 출력한다.
 

@@ -37,6 +37,10 @@ SKM 쓰기 명령을 README와 공개 스킬(`skills/nhncloud-cli/`)에 반영�
   - 인증서 추가는 `--life-time <days>`가 필수이고, 비밀번호는 `--password-file`이나 표준 입력을 권장하며 끝 줄바꿈 하나를 지운다는 점.
   - 대칭키·비대칭키는 자동 회전 없이 만들어진다는 점(콘솔에서 설정).
 - `## 비밀값 출력` 절에 `secret update`는 바꾼 값을 출력하지 않는다는 한 줄을 추가한다.
+- `## 명령 탐색`의 `--quiet` 출력 목록에 쓰기 명령을 더한다: `key create`·`secret update`·`key delete|purge`는 keyId, `keystore create|update|delete`는 keyStoreId, `keystore auth add|delete|purge`는 입력한 IPv4·MAC 값 또는 인증서 이름.
+- `## 입력과 크기 한도`에 `key create --type secret`·`secret update`의 값 1MB(1,000,000바이트), 인증서 비밀번호 1024바이트를 더한다.
+- `## 클라이언트 인증`의 "인증서 인증은 지원하지 않는다" 문장을 "인증서 인증 정보 등록(`auth add --type certificate`)은 지원하지만, CLI가 클라이언트 인증서를 보내 인증하는 것은 지원하지 않는다"로 구분한다.
+- `## 쓰기 명령`에 MAC 값은 소문자로 바꿔 보내므로 콘솔에서 대문자로 등록한 MAC은 CLI로 지우지 못할 수 있다는 한 줄을 넣는다.
 
 ### 2. `skills/nhncloud-cli/SKILL.md`
 
@@ -76,6 +80,7 @@ printf '%s' "$VALUE" | nhncloud skm key create <keystore-id> --type secret --nam
 | 13 | `keystore auth delete <id> qa-cert --type certificate --yes` 뒤 `auth purge` | 둘 다 종료 코드 0 |
 | 14 | `nhncloud skm keystore delete <id> --yes` | 종료 코드 0 (`body: null` 응답 처리 실측) |
 | 15 | 공공망 profile로 2와 14 반복 | 종료 코드 0 |
+| 16 | 콘솔에서 MAC을 대문자로 등록한 키 저장소에 `keystore auth delete <id> <MAC> --type mac --yes` | 성공 또는 서버 오류. 결과를 ADR-040과 `skm.md`에 반영 |
 
 QA 결과가 문서와 어긋나면 PR에서 `review-fix`로 client와 `docs/flow.md`, ADR-040, `skm.md`를 함께 고친다.
 

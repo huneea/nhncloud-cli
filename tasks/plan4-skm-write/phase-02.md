@@ -45,7 +45,7 @@ export function outputSkmWriteResult(opts: OutputOptions, result: Record<string,
 
 ### 2. `src/commands/skm/key-manage.ts` 신규
 
-`createCommand`, `deleteCommand`, `purgeCommand`를 export하고 `key.ts`의 `keyCommand`에 붙인다. `keyCommand` 설명을 `SKM 키 조회와 관리`로 바꾼다. 모두 `withSkmOptions`를 쓴다.
+`createCommand`, `deleteCommand`, `purgeCommand`를 export하고 `key.ts`의 `keyCommand`에 붙인다. `keyCommand` 설명을 `SKM 키 조회와 관리`로 바꾼다. 모두 `withSkmOptions`를 쓰고, 기존 `key.ts`처럼 `parseMacAddressOption(opts.macAddress)` 결과를 `resolveSkmClient({ profile: opts.profile, macAddress })`에 넘긴다.
 
 | 명령 | 인수·옵션 | 동작 | 출력 |
 |---|---|---|---|
@@ -55,7 +55,7 @@ export function outputSkmWriteResult(opts: OutputOptions, result: Record<string,
 
 `create` 순서:
 
-1. `parseKeyStoreId`, `parseKeyTypeOption`, `parseKeyNameOption`(필수 옵션이라 `undefined`가 아니다). `--description`은 trim 후 비면 `undefined`.
+1. `parseKeyStoreId`, `parseKeyTypeOption`, `parseKeyNameOption`(필수 옵션이라 `undefined`가 아니다). `--description`은 trim 후 비면 `undefined`. 키 설명은 공식 문서에 길이 한도가 없어 검사하지 않는다(키 저장소 설명의 1000자 한도와 다른 것은 의도다).
 2. 타입이 `SECRET`이면 `readSkmInput({ text: opts.value, file: opts.file }, { textFlag: "--value", label: "기밀 데이터", maxBytes: MAX_JSON_INPUT_BYTES })` → `decodeUtf8Input(..., "기밀 데이터", "바이너리는 base64로 인코딩해 전달하세요.")`.
    타입이 `SECRET`이 아닌데 `--value`나 `--file`이 있으면 `--value와 --file은 --type secret에서만 씁니다.`를 `EXIT_PARAM_ERROR`로 던진다. 이때 stdin은 읽지 않는다.
 3. `resolveSkmClient` → spinner 안에서 `resolveKeyStoreName` → 타입별 생성 메서드.

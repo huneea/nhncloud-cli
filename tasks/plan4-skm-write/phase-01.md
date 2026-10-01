@@ -43,7 +43,7 @@
 ## 의도 메모
 
 - `description`이 `undefined`면 요청 본문에서 키를 뺀다. 빈 문자열을 대신 보내지 않는다.
-- 키 저장소 수정·삭제는 `unwrapHeader`로 판정한다. `unwrap`을 쓰면 `body: null` 성공 응답이 `API 응답에 body 가 없습니다.` 오류가 된다.
+- 키 저장소 수정·삭제는 `unwrapHeader`로 판정한다. 응답 body가 `null`이거나 빠질 수 있고 검사할 필드가 없어서 헤더만 본다.
 - 쓰기 요청은 재시도하지 않는다(`retry: 0` 유지).
 - 기밀 데이터 수정 응답의 `secretValue`는 client가 그대로 반환한다. 출력에서 빼는 일은 Phase 02 명령이 한다.
 
