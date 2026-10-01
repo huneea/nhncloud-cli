@@ -1,6 +1,6 @@
 import ky, { HTTPError } from "ky";
 import { endpointFor } from "../../api/endpoints.js";
-import { unwrap, type NhnEnvelope } from "../../api/envelope.js";
+import { unwrap, unwrapHeader, type NhnEnvelope } from "../../api/envelope.js";
 import { toNhnCloudCliError } from "../../api/httpError.js";
 import { DEFAULT_TIMEOUT_MS } from "../../api/timeout.js";
 import type { CloudEnvironment } from "../../config/types.js";
@@ -9,9 +9,14 @@ import { EXIT_API_ERROR, EXIT_AUTH_ERROR } from "../../utils/exit-codes.js";
 import { sanitizeForTerminal } from "../../utils/terminal.js";
 import {
   isSkmAsymmetricKeyMaterial,
+  isSkmAuthAdded,
+  isSkmAuthDeletion,
   isSkmAuthDetail,
   isSkmClientInfo,
+  isSkmCreatedKey,
+  isSkmCreatedKeyStore,
   isSkmDecryptResult,
+  isSkmDeletion,
   isSkmEncryptResult,
   isSkmKey,
   isSkmKeyStore,
@@ -19,21 +24,29 @@ import {
   isSkmSignResult,
   isSkmStandardSignResult,
   isSkmSymmetricKey,
+  isSkmUpdatedSecret,
   isSkmVerifyResult,
   type SkmAsymmetricKeyMaterial,
+  type SkmAuthAdded,
+  type SkmAuthDeletion,
   type SkmAuthDetail,
   type SkmAuthType,
   type SkmClientInfo,
+  type SkmCreatedKey,
+  type SkmCreatedKeyStore,
   type SkmDecryptResult,
+  type SkmDeletion,
   type SkmEncryptResult,
   type SkmKey,
   type SkmKeyStatusFilter,
   type SkmKeyStore,
+  type SkmKeyStoreInput,
   type SkmKeyType,
   type SkmLocalKey,
   type SkmSignResult,
   type SkmStandardSignResult,
   type SkmSymmetricKey,
+  type SkmUpdatedSecret,
   type SkmVerifyResult,
 } from "./types.js";
 
@@ -48,6 +61,15 @@ const AUTH_PATHS: Record<SkmAuthType, { path: string; field: string }> = {
   mac: { path: "macs", field: "macList" },
   certificate: { path: "certificates", field: "certificateList" },
 };
+
+/** 인증 정보 쓰기 API 경로 조각. 조회 API 의 IPv4 경로(ips)와 이름이 다르다. */
+const AUTH_WRITE_PATH: Record<SkmAuthType, string> = {
+  ipv4: "ipv4s",
+  mac: "macs",
+  certificate: "certificates",
+};
+
+type HttpMethod = "get" | "post" | "put" | "delete";
 
 type Guard<T> = (value: unknown) => value is T;
 
@@ -73,6 +95,21 @@ function arrayOf<T>(guard: Guard<T>): Guard<T[]> {
 
 function isString(value: unknown): value is string {
   return typeof value === "string";
+}
+
+/** description 이 없으면 빈 문자열 대신 요청 본문에서 키를 뺀다. */
+function withDescription(body: Record<string, unknown>, description: string | undefined): Record<string, unknown> {
+  return description === undefined ? body : { ...body, description };
+}
+
+/** 인증서 삭제 API 는 대상을 name, IPv4·MAC 삭제 API 는 value 로 받는다. */
+function authDeletionBody(type: SkmAuthType, keyStoreName: string, value: string): Record<string, unknown> {
+  return type === "certificate" ? { keyStoreName, name: value } : { keyStoreName, value };
+}
+
+function keyStoreBody(input: SkmKeyStoreInput): Record<string, unknown> {
+  const { name, description, ip4AuthUse, macAuthUse, certificateAuthUse, authMode } = input;
+  return withDescription({ name, ip4AuthUse, macAuthUse, certificateAuthUse, authMode }, description);
 }
 
 function keyVersionParams(keyVersion: number | undefined): RequestOptions {
@@ -121,16 +158,10 @@ export class SkmClient {
   }
 
   /**
-   * 요청을 보내고 봉투를 벗긴 뒤 body 또는 body[field] 를 가드로 검사해 반환한다.
-   * field 가 null 이면 body 전체를 검사한다.
+   * 요청을 보내고 봉투 형태인지만 확인해 반환한다. 성공 판정은 호출부가 한다.
+   * 쓰기 요청도 중복 실행을 막으려고 재시도하지 않는다.
    */
-  private async request<T>(
-    method: "get" | "post",
-    path: string,
-    field: string | null,
-    guard: Guard<T>,
-    options: RequestOptions = {},
-  ): Promise<T> {
+  private async send(method: HttpMethod, path: string, options: RequestOptions): Promise<NhnEnvelope<unknown>> {
     let response: unknown;
     try {
       response = await ky[method](`${this.baseUrl}${path}`, {
@@ -146,12 +177,34 @@ export class SkmClient {
     if (!isEnvelope(response)) {
       throw new NhnCloudCliError("Secure Key Manager 응답 형식 오류: header", EXIT_API_ERROR);
     }
-    const body = unwrap(response);
+    return response;
+  }
+
+  /**
+   * 요청을 보내고 봉투를 벗긴 뒤 body 또는 body[field] 를 가드로 검사해 반환한다.
+   * field 가 null 이면 body 전체를 검사한다.
+   */
+  private async request<T>(
+    method: HttpMethod,
+    path: string,
+    field: string | null,
+    guard: Guard<T>,
+    options: RequestOptions = {},
+  ): Promise<T> {
+    const body = unwrap(await this.send(method, path, options));
     const value = field === null ? body : isRecord(body) ? body[field] : undefined;
     if (!guard(value)) {
       throw new NhnCloudCliError(`Secure Key Manager 응답 형식 오류: ${field ?? "body"}`, EXIT_API_ERROR);
     }
     return value;
+  }
+
+  /**
+   * body 가 null 이거나 없는 응답(키 저장소 수정·삭제)은 검사할 필드가 없어 헤더만 본다 (ADR-040).
+   * isSuccessful 이 false 면 unwrapHeader 가 NhnEnvelopeError 를 던진다.
+   */
+  private async requestHeaderOnly(method: "put" | "delete", path: string, options: RequestOptions = {}): Promise<void> {
+    unwrapHeader(await this.send(method, path, options));
   }
 
   private keyPath(prefix: string, keyId: string, action: string): string {
@@ -302,5 +355,96 @@ export class SkmClient {
       isSkmAsymmetricKeyMaterial,
       keyVersionParams(keyVersion),
     );
+  }
+
+  createSecret(
+    keyStoreName: string,
+    name: string,
+    description: string | undefined,
+    secretValue: string,
+  ): Promise<SkmCreatedKey> {
+    return this.request("post", "/keys/secrets/create", null, isSkmCreatedKey, {
+      json: withDescription({ keyStoreName, name, secretValue }, description),
+    });
+  }
+
+  /** 자동 회전 주기의 단위가 문서에 없어 항상 0(자동 회전 안 함)을 보낸다 (ADR-040). */
+  createSymmetricKey(keyStoreName: string, name: string, description: string | undefined): Promise<SkmCreatedKey> {
+    return this.request("post", "/keys/symmetric-keys/create", null, isSkmCreatedKey, {
+      json: withDescription({ keyStoreName, name, autoRotationPeriod: 0 }, description),
+    });
+  }
+
+  /** 자동 회전 주기의 단위가 문서에 없어 항상 0(자동 회전 안 함)을 보낸다 (ADR-040). */
+  createAsymmetricKey(keyStoreName: string, name: string, description: string | undefined): Promise<SkmCreatedKey> {
+    return this.request("post", "/keys/asymmetric-keys/create", null, isSkmCreatedKey, {
+      json: withDescription({ keyStoreName, name, autoRotationPeriod: 0 }, description),
+    });
+  }
+
+  updateSecret(keyId: string, secretValue: string): Promise<SkmUpdatedSecret> {
+    return this.request("put", `/secrets/${encodeURIComponent(keyId)}`, null, isSkmUpdatedSecret, {
+      json: { secretValue },
+    });
+  }
+
+  /** 7일 뒤 삭제를 예약한다. */
+  scheduleKeyDeletion(keyId: string): Promise<SkmDeletion> {
+    return this.request("put", this.keyPath("keys", keyId, "delete"), null, isSkmDeletion);
+  }
+
+  /** 삭제 예약된 키를 즉시 삭제한다. 되돌릴 수 없다. */
+  deleteKeyNow(keyId: string): Promise<SkmDeletion> {
+    return this.request("delete", `/keys/${encodeURIComponent(keyId)}`, null, isSkmDeletion);
+  }
+
+  createKeyStore(input: SkmKeyStoreInput): Promise<SkmCreatedKeyStore> {
+    return this.request("post", "/keystores", null, isSkmCreatedKeyStore, { json: keyStoreBody(input) });
+  }
+
+  /** 전체 교체 API 라 주지 않은 값은 호출부가 현재 값으로 채워 넘긴다 (ADR-040). */
+  updateKeyStore(keyStoreId: number, input: SkmKeyStoreInput): Promise<void> {
+    return this.requestHeaderOnly("put", `/keystores/${keyStoreId}`, { json: keyStoreBody(input) });
+  }
+
+  deleteKeyStore(keyStoreId: number): Promise<void> {
+    return this.requestHeaderOnly("delete", `/keystores/${keyStoreId}`);
+  }
+
+  addAuth(
+    type: "ipv4" | "mac",
+    keyStoreName: string,
+    value: string,
+    description: string | undefined,
+  ): Promise<SkmAuthAdded> {
+    return this.request("post", `/auths/${AUTH_WRITE_PATH[type]}`, null, isSkmAuthAdded, {
+      json: withDescription({ keyStoreName, value }, description),
+    });
+  }
+
+  addCertificate(
+    keyStoreName: string,
+    name: string,
+    password: string,
+    lifeTime: number,
+    description: string | undefined,
+  ): Promise<SkmAuthAdded> {
+    return this.request("post", `/auths/${AUTH_WRITE_PATH.certificate}`, null, isSkmAuthAdded, {
+      json: withDescription({ keyStoreName, name, password, lifeTime }, description),
+    });
+  }
+
+  /** 7일 뒤 삭제를 예약한다. */
+  scheduleAuthDeletion(type: SkmAuthType, keyStoreName: string, value: string): Promise<SkmAuthDeletion> {
+    return this.request("put", `/auths/${AUTH_WRITE_PATH[type]}/delete`, null, isSkmAuthDeletion, {
+      json: authDeletionBody(type, keyStoreName, value),
+    });
+  }
+
+  /** 삭제 예약된 인증 정보를 즉시 삭제한다. 되돌릴 수 없다. */
+  deleteAuthNow(type: SkmAuthType, keyStoreName: string, value: string): Promise<SkmAuthDeletion> {
+    return this.request("post", `/auths/${AUTH_WRITE_PATH[type]}/delete`, null, isSkmAuthDeletion, {
+      json: authDeletionBody(type, keyStoreName, value),
+    });
   }
 }

@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   isSkmAsymmetricKeyMaterial,
+  isSkmAuthAdded,
+  isSkmAuthDeletion,
   isSkmAuthDetail,
   isSkmClientInfo,
+  isSkmCreatedKey,
+  isSkmCreatedKeyStore,
   isSkmDecryptResult,
+  isSkmDeletion,
   isSkmEncryptResult,
   isSkmKey,
   isSkmKeyStore,
@@ -11,6 +16,7 @@ import {
   isSkmSignResult,
   isSkmStandardSignResult,
   isSkmSymmetricKey,
+  isSkmUpdatedSecret,
   isSkmVerifyResult,
 } from "./types.js";
 
@@ -133,6 +139,70 @@ describe("SKM 응답 가드: 형식 오류 거부", () => {
     ["standardEncodedKey 누락", isSkmAsymmetricKeyMaterial, { ...asymmetricKey, standardEncodedKey: undefined }],
     ["null", isSkmKey, null],
     ["배열", isSkmKeyStore, [keyStore]],
+  ] as const)("%s", (_name, guard, value) => {
+    expect(guard(value)).toBe(false);
+  });
+});
+
+// 공식 API v1.3 가이드의 쓰기 API 응답 예시에서 식별자와 비밀값을 placeholder 로 바꾼 값이다.
+const createdKeyStore = {
+  keyStoreId: 1,
+  name: "키 저장소 이름",
+  description: "키 저장소 설명",
+  ip4AuthUse: "Y",
+  macAuthUse: "N",
+  certificateAuthUse: "N",
+  authMode: "AND",
+};
+
+const updatedSecret = {
+  keyId: "<key-id>",
+  name: "키 이름",
+  description: "키 설명",
+  secretValue: "<secret-value>",
+  ...audit,
+};
+
+const deletion = { keyId: "<key-id>", deletionDateTime: "2025-02-17T15:00:00" };
+
+describe("SKM 쓰기 응답 가드: 공식 예시 통과", () => {
+  it.each([
+    ["isSkmCreatedKey", isSkmCreatedKey, { keyId: "<key-id>", keyStatus: "ACTIVE" }],
+    ["isSkmCreatedKeyStore", isSkmCreatedKeyStore, createdKeyStore],
+    ["isSkmUpdatedSecret", isSkmUpdatedSecret, updatedSecret],
+    ["isSkmDeletion", isSkmDeletion, deletion],
+    ["isSkmAuthAdded(IPv4)", isSkmAuthAdded, { value: "192.0.2.1", description: "IPv4 설명" }],
+    ["isSkmAuthAdded(인증서)", isSkmAuthAdded, { name: "<certificate-name>", description: "인증서 설명" }],
+    ["isSkmAuthDeletion(MAC)", isSkmAuthDeletion, { value: "00:00:00:00:00:00", deletionDateTime: "2025-02-17T15:00:00" }],
+    ["isSkmAuthDeletion(인증서 name 만)", isSkmAuthDeletion, { name: "<certificate-name>", deletionDateTime: "2025-02-17T15:00:00" }],
+  ] as const)("%s", (_name, guard, value) => {
+    expect(guard(value)).toBe(true);
+  });
+
+  it("선택 필드가 빠지거나 null 인 응답을 통과시킨다", () => {
+    expect(isSkmCreatedKeyStore({ ...createdKeyStore, description: null, authMode: undefined })).toBe(true);
+    expect(isSkmUpdatedSecret({ keyId: "<key-id>", name: "키 이름", secretValue: null })).toBe(true);
+    expect(isSkmAuthAdded({ value: "192.0.2.1", name: null, description: null })).toBe(true);
+  });
+});
+
+describe("SKM 쓰기 응답 가드: 형식 오류 거부", () => {
+  it.each([
+    ["keyId 누락", isSkmCreatedKey, { keyStatus: "ACTIVE" }],
+    ["keyStatus 누락", isSkmCreatedKey, { keyId: "<key-id>" }],
+    ["keyStoreId 누락", isSkmCreatedKeyStore, { ...createdKeyStore, keyStoreId: undefined }],
+    ["keyStoreId 문자열", isSkmCreatedKeyStore, { ...createdKeyStore, keyStoreId: "1" }],
+    ["authMode 숫자", isSkmCreatedKeyStore, { ...createdKeyStore, authMode: 1 }],
+    ["updatedSecret keyId 누락", isSkmUpdatedSecret, { ...updatedSecret, keyId: undefined }],
+    ["secretValue 숫자", isSkmUpdatedSecret, { ...updatedSecret, secretValue: 1 }],
+    ["deletion keyId 누락", isSkmDeletion, { deletionDateTime: "2025-02-17T15:00:00" }],
+    ["deletion deletionDateTime 누락", isSkmDeletion, { keyId: "<key-id>" }],
+    ["authAdded value·name 모두 없음", isSkmAuthAdded, { description: "설명" }],
+    ["authAdded description 숫자", isSkmAuthAdded, { value: "192.0.2.1", description: 1 }],
+    ["authDeletion value·name 모두 없음", isSkmAuthDeletion, { deletionDateTime: "2025-02-17T15:00:00" }],
+    ["authDeletion deletionDateTime 누락", isSkmAuthDeletion, { value: "192.0.2.1" }],
+    ["authDeletion name 숫자", isSkmAuthDeletion, { value: "192.0.2.1", name: 1, deletionDateTime: "2025-02-17T15:00:00" }],
+    ["null", isSkmDeletion, null],
   ] as const)("%s", (_name, guard, value) => {
     expect(guard(value)).toBe(false);
   });

@@ -104,6 +104,64 @@ export interface SkmAsymmetricKeyMaterial {
   keyVersion: number;
 }
 
+export type SkmAuthMode = "AND" | "OR";
+
+/** 키 저장소 생성·수정 요청 본문이다. 수정 API 는 전체 교체라 모든 값을 보낸다 (ADR-040). */
+export interface SkmKeyStoreInput {
+  name: string;
+  description?: string;
+  ip4AuthUse: "Y" | "N";
+  macAuthUse: "Y" | "N";
+  certificateAuthUse: "Y" | "N";
+  authMode: SkmAuthMode;
+}
+
+export interface SkmCreatedKey {
+  keyId: string;
+  keyStatus: string;
+}
+
+export interface SkmCreatedKeyStore {
+  keyStoreId: number;
+  name: string;
+  description?: string | null;
+  ip4AuthUse: string;
+  macAuthUse: string;
+  certificateAuthUse: string;
+  authMode?: string | null;
+}
+
+/** 기밀 데이터 수정 응답이다. secretValue 를 출력에서 빼는 일은 명령이 맡는다 (ADR-040). */
+export interface SkmUpdatedSecret {
+  keyId: string;
+  name: string;
+  description?: string | null;
+  secretValue?: string | null;
+  creationUser?: string | null;
+  creationDatetime?: string | null;
+  lastChangeUser?: string | null;
+  lastChangeDatetime?: string | null;
+}
+
+export interface SkmDeletion {
+  keyId: string;
+  deletionDateTime: string;
+}
+
+/** IPv4·MAC 등록 응답은 value, 인증서 등록 응답은 name 을 쓴다. */
+export interface SkmAuthAdded {
+  value?: string | null;
+  name?: string | null;
+  description?: string | null;
+}
+
+/** IPv4·MAC 삭제 응답은 value, 인증서 삭제 응답은 name 을 쓴다. */
+export interface SkmAuthDeletion {
+  value?: string | null;
+  name?: string | null;
+  deletionDateTime: string;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -216,4 +274,45 @@ export function isSkmAsymmetricKeyMaterial(value: unknown): value is SkmAsymmetr
     hasStrings(value, ["keyType", "key", "encodedKey", "standardEncodedKey"]) &&
     hasNumbers(value, ["keyVersion"])
   );
+}
+
+export function isSkmCreatedKey(value: unknown): value is SkmCreatedKey {
+  return isRecord(value) && hasStrings(value, ["keyId", "keyStatus"]);
+}
+
+export function isSkmCreatedKeyStore(value: unknown): value is SkmCreatedKeyStore {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value["keyStoreId"] === "number" &&
+    hasStrings(value, ["name", "ip4AuthUse", "macAuthUse", "certificateAuthUse"]) &&
+    hasOptional(value, ["description", "authMode"], "string")
+  );
+}
+
+export function isSkmUpdatedSecret(value: unknown): value is SkmUpdatedSecret {
+  if (!isRecord(value)) return false;
+  return (
+    hasStrings(value, ["keyId", "name"]) &&
+    hasOptional(value, ["description", "secretValue", ...AUDIT_FIELDS], "string")
+  );
+}
+
+export function isSkmDeletion(value: unknown): value is SkmDeletion {
+  return isRecord(value) && hasStrings(value, ["keyId", "deletionDateTime"]);
+}
+
+/** value 와 name 중 하나는 문자열이어야 한다 (isSkmAuthDetail 과 같은 규칙). */
+function hasAuthIdentifier(obj: Record<string, unknown>): boolean {
+  return (
+    (typeof obj["value"] === "string" || typeof obj["name"] === "string") &&
+    hasOptional(obj, ["value", "name"], "string")
+  );
+}
+
+export function isSkmAuthAdded(value: unknown): value is SkmAuthAdded {
+  return isRecord(value) && hasAuthIdentifier(value) && hasOptional(value, ["description"], "string");
+}
+
+export function isSkmAuthDeletion(value: unknown): value is SkmAuthDeletion {
+  return isRecord(value) && hasAuthIdentifier(value) && hasStrings(value, ["deletionDateTime"]);
 }

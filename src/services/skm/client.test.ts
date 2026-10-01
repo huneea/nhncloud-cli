@@ -4,10 +4,13 @@ import { SkmClient } from "./client.js";
 import { NhnEnvelopeError } from "../../api/envelope.js";
 import { EXIT_API_ERROR, EXIT_AUTH_ERROR } from "../../utils/exit-codes.js";
 
-// HTTPError 를 실제 클래스로 유지해야 instanceof 분기를 검증할 수 있어 get·post 만 바꾼다.
+// HTTPError 를 실제 클래스로 유지해야 instanceof 분기를 검증할 수 있어 HTTP 메서드만 바꾼다.
 vi.mock("ky", async (importOriginal) => {
   const actual = await importOriginal<typeof import("ky")>();
-  return { ...actual, default: { ...actual.default, get: vi.fn(), post: vi.fn() } };
+  return {
+    ...actual,
+    default: { ...actual.default, get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
+  };
 });
 
 const realBase = "https://api-keymanager.nhncloudservice.com/keymanager/v1.3/appkey/test-appkey";
@@ -36,6 +39,14 @@ function getOptions(call: number) {
 
 function postOptions(call: number) {
   return vi.mocked(ky.post).mock.calls[call]?.[1];
+}
+
+function putOptions(call: number) {
+  return vi.mocked(ky.put).mock.calls[call]?.[1];
+}
+
+function deleteOptions(call: number) {
+  return vi.mocked(ky.delete).mock.calls[call]?.[1];
 }
 
 describe("SkmClient 요청 구성", () => {
@@ -262,6 +273,217 @@ describe("SkmClient 오류 변환", () => {
     await expect(client.getSecret("key-1")).rejects.toMatchObject({
       exitCode: EXIT_API_ERROR,
       message: expect.stringContaining("API 호출 실패 (500)"),
+    });
+  });
+});
+
+describe("SkmClient 키 쓰기", () => {
+  const client = new SkmClient("token", "real", "test-appkey");
+  const created = { keyId: "<key-id>", keyStatus: "ACTIVE" };
+  const deletion = { keyId: "<key-id>", deletionDateTime: "2025-02-17T15:00:00" };
+  beforeEach(() => vi.clearAllMocks());
+
+  it("createSecret 은 /keys/secrets/create 에 키 저장소 이름·이름·설명·값을 POST 한다", async () => {
+    vi.mocked(ky.post).mockReturnValue(envelope(created));
+    await expect(client.createSecret("store", "db-password", "설명", "<secret-value>")).resolves.toStrictEqual(created);
+    expect(vi.mocked(ky.post).mock.calls[0]?.[0]).toBe(`${realBase}/keys/secrets/create`);
+    expect(postOptions(0)).toMatchObject({ retry: 0 });
+    expect(postOptions(0)?.json).toStrictEqual({
+      keyStoreName: "store", name: "db-password", description: "설명", secretValue: "<secret-value>",
+    });
+  });
+
+  it("createSecret 은 description 이 undefined 면 본문에 description 키를 넣지 않는다", async () => {
+    vi.mocked(ky.post).mockReturnValue(envelope(created));
+    await client.createSecret("store", "db-password", undefined, "<secret-value>");
+    expect(postOptions(0)?.json).toStrictEqual({ keyStoreName: "store", name: "db-password", secretValue: "<secret-value>" });
+    expect(postOptions(0)?.json).not.toHaveProperty("description");
+  });
+
+  it("createSymmetricKey 는 /keys/symmetric-keys/create 에 autoRotationPeriod 0 을 담는다", async () => {
+    vi.mocked(ky.post).mockReturnValue(envelope(created));
+    await client.createSymmetricKey("store", "enc-key", "설명");
+    expect(vi.mocked(ky.post).mock.calls[0]?.[0]).toBe(`${realBase}/keys/symmetric-keys/create`);
+    expect(postOptions(0)?.json).toStrictEqual({
+      keyStoreName: "store", name: "enc-key", description: "설명", autoRotationPeriod: 0,
+    });
+  });
+
+  it("createAsymmetricKey 는 /keys/asymmetric-keys/create 에 autoRotationPeriod 0 을 담는다", async () => {
+    vi.mocked(ky.post).mockReturnValue(envelope(created));
+    await client.createAsymmetricKey("store", "sign-key", undefined);
+    expect(vi.mocked(ky.post).mock.calls[0]?.[0]).toBe(`${realBase}/keys/asymmetric-keys/create`);
+    expect(postOptions(0)?.json).toStrictEqual({ keyStoreName: "store", name: "sign-key", autoRotationPeriod: 0 });
+  });
+
+  it("키 생성 응답에 keyStatus 가 없으면 응답 형식 오류다", async () => {
+    vi.mocked(ky.post).mockReturnValue(envelope({ keyId: "<key-id>" }));
+    await expect(client.createSymmetricKey("store", "enc-key", undefined)).rejects.toMatchObject({
+      exitCode: EXIT_API_ERROR,
+      message: "Secure Key Manager 응답 형식 오류: body",
+    });
+  });
+
+  it("updateSecret 은 /secrets/<keyId> 로 PUT 하고 secretValue 를 포함한 응답을 그대로 반환한다", async () => {
+    const updated = { keyId: "<key-id>", name: "db-password", description: null, secretValue: "<secret-value>" };
+    vi.mocked(ky.put).mockReturnValue(envelope(updated));
+    await expect(client.updateSecret("key/1", "<secret-value>")).resolves.toStrictEqual(updated);
+    expect(vi.mocked(ky.put).mock.calls[0]?.[0]).toBe(`${realBase}/secrets/key%2F1`);
+    expect(putOptions(0)).toMatchObject({ retry: 0, json: { secretValue: "<secret-value>" } });
+  });
+
+  it("scheduleKeyDeletion 은 /keys/<keyId>/delete 로 본문 없이 PUT 한다", async () => {
+    vi.mocked(ky.put).mockReturnValue(envelope(deletion));
+    await expect(client.scheduleKeyDeletion("key-1")).resolves.toStrictEqual(deletion);
+    expect(vi.mocked(ky.put).mock.calls[0]?.[0]).toBe(`${realBase}/keys/key-1/delete`);
+    expect(putOptions(0)?.json).toBeUndefined();
+  });
+
+  it("deleteKeyNow 는 /keys/<keyId> 로 DELETE 한다", async () => {
+    vi.mocked(ky.delete).mockReturnValue(envelope(deletion));
+    await expect(client.deleteKeyNow("key-1")).resolves.toStrictEqual(deletion);
+    expect(vi.mocked(ky.delete).mock.calls[0]?.[0]).toBe(`${realBase}/keys/key-1`);
+    expect(deleteOptions(0)).toMatchObject({ retry: 0 });
+  });
+
+  it("deleteKeyNow 가 HTTP 400 봉투 본문을 받으면 서버 resultMessage 를 담아 던진다", async () => {
+    const url = `${realBase}/keys/key-1`;
+    const body = JSON.stringify({ header: { isSuccessful: false, resultCode: -1, resultMessage: "Key is not scheduled for deletion" } });
+    const error = new HTTPError(new Response(body, { status: 400 }), new Request(url, { method: "DELETE" }), {} as never);
+    vi.mocked(ky.delete).mockReturnValue({ json: async () => { throw error; } } as never);
+    await expect(client.deleteKeyNow("key-1")).rejects.toMatchObject({
+      exitCode: EXIT_API_ERROR,
+      message: "API 호출 실패 (400): Key is not scheduled for deletion",
+    });
+  });
+});
+
+describe("SkmClient 키 저장소 쓰기", () => {
+  const client = new SkmClient("token", "real", "test-appkey");
+  const input = {
+    name: "store", description: "설명", ip4AuthUse: "Y", macAuthUse: "N", certificateAuthUse: "N", authMode: "AND",
+  } as const;
+  beforeEach(() => vi.clearAllMocks());
+
+  it("createKeyStore 는 /keystores 에 인증 설정을 POST 하고 생성된 키 저장소를 반환한다", async () => {
+    const created = { keyStoreId: 7, ...input };
+    vi.mocked(ky.post).mockReturnValue(envelope(created));
+    await expect(client.createKeyStore(input)).resolves.toStrictEqual(created);
+    expect(vi.mocked(ky.post).mock.calls[0]?.[0]).toBe(`${realBase}/keystores`);
+    expect(postOptions(0)?.json).toStrictEqual(input);
+  });
+
+  it("createKeyStore 는 description 이 undefined 면 본문에서 뺀다", async () => {
+    const { description: _description, ...withoutDescription } = input;
+    vi.mocked(ky.post).mockReturnValue(envelope({ keyStoreId: 7, ...withoutDescription }));
+    await client.createKeyStore({ ...withoutDescription, description: undefined });
+    expect(postOptions(0)?.json).toStrictEqual(withoutDescription);
+  });
+
+  it("updateKeyStore 는 /keystores/<id> 로 PUT 하고 body null 응답에 resolve 한다", async () => {
+    vi.mocked(ky.put).mockReturnValue(envelope(null));
+    await expect(client.updateKeyStore(7, input)).resolves.toBeUndefined();
+    expect(vi.mocked(ky.put).mock.calls[0]?.[0]).toBe(`${realBase}/keystores/7`);
+    expect(putOptions(0)).toMatchObject({ retry: 0, json: input });
+  });
+
+  it("updateKeyStore 는 body 가 없는 성공 봉투에도 resolve 한다", async () => {
+    vi.mocked(ky.put).mockReturnValue(mockKyResponse({ header: successfulHeader }));
+    await expect(client.updateKeyStore(7, input)).resolves.toBeUndefined();
+  });
+
+  it("updateKeyStore 는 isSuccessful: false 면 NhnEnvelopeError 로 reject 한다", async () => {
+    vi.mocked(ky.put).mockReturnValue(mockKyResponse({
+      header: { isSuccessful: false, resultCode: -1, resultMessage: "Invalid key store" },
+      body: null,
+    }));
+    const err = await client.updateKeyStore(7, input).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(NhnEnvelopeError);
+    expect(err).toMatchObject({ exitCode: EXIT_API_ERROR, message: expect.stringContaining("Invalid key store") });
+  });
+
+  it("updateKeyStore 는 봉투가 아닌 응답을 header 형식 오류로 거부한다", async () => {
+    vi.mocked(ky.put).mockReturnValue(mockKyResponse(null));
+    await expect(client.updateKeyStore(7, input)).rejects.toMatchObject({
+      exitCode: EXIT_API_ERROR,
+      message: "Secure Key Manager 응답 형식 오류: header",
+    });
+  });
+
+  it("deleteKeyStore 는 /keystores/<id> 로 DELETE 하고 body null 응답에 resolve 한다", async () => {
+    vi.mocked(ky.delete).mockReturnValue(envelope(null));
+    await expect(client.deleteKeyStore(7)).resolves.toBeUndefined();
+    expect(vi.mocked(ky.delete).mock.calls[0]?.[0]).toBe(`${realBase}/keystores/7`);
+    expect(deleteOptions(0)?.json).toBeUndefined();
+  });
+
+  it("deleteKeyStore 는 isSuccessful: false 면 NhnEnvelopeError 로 reject 한다", async () => {
+    vi.mocked(ky.delete).mockReturnValue(mockKyResponse({
+      header: { isSuccessful: false, resultCode: -1, resultMessage: "Key store has keys" },
+      body: null,
+    }));
+    await expect(client.deleteKeyStore(7)).rejects.toBeInstanceOf(NhnEnvelopeError);
+  });
+});
+
+describe("SkmClient 인증 정보 쓰기", () => {
+  const client = new SkmClient("token", "real", "test-appkey");
+  const deletionDateTime = "2025-02-17T15:00:00";
+  beforeEach(() => vi.clearAllMocks());
+
+  it("addAuth(ipv4) 는 /auths/ipv4s 에 키 저장소 이름·값·설명을 POST 한다", async () => {
+    vi.mocked(ky.post).mockReturnValue(envelope({ value: "192.0.2.1", description: "설명" }));
+    await expect(client.addAuth("ipv4", "store", "192.0.2.1", "설명"))
+      .resolves.toStrictEqual({ value: "192.0.2.1", description: "설명" });
+    expect(vi.mocked(ky.post).mock.calls[0]?.[0]).toBe(`${realBase}/auths/ipv4s`);
+    expect(postOptions(0)?.json).toStrictEqual({ keyStoreName: "store", value: "192.0.2.1", description: "설명" });
+  });
+
+  it("addAuth(mac) 는 /auths/macs 에 POST 하고 description 이 없으면 본문에서 뺀다", async () => {
+    vi.mocked(ky.post).mockReturnValue(envelope({ value: "aa:bb:cc:dd:ee:ff" }));
+    await client.addAuth("mac", "store", "aa:bb:cc:dd:ee:ff", undefined);
+    expect(vi.mocked(ky.post).mock.calls[0]?.[0]).toBe(`${realBase}/auths/macs`);
+    expect(postOptions(0)?.json).toStrictEqual({ keyStoreName: "store", value: "aa:bb:cc:dd:ee:ff" });
+  });
+
+  it("addCertificate 는 /auths/certificates 에 이름·비밀번호·유효 기간을 POST 한다", async () => {
+    vi.mocked(ky.post).mockReturnValue(envelope({ name: "cert1", description: "설명" }));
+    await expect(client.addCertificate("store", "cert1", "<certificate-password>", 365, "설명"))
+      .resolves.toStrictEqual({ name: "cert1", description: "설명" });
+    expect(vi.mocked(ky.post).mock.calls[0]?.[0]).toBe(`${realBase}/auths/certificates`);
+    expect(postOptions(0)?.json).toStrictEqual({
+      keyStoreName: "store", name: "cert1", password: "<certificate-password>", lifeTime: 365, description: "설명",
+    });
+  });
+
+  it("scheduleAuthDeletion(certificate) 는 /auths/certificates/delete 에 name 으로 PUT 한다", async () => {
+    vi.mocked(ky.put).mockReturnValue(envelope({ name: "cert1", deletionDateTime }));
+    await expect(client.scheduleAuthDeletion("certificate", "store", "cert1"))
+      .resolves.toStrictEqual({ name: "cert1", deletionDateTime });
+    expect(vi.mocked(ky.put).mock.calls[0]?.[0]).toBe(`${realBase}/auths/certificates/delete`);
+    expect(putOptions(0)?.json).toStrictEqual({ keyStoreName: "store", name: "cert1" });
+  });
+
+  it("scheduleAuthDeletion(mac) 는 /auths/macs/delete 에 value 로 PUT 한다", async () => {
+    vi.mocked(ky.put).mockReturnValue(envelope({ value: "aa:bb:cc:dd:ee:ff", deletionDateTime }));
+    await client.scheduleAuthDeletion("mac", "store", "aa:bb:cc:dd:ee:ff");
+    expect(vi.mocked(ky.put).mock.calls[0]?.[0]).toBe(`${realBase}/auths/macs/delete`);
+    expect(putOptions(0)?.json).toStrictEqual({ keyStoreName: "store", value: "aa:bb:cc:dd:ee:ff" });
+  });
+
+  it("deleteAuthNow(ipv4) 는 /auths/ipv4s/delete 에 value 로 POST 한다", async () => {
+    vi.mocked(ky.post).mockReturnValue(envelope({ value: "10.0.0.1", deletionDateTime }));
+    await expect(client.deleteAuthNow("ipv4", "store", "10.0.0.1"))
+      .resolves.toStrictEqual({ value: "10.0.0.1", deletionDateTime });
+    expect(vi.mocked(ky.post).mock.calls[0]?.[0]).toBe(`${realBase}/auths/ipv4s/delete`);
+    expect(postOptions(0)?.json).toStrictEqual({ keyStoreName: "store", value: "10.0.0.1" });
+  });
+
+  it("인증 정보 삭제 응답에 deletionDateTime 이 없으면 응답 형식 오류다", async () => {
+    vi.mocked(ky.post).mockReturnValue(envelope({ value: "10.0.0.1" }));
+    await expect(client.deleteAuthNow("ipv4", "store", "10.0.0.1")).rejects.toMatchObject({
+      exitCode: EXIT_API_ERROR,
+      message: "Secure Key Manager 응답 형식 오류: body",
     });
   });
 });
