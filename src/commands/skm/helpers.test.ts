@@ -14,6 +14,7 @@ import {
   parseKeyStoreId,
   parseKeyTypeOption,
   parseMacAddressOption,
+  resolveKeyStoreName,
   resolveSkmClient,
 } from "./helpers.js";
 
@@ -116,5 +117,30 @@ describe("resolveSkmClient", () => {
     const { profileName } = await resolveSkmClient({ macAddress: "aa:bb:cc:dd:ee:ff" });
     expect(profileName).toBe("default");
     expect(SkmClient).toHaveBeenCalledWith("token", "gov", "appkey", "aa:bb:cc:dd:ee:ff");
+  });
+});
+
+describe("resolveKeyStoreName", () => {
+  // SkmClient 는 이 파일에서 vi.fn() 생성자로 mock 되어 있어 인스턴스에 메서드가 없다.
+  function keyStoreClient(): SkmClient {
+    const client = new SkmClient("token", "real", "appkey");
+    client.getKeyStore = vi.fn();
+    return client;
+  }
+
+  it("키 저장소 상세 조회 응답의 name을 돌려준다", async () => {
+    const client = keyStoreClient();
+    vi.mocked(client.getKeyStore).mockResolvedValue({
+      keyStoreId: 3, name: "store-name", ip4AuthUse: "N", macAuthUse: "N", certificateAuthUse: "N",
+    });
+    await expect(resolveKeyStoreName(client, 3)).resolves.toBe("store-name");
+    expect(client.getKeyStore).toHaveBeenCalledWith(3);
+  });
+
+  it("상세 조회가 실패하면 같은 오류로 reject한다", async () => {
+    const failure = new NhnCloudCliError("키 저장소 없음", EXIT_PARAM_ERROR);
+    const client = keyStoreClient();
+    vi.mocked(client.getKeyStore).mockRejectedValue(failure);
+    await expect(resolveKeyStoreName(client, 3)).rejects.toBe(failure);
   });
 });

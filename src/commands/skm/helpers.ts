@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import { getAccessToken } from "../../api/oauth.js";
 import { getProfileEnvironment, getUserAccessKey, resolveProfileName } from "../../config/credentials.js";
-import { printJson, type OutputOptions } from "../../formatters/table.js";
+import { output, printJson, type OutputOptions } from "../../formatters/table.js";
 import { SkmClient } from "../../services/skm/client.js";
 import type { SkmAuthDetail, SkmAuthType, SkmKeyStatusFilter, SkmKeyType } from "../../services/skm/types.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
@@ -137,6 +137,22 @@ export function printSkmValue(opts: OutputOptions, value: string, raw: unknown):
   } else {
     process.stdout.write(sanitizeMultilineForTerminal(value) + "\n");
   }
+}
+
+/** 키 저장소 ID 로 이름을 조회한다. 키 생성·인증 정보 API 는 이름을 받는다 (ADR-040). */
+export async function resolveKeyStoreName(client: SkmClient, keyStoreId: number): Promise<string> {
+  const keyStore = await client.getKeyStore(keyStoreId);
+  return keyStore.name;
+}
+
+/** 쓰기 결과를 field/value 로 출력한다. ids 는 --quiet 출력이다. */
+export function outputSkmWriteResult(opts: OutputOptions, result: Record<string, unknown>, ids: string[]): void {
+  output(opts, {
+    headers: ["field", "value"],
+    rows: Object.entries(result).map(([key, value]) => [key, formatCell(value)]),
+    raw: result,
+    ids,
+  });
 }
 
 export function parseKeyVersionOption(value: string | undefined): number | undefined {

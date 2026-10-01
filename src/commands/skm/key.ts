@@ -14,6 +14,7 @@ import {
   withSkmOptions,
   withSkmSpinner,
 } from "./helpers.js";
+import { createCommand, deleteCommand, purgeCommand } from "./key-manage.js";
 
 interface KeyListOptions extends SkmCommandOptions {
   type?: string;
@@ -88,6 +89,9 @@ const getCommand = withSkmOptions(
 });
 
 export const keyCommand = new Command("key")
-  .description("SKM 키 목록과 상세 조회")
+  .description("SKM 키 조회와 관리")
   .addCommand(listCommand)
-  .addCommand(getCommand);
+  .addCommand(getCommand)
+  .addCommand(createCommand)
+  .addCommand(deleteCommand)
+  .addCommand(purgeCommand);
