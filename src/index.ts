@@ -61,6 +61,9 @@ import { malwareCommand as ncsMalwareCommand } from "./commands/ncs/malware.js";
 import { serviceCommand as apiGatewayServiceCommand } from "./commands/apigateway/service.js";
 import { resourceCommand as apiGatewayResourceCommand } from "./commands/apigateway/resource.js";
 import { stageCommand as apiGatewayStageCommand } from "./commands/apigateway/stage.js";
+import { confirmCommand as skmConfirmCommand } from "./commands/skm/confirm.js";
+import { keystoreCommand as skmKeystoreCommand } from "./commands/skm/keystore.js";
+import { keyCommand as skmKeyCommand } from "./commands/skm/key.js";
 import { listCommand as loadBalancerListCommand } from "./commands/loadbalancer/list.js";
 import { getCommand as loadBalancerGetCommand } from "./commands/loadbalancer/get.js";
 import { ipaclCommand as loadBalancerIpAclCommand } from "./commands/loadbalancer/ipacl.js";
@@ -333,6 +336,15 @@ apiGatewayCommand.addCommand(apiGatewayResourceCommand);
 apiGatewayCommand.addCommand(apiGatewayStageCommand);
 
 program.addCommand(apiGatewayCommand);
+
+// Secure Key Manager 커맨드 그룹
+const skmCommand = new Command("skm")
+  .description("NHN Secure Key Manager 조회와 데이터 명령");
+skmCommand.addCommand(skmConfirmCommand);
+skmCommand.addCommand(skmKeystoreCommand);
+skmCommand.addCommand(skmKeyCommand);
+
+program.addCommand(skmCommand);
 program.addCommand(skillsCommand);
 program.addCommand(doctorCommand);
 program.addCommand(createCommandsCommand(program));
