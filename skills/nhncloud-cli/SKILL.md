@@ -37,5 +37,5 @@ description: >-
 | Kubernetes Service | [nks.md](references/nks.md) |
 | Container Service | [ncs.md](references/ncs.md) |
 | API Gateway 조회·변경·배포·Swagger export | [apigateway.md](references/apigateway.md) |
-| Secure Key Manager 키 조회·기밀 데이터·암복호화·서명 검증 | [skm.md](references/skm.md) |
+| Secure Key Manager 키·키 저장소·인증 정보 관리, 기밀 데이터·암복호화·서명 검증 | [skm.md](references/skm.md) |
 | 인증·profile·region·출력·검색 제한 문제 해결 | [troubleshooting.md](references/troubleshooting.md) |

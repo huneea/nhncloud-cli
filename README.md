@@ -138,6 +138,7 @@ nhncloud apigateway stage import-resources <service-id> <stage-id> --yes        
 nhncloud apigateway stage deploy create <service-id> <stage-id> --yes                 # API Gateway 스테이지 배포
 nhncloud skm key list <keystore-id>                            # Secure Key Manager 키 목록
 nhncloud skm secret get <key-id> --quiet                       # 기밀 데이터 원문
+printf '%s' "$VALUE" | nhncloud skm key create <keystore-id> --type secret --name <name>  # 기밀 데이터 저장
 ```
 
 전체 명령과 옵션은 `--help` 로 본다.

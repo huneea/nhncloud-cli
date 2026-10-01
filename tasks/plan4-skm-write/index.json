@@ -1,10 +1,10 @@
 {
   "name": "plan4-skm-write",
   "description": "Secure Key Manager 키·키 저장소·인증 정보 생성, 수정, 삭제와 기밀 데이터 수정 명령을 추가한다",
-  "status": "pending",
+  "status": "completed",
   "created_at": "2026-10-02",
   "total_phases": 4,
-  "current_phase": 1,
+  "current_phase": 4,
   "phases": [
     { "number": 1, "title": "SkmClient 쓰기 메서드와 응답 가드", "file": "phase-01.md", "execution_profile": "deep" },
     { "number": 2, "title": "skm key create|delete|purge와 secret update", "file": "phase-02.md", "execution_profile": "deep" },
