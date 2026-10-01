@@ -36,7 +36,7 @@
 - `## 클라이언트 인증`: 키 저장소의 IPv4·MAC 인증, `--mac-address`, 인증서 인증 미지원, `skm confirm`으로 서버가 본 IP·MAC 확인.
 - `## 명령 탐색`: `skm keystore list` → `skm key list <keystore-id>` → 데이터 명령 순서 예시. `--quiet`이 출력하는 값을 명령별로 적는다(`keystore list`: keyStoreId, `key list`: keyId, `secret get`: 기밀 데이터, `encrypt`: 암호문, `decrypt`: 평문, `sign`: 서명값, `public-key`·`private-key`: `standardEncodedKey`, `create-local-key`: 평문 키와 암호화된 키 두 줄, `verify`: 출력 없음).
 - `## 입력과 크기 한도`: `--plaintext`·`--ciphertext` > `--file` > 표준 입력 순서, `--plaintext`로 넘긴 비밀은 셸 히스토리와 프로세스 목록에 남으므로 비밀 평문은 `--file`이나 표준 입력을 권장한다는 안내, 끝 줄바꿈을 지우지 않으므로 `printf`를 쓰라는 안내, 32KB·245바이트·64KB 한도, `--standard`가 바이너리 입력을 base64로 바꿔 보내는 점.
-- `## 비밀값 출력`: 비밀값 명령은 기본·`--quiet` 출력에 원문을 낸다. 인증서 상세의 `password`는 `***`다. stdout을 로그에 남기지 않는다.
+- `## 비밀값 출력`: 비밀값 명령은 값을 숨기지 않는다. `--quiet`·`--json`은 원문, 기본 출력은 제어 문자만 `?`로 바꾼 값을 낸다. 인증서 상세의 `password`는 `***`다. stdout을 로그에 남기지 않는다.
 - `## 서명 검증 종료 코드`: `verify`는 결과가 `false`면 종료 코드 1이다. `if nhncloud skm asymmetric-key verify ...; then` 예시. `--standard` 검증에 넘길 키 버전은 `sign --standard --json`의 `keyVersion`에서 얻는다.
 
 ### 2. `skills/nhncloud-cli/SKILL.md`
@@ -77,7 +77,7 @@ nhncloud skm secret get <key-id> --quiet                       # 기밀 데이�
 | 5 | `printf 'hello' \| nhncloud skm symmetric-key encrypt <sym-key-id> --quiet` 결과를 `decrypt --ciphertext`로 되돌림 | `hello` |
 | 6 | `printf 'hello' \| nhncloud skm asymmetric-key sign <asym-key-id> --quiet` 결과로 `verify --plaintext hello --signature <sig>` | 종료 코드 0, `검증 성공` |
 | 7 | 6의 서명으로 `verify --plaintext world --signature <sig>` | 종료 코드 1, `검증 실패` |
-| 8 | `printf 'hello' \| nhncloud skm asymmetric-key sign <asym-key-id> --standard --json`의 `signature`·`keyVersion`으로 `verify --standard --key-version <keyVersion>` | 종료 코드 0 |
+| 8 | `printf 'hello' \| nhncloud skm asymmetric-key sign <asym-key-id> --standard --json`의 `signature`·`keyVersion`으로 `printf 'hello' \| nhncloud skm asymmetric-key verify <asym-key-id> --standard --signature <signature> --key-version <keyVersion>` | 종료 코드 0 |
 | 9 | `nhncloud skm keystore get <keystore-id>`, `nhncloud skm key get <keystore-id> <key-id>` | 종료 코드 0 |
 | 10 | `nhncloud skm keystore auth list <keystore-id> --type ipv4`, `auth get <keystore-id> <ip> --type ipv4` | 등록한 IP가 보인다 |
 | 11 | 인증서 인증 정보가 있으면 `auth get <keystore-id> <cert-name> --type certificate --json` | `password`가 `***` |
@@ -85,7 +85,7 @@ nhncloud skm secret get <key-id> --quiet                       # 기밀 데이�
 | 13 | `nhncloud skm symmetric-key create-local-key <sym-key-id> --json` | 종료 코드 0 (본문 없는 POST 실측), 평문·암호화 키가 모두 있다 |
 | 14 | `nhncloud skm asymmetric-key public-key <asym-key-id>`, `private-key <asym-key-id>`를 `--key-version` 없이 | 종료 코드 0 |
 | 15 | MAC 인증을 켠 키 저장소에서 `confirm --json`을 `--mac-address` 없이·있이 | 있을 때만 `clientMacHeader`가 준 값이다. 없을 때 필드가 빠지거나 `null`이어도 종료 코드 0 |
-| 16 | 15의 키 저장소 키로 `secret get --mac-address <등록한 MAC>` | 종료 코드 0. 대문자로 넣어도 같은 결과(소문자 정규화 실측) |
+| 16 | 15의 키 저장소 키로 `secret get --mac-address <등록한 MAC>`. 콘솔에 MAC을 대문자로 등록한 경우도 한 번 | 둘 다 종료 코드 0 (CLI는 소문자로 보내므로 서버가 대소문자를 구분하는지 실측) |
 | 17 | 공공망 profile로 1 반복 | 공공망 host로 호출되고 종료 코드 0 |
 | 18 | IP가 등록되지 않은 곳에서 4 | 종료 코드 1 또는 2, 오류에 서버 `resultMessage`가 담긴다 |
 
