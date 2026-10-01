@@ -18,7 +18,9 @@ API 요청은 공통 UAK로 발급한 Bearer 토큰을 `X-NHN-Authorization` 헤
 키 저장소에 등록한 클라이언트 인증 정보와 호출 환경이 맞아야 키와 데이터를 읽을 수 있다.
 CLI는 IPv4 인증과 MAC 인증을 지원한다. 인증서 인증 정보 등록(`auth add --type certificate`)은 지원하지만, CLI가 클라이언트 인증서를 보내 인증하는 것은 지원하지 않는다.
 
-- IPv4 인증은 호출한 곳의 공인 IP가 키 저장소에 등록돼 있어야 한다.
+- IPv4 인증은 서버가 본 요청 출발지 IP가 키 저장소에 등록돼 있어야 한다. 이 IP는 공인 IP와 다를 수 있다.
+  - 사내망처럼 내부 경로로 SKM endpoint에 닿는 환경에서는 서버에 사설 IP(예: `10.x.x.x`)로 보인다. 이때 공인 IP만 등록하면 `ipv4 auth failure`로 실패한다.
+  - 허용 IP는 `nhncloud skm confirm`의 `clientIp`를 기준으로 등록한다. 출발지 IP가 바뀔 수 있으면 `skm keystore auth add <keystore-id> <대역>/24 --type ipv4`처럼 CIDR 대역으로 등록한다.
 - MAC 인증을 켠 키 저장소는 `--mac-address aa:bb:cc:dd:ee:ff`로 MAC을 넘긴다. 콜론 형식만 받고 소문자로 바꿔 보낸다.
 - `nhncloud skm confirm`은 서버가 본 클라이언트 IP와 MAC 헤더를 보여 준다. 인증 오류가 나면 먼저 확인한다.
 
