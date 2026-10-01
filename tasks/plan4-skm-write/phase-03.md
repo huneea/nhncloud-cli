@@ -69,7 +69,7 @@ export function parseAuthValue(type: SkmAuthType, value: string): string;
 |---|---|---|---|
 | `create` | `--name <name>` 필수, `--auth <list>` 필수, `--auth-mode <mode>`(기본 `and`), `--description <text>` | `parseKeyNameOption`, `parseAuthListOption`, `parseAuthModeOption`, `parseDescriptionOption(…, 1000)` → `createKeyStore` | 응답 body, ids `[String(keyStoreId)]` |
 | `update <keystore-id>` | `--auth-mode <mode>` 필수, `--name`, `--description`, `--auth <list>` | 아래 | `{ operation: "keystore-update", status: "succeeded", keyStoreId, ...보낸 input }`, ids `[String(keyStoreId)]` |
-| `delete <keystore-id>` | `--yes` | `requireYes(opts.yes, "키 저장소 삭제")` → `deleteKeyStore` | `{ operation: "keystore-delete", status: "succeeded", keyStoreId }` |
+| `delete <keystore-id>` | `--yes` | `requireYes(opts.yes, "키 저장소 삭제")` → `deleteKeyStore` | `{ operation: "keystore-delete", status: "succeeded", keyStoreId }`, ids `[String(keyStoreId)]` |
 | `auth add <keystore-id> <value>` | `--type` 필수, `--description`, `--life-time <days>`, `--password <pw>`, `--password-file <path>` | 아래 | `{ operation: "auth-add", type, keyStoreId, ...응답 }`, ids `[parseAuthValue 결과]` (응답 값은 null일 수 있어 쓰지 않는다) |
 | `auth delete <keystore-id> <value>` | `--type` 필수, `--yes` | `requireYes(opts.yes, "인증 정보 삭제 예약")` → `parseAuthValue` → 이름 조회 → `scheduleAuthDeletion` | `{ operation: "auth-delete-scheduled", type, keyStoreId, ...응답 }`, ids `[parseAuthValue 결과]` |
 | `auth purge <keystore-id> <value>` | `--type` 필수, `--yes` | `requireYes(opts.yes, "인증 정보 즉시 삭제")` → 같음 → `deleteAuthNow` | `{ operation: "auth-purge", type, keyStoreId, ...응답 }`, ids `[parseAuthValue 결과]` |
