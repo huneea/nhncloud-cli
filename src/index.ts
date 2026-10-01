@@ -64,6 +64,9 @@ import { stageCommand as apiGatewayStageCommand } from "./commands/apigateway/st
 import { confirmCommand as skmConfirmCommand } from "./commands/skm/confirm.js";
 import { keystoreCommand as skmKeystoreCommand } from "./commands/skm/keystore.js";
 import { keyCommand as skmKeyCommand } from "./commands/skm/key.js";
+import { secretCommand as skmSecretCommand } from "./commands/skm/secret.js";
+import { symmetricKeyCommand as skmSymmetricKeyCommand } from "./commands/skm/symmetric-key.js";
+import { asymmetricKeyCommand as skmAsymmetricKeyCommand } from "./commands/skm/asymmetric-key.js";
 import { listCommand as loadBalancerListCommand } from "./commands/loadbalancer/list.js";
 import { getCommand as loadBalancerGetCommand } from "./commands/loadbalancer/get.js";
 import { ipaclCommand as loadBalancerIpAclCommand } from "./commands/loadbalancer/ipacl.js";
@@ -343,6 +346,9 @@ const skmCommand = new Command("skm")
 skmCommand.addCommand(skmConfirmCommand);
 skmCommand.addCommand(skmKeystoreCommand);
 skmCommand.addCommand(skmKeyCommand);
+skmCommand.addCommand(skmSecretCommand);
+skmCommand.addCommand(skmSymmetricKeyCommand);
+skmCommand.addCommand(skmAsymmetricKeyCommand);
 
 program.addCommand(skmCommand);
 program.addCommand(skillsCommand);

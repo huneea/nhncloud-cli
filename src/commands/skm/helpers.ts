@@ -1,12 +1,13 @@
 import type { Command } from "commander";
 import { getAccessToken } from "../../api/oauth.js";
 import { getProfileEnvironment, getUserAccessKey, resolveProfileName } from "../../config/credentials.js";
-import type { OutputOptions } from "../../formatters/table.js";
+import { printJson, type OutputOptions } from "../../formatters/table.js";
 import { SkmClient } from "../../services/skm/client.js";
 import type { SkmAuthDetail, SkmAuthType, SkmKeyStatusFilter, SkmKeyType } from "../../services/skm/types.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
-import { sanitizeForTerminal } from "../../utils/terminal.js";
+import { startSpinner, stopSpinner } from "../../utils/spinner.js";
+import { sanitizeForTerminal, sanitizeMultilineForTerminal } from "../../utils/terminal.js";
 import { parseNonNegativeIntegerOption, parseRequiredArgument } from "../parse-options.js";
 import { resolveServiceAppKey } from "../service-appkey.js";
 
@@ -122,4 +123,36 @@ export function maskAuthDetail(detail: SkmAuthDetail): SkmAuthDetail {
 export function formatCell(value: unknown): string {
   if (value === null || value === undefined) return "-";
   return sanitizeForTerminal(String(value));
+}
+
+/**
+ * 비밀값을 받으려고 부른 명령의 출력 (ADR-039).
+ * --json 은 응답 그대로, --quiet 은 파이프로 넘길 원문, 기본 출력은 터미널 제어 문자만 치환한다.
+ */
+export function printSkmValue(opts: OutputOptions, value: string, raw: unknown): void {
+  if (opts.json) {
+    printJson(raw);
+  } else if (opts.quiet) {
+    process.stdout.write(value + "\n");
+  } else {
+    process.stdout.write(sanitizeMultilineForTerminal(value) + "\n");
+  }
+}
+
+export function parseKeyVersionOption(value: string | undefined): number | undefined {
+  return parseNonNegativeIntegerOption(value, "--key-version");
+}
+
+/** spinner 를 켜고 SKM 호출 하나를 기다린다. 실패하면 spinner 를 실패로 끝내고 오류를 그대로 던진다. */
+export async function withSkmSpinner<T>(text: string, call: () => Promise<T>): Promise<T> {
+  startSpinner(text);
+  let result: T;
+  try {
+    result = await call();
+  } catch (err) {
+    stopSpinner(false);
+    throw err;
+  }
+  stopSpinner(true);
+  return result;
 }
