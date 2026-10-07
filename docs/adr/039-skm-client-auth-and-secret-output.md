@@ -4,7 +4,7 @@
 - **결정**: Secure Key Manager(SKM) API v1.3의 조회 API와 데이터 API(기밀 데이터 조회, 대칭키 암복호화, 비대칭키 서명·검증, 키 원문 조회)를 지원한다.
   - 인증은 URL의 profile `skm.appkey`와 공통 UAK OAuth 토큰(`X-NHN-Authorization: Bearer`)이다. 망은 profile `environment`로 일반망과 공공망 host를 고르며 API 경로는 같다.
   - 키 저장소의 클라이언트 인증은 IPv4와 MAC 주소만 지원한다. MAC 인증은 명령 옵션 `--mac-address`로 받은 콜론 구분 값을 소문자로 바꿔 `X-TOAST-CLIENT-MAC-ADDR` 헤더로 보낸다. 클라이언트 인증서(mTLS) 인증은 지원하지 않는다.
-  - 비밀값(기밀 데이터, 복호화 결과, 대칭키·개인키 원문, local key 평문)은 그 값을 받으려고 부른 명령만 stdout에 출력한다. `--quiet`과 `--json`은 원문 그대로, 기본 출력은 터미널 제어 문자만 치환한다. 목록·상세 조회의 인증서 `password`는 모든 출력 형식에서 `***`로 가린다.
+  - 비밀값(기밀 데이터, 복호화 결과, 대칭키·개인키 원문, local key 평문)은 그 값을 받으려고 부른 명령만 stdout에 출력한다. `--quiet`은 원문 뒤에 다른 명령의 `--quiet`처럼 줄바꿈 하나를 붙이고, `--json`은 응답 그대로, 기본 출력은 터미널 제어 문자만 치환한다. 입력은 끝 줄바꿈을 지우지 않으므로 `--quiet` 출력을 다른 skm 명령의 입력으로 넘기면 그 줄바꿈까지 데이터가 된다. 목록·상세 조회의 인증서 `password`는 모든 출력 형식에서 `***`로 가린다.
   - 서명 검증 결과가 `false`면 결과를 출력한 뒤 종료 코드 1로 끝낸다.
   - 키 저장소·키·인증 정보의 생성·수정·삭제와 기밀 데이터 수정은 범위 밖이다.
 - **대체된 부분**: 바로 위 "생성·수정·삭제는 범위 밖" 결정은 [ADR-040](040-skm-write-commands.md)이 대체한다. 클라이언트 인증 범위와 비밀값 출력 결정은 유지한다.
@@ -13,7 +13,7 @@
   - 인증서 인증은 TLS 핸드셰이크에서 클라이언트 인증서를 보내야 한다. `ky`가 쓰는 Node 기본 fetch는 요청 단위로 클라이언트 인증서를 넣을 공개 API가 없어 `undici` 의존을 추가해야 한다([[adr-002]]).
   - 기밀 데이터를 꺼내 다른 명령에 넘기는 것이 CLI 사용 목적이라, 비밀값을 기본으로 가리면 매번 플래그가 필요해진다. 반면 키 저장소 목록·상세처럼 운영 확인용 조회에 비밀이 섞여 나오면 화면과 로그에 의도치 않게 남는다.
   - 검증 API는 서명이 틀려도 HTTP 성공과 `result: false`를 돌려준다. 종료 코드 0으로 끝내면 `if` 분기 스크립트가 위조 데이터를 통과시킨다.
-  - 공식 문서: [API v1.3 가이드](https://docs.nhncloud.com/ko/Security/Secure%20Key%20Manager/ko/api-guide-v1.3/), [공공기관용 API v1.3 가이드](https://docs.gov-nhncloud.com/ko/Security/Secure%20Key%20Manager/ko/api-guide-v1.3-gov/). 두 문서의 경로와 응답 봉투(`header.isSuccessful`, 숫자 `resultCode`)가 같다.
+  - 공식 문서: [API v1.3 가이드](https://docs.nhncloud.com/ko/Security/Secure%20Key%20Manager/ko/api-guide-v1.3/), [공공기관용 API v1.3 가이드](https://docs.gov-nhncloud.com/ko/Security/Secure%20Key%20Manager/ko/api-guide-v1.3-gov/). 두 문서의 경로와 응답 봉투(`header.isSuccessful`, 숫자 `resultCode`)가 같다. 비대칭키 조회 응답의 `standardEncodedKey`(PKCS#8)는 공공기관용 문서에만 있어, 없으면 `encodedKey`를 출력한다.
 - **대안 기각**:
   - 인증서 인증을 함께 지원: `undici`와 p12 파일·비밀번호 입력 경로를 추가해야 한다. 요구가 확인될 때 별도 결정으로 다룬다.
   - 비밀값을 기본으로 가리고 `--reveal`로만 출력: 기밀 데이터 조회 명령은 비밀값을 받으려고 부르는 명령이라 플래그가 매번 필요하다. 스크립트마다 같은 플래그가 반복될 뿐 노출 범위는 줄지 않는다.

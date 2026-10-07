@@ -1,6 +1,6 @@
 /**
  * Secure Key Manager API v1.3 응답 타입 (ADR-039).
- * 일반망과 공공망 응답 형식이 같다.
+ * 일반망과 공공망 응답 형식이 같다. 비대칭키 조회의 standardEncodedKey 만 공공망 문서에 있다.
  */
 
 export type SkmKeyType = "SECRET" | "SYMMETRIC_KEY" | "ASYMMETRIC_KEY";
@@ -100,7 +100,8 @@ export interface SkmAsymmetricKeyMaterial {
   keyType: string;
   key: string;
   encodedKey: string;
-  standardEncodedKey: string;
+  /** PKCS#8 형식. 공공망 문서에만 있고 일반망 문서의 응답에는 없다. */
+  standardEncodedKey?: string | null;
   keyVersion: number;
 }
 
@@ -271,7 +272,8 @@ export function isSkmVerifyResult(value: unknown): value is SkmVerifyResult {
 export function isSkmAsymmetricKeyMaterial(value: unknown): value is SkmAsymmetricKeyMaterial {
   return (
     isRecord(value) &&
-    hasStrings(value, ["keyType", "key", "encodedKey", "standardEncodedKey"]) &&
+    hasStrings(value, ["keyType", "key", "encodedKey"]) &&
+    hasOptional(value, ["standardEncodedKey"], "string") &&
     hasNumbers(value, ["keyVersion"])
   );
 }
