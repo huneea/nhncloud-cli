@@ -91,6 +91,7 @@ related: [<다른 패턴 slug>, ...]      # 백링크
 | API/HTTP 패턴 (redirect·throwHttpErrors) | code-review | [redirect-manual-status-missing](code-review/redirect-manual-status-missing.md), [numeric-response-string-number-mixed](code-review/numeric-response-string-number-mixed.md) |
 | 방어 가드와 회귀 테스트 | code-review | [guard-without-failing-test](code-review/guard-without-failing-test.md) |
 | 봉투 검사 (200-고정 API·isSuccessful) | code-review | [write-method-envelope-unchecked](code-review/write-method-envelope-unchecked.md), [new-endpoint-envelope-assumed](plan/new-endpoint-envelope-assumed.md) |
+| 일반망·공공망 응답 필드 차이 | plan | [gov-doc-field-parity-assumed](plan/gov-doc-field-parity-assumed.md), [optional-response-field-guard](code-review/optional-response-field-guard.md) |
 | exitCode 누락·mismatch | code-review | [exitcode-missing](code-review/exitcode-missing.md), [mock-reject-value-mismatch](code-review/mock-reject-value-mismatch.md), [exit-code-literal-no-constant](code-review/exit-code-literal-no-constant.md) |
 | path-traversal (fileName basename) | code-review | [path-traversal-filename](code-review/path-traversal-filename.md) |
 | interactive 경고 vs 실제 동작 | code-review | [interactive-warning-mismatch](code-review/interactive-warning-mismatch.md), [noninteractive-trigger-dead-warning](plan/noninteractive-trigger-dead-warning.md) |
@@ -121,6 +122,7 @@ related: [<다른 패턴 slug>, ...]      # 백링크
 - [file-scope-inaccurate](plan/file-scope-inaccurate.md)
 - [filter-type-narrowing-lost](plan/filter-type-narrowing-lost.md)
 - [four-face-guard-missing](plan/four-face-guard-missing.md)
+- [gov-doc-field-parity-assumed](plan/gov-doc-field-parity-assumed.md)
 - [function-signature-unverified](plan/function-signature-unverified.md)
 - [goal-reversed-logic-reuse](plan/goal-reversed-logic-reuse.md)
 - [import-identifier-collision](plan/import-identifier-collision.md)
