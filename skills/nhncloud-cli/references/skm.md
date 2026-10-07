@@ -21,6 +21,8 @@ CLI는 IPv4 인증과 MAC 인증을 지원한다. 인증서 인증 정보 등록
 - IPv4 인증은 서버가 본 요청 출발지 IP가 키 저장소에 등록돼 있어야 한다. 이 IP는 공인 IP와 다를 수 있다.
   - 사내망처럼 내부 경로로 SKM endpoint에 닿는 환경에서는 서버에 사설 IP(예: `10.x.x.x`)로 보인다. 이때 공인 IP만 등록하면 `ipv4 auth failure`로 실패한다.
   - 허용 IP는 `nhncloud skm confirm`의 `clientIp`를 기준으로 등록한다. 출발지 IP가 바뀔 수 있으면 `skm keystore auth add <keystore-id> <대역>/24 --type ipv4`처럼 CIDR 대역으로 등록한다.
+  - CLI는 `/0`부터 `/32`까지 받는다. `0.0.0.0/0`은 모든 출발지를 허용하므로 등록하지 않는다.
+  - 대역은 `10.0.0.0/24`처럼 호스트 비트를 0으로 맞춰 등록한다. 지울 때는 `auth list --type ipv4`에 나온 값을 `auth delete`에 그대로 넘긴다.
 - MAC 인증을 켠 키 저장소는 `--mac-address aa:bb:cc:dd:ee:ff`로 MAC을 넘긴다. 콜론 형식만 받고 소문자로 바꿔 보낸다.
 - `nhncloud skm confirm`은 서버가 본 클라이언트 IP와 MAC 헤더를 보여 준다. 인증 오류가 나면 먼저 확인한다.
 
