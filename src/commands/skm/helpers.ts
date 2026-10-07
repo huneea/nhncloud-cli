@@ -127,7 +127,8 @@ export function formatCell(value: unknown): string {
 
 /**
  * 비밀값을 받으려고 부른 명령의 출력 (ADR-039).
- * --json 은 응답 그대로, --quiet 은 파이프로 넘길 원문, 기본 출력은 터미널 제어 문자만 치환한다.
+ * --json 은 응답 그대로, --quiet 은 원문 뒤에 줄바꿈 하나, 기본 출력은 터미널 제어 문자만 치환한다.
+ * 입력은 끝 줄바꿈을 지우지 않으므로 --quiet 출력을 다른 skm 명령에 넘기면 줄바꿈까지 데이터가 된다.
  */
 export function printSkmValue(opts: OutputOptions, value: string, raw: unknown): void {
   if (opts.json) {

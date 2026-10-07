@@ -63,7 +63,13 @@ printf 'hello' | nhncloud skm symmetric-key encrypt <key-id> --quiet
 ## 비밀값 출력
 
 비밀값을 출력하는 명령은 값을 숨기지 않는다.
-`--quiet`와 `--json`은 원문을, 기본 출력은 제어 문자만 `?`로 바꾼 값을 낸다.
+`--quiet`는 원문 뒤에 줄바꿈 하나를 붙이고, `--json`은 응답 그대로, 기본 출력은 제어 문자만 `?`로 바꾼 값을 낸다.
+입력은 끝 줄바꿈을 지우지 않으므로 `--quiet` 출력을 다른 skm 명령의 입력으로 넘기면 그 줄바꿈까지 암호화·서명된다.
+원문만 넘기려면 `--json` 출력에서 줄바꿈 없이 값을 꺼낸다.
+
+```bash
+nhncloud skm secret get <key-id> --json | jq -j '.secret' > secret.txt
+```
 인증서 인증 상세의 `password`는 `***`로 가린다.
 비밀값 명령의 stdout을 로그나 이슈, 채팅에 붙이지 않는다.
 
