@@ -24,6 +24,7 @@ const signStandard = vi.spyOn(client, "signStandard");
 const verify = vi.spyOn(client, "verify");
 const verifyStandard = vi.spyOn(client, "verifyStandard");
 const getPrivateKey = vi.spyOn(client, "getPrivateKey");
+const getPublicKey = vi.spyOn(client, "getPublicKey");
 
 const keyMaterial = {
   keyType: "RSA", key: "raw-key", encodedKey: "encoded-key",
@@ -175,5 +176,13 @@ describe("skm 데이터 명령", () => {
     await run("--quiet", "asymmetric-key", "private-key", "k1", "--key-version", "2");
     expect(getPrivateKey).toHaveBeenCalledWith("k1", 2);
     expect(stdout()).toBe(`${keyMaterial.standardEncodedKey}\n`);
+  });
+
+  it("asymmetric-key public-key --quiet은 standardEncodedKey가 없는 일반망 응답이면 encodedKey를 쓴다", async () => {
+    const { standardEncodedKey: _omitted, ...realKeyMaterial } = keyMaterial;
+    getPublicKey.mockResolvedValueOnce(realKeyMaterial);
+    await run("--quiet", "asymmetric-key", "public-key", "k1");
+    expect(getPublicKey).toHaveBeenCalledWith("k1", undefined);
+    expect(stdout()).toBe(`${keyMaterial.encodedKey}\n`);
   });
 });

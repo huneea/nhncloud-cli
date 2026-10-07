@@ -137,20 +137,20 @@ function keyMaterialCommand(
     const body = await withSkmSpinner(`SKM 비대칭키 ${formatCell(parsedKeyId)} ${spinnerLabel} 조회 중...`, () =>
       fetch(client, parsedKeyId, keyVersion),
     );
-    printSkmValue(opts, body.standardEncodedKey, body);
+    printSkmValue(opts, body.standardEncodedKey ?? body.encodedKey, body);
   });
 }
 
 const publicKeyCommand = keyMaterialCommand(
   "public-key",
-  "공개키를 조회한다 (standardEncodedKey를 stdout에 출력)",
+  "공개키를 조회한다 (standardEncodedKey를, 없으면 encodedKey를 stdout에 출력)",
   (client, keyId, keyVersion) => client.getPublicKey(keyId, keyVersion),
   "공개키",
 );
 
 const privateKeyCommand = keyMaterialCommand(
   "private-key",
-  "개인키 원문을 조회한다 (standardEncodedKey를 stdout에 출력)",
+  "개인키 원문을 조회한다 (standardEncodedKey를, 없으면 encodedKey를 stdout에 출력)",
   (client, keyId, keyVersion) => client.getPrivateKey(keyId, keyVersion),
   "개인키",
 );

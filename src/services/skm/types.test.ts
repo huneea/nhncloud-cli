@@ -130,7 +130,8 @@ describe("SKM 응답 가드: 형식 오류 거부", () => {
     ["keyVersion 문자열", isSkmSignResult, { signature: "<signature>", keyVersion: "1" }],
     ["saltLength 누락", isSkmStandardSignResult, { signature: "<signature>", algorithm: "RSASSA-PSS", hashAlgorithm: "SHA-256", mgfAlgorithm: "MGF1-SHA-256", keyVersion: 0 }],
     ["result 문자열", isSkmVerifyResult, { result: "true", keyVersion: 0 }],
-    ["standardEncodedKey 누락", isSkmAsymmetricKeyMaterial, { ...asymmetricKey, standardEncodedKey: undefined }],
+    ["encodedKey 누락", isSkmAsymmetricKeyMaterial, { ...asymmetricKey, encodedKey: undefined }],
+    ["standardEncodedKey 숫자", isSkmAsymmetricKeyMaterial, { ...asymmetricKey, standardEncodedKey: 1 }],
     ["null", isSkmKey, null],
     ["배열", isSkmKeyStore, [keyStore]],
   ] as const)("%s", (_name, guard, value) => {

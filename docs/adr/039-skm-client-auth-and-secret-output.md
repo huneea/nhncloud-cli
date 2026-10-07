@@ -12,7 +12,7 @@
   - 인증서 인증은 TLS 핸드셰이크에서 클라이언트 인증서를 보내야 한다. `ky`가 쓰는 Node 기본 fetch는 요청 단위로 클라이언트 인증서를 넣을 공개 API가 없어 `undici` 의존을 추가해야 한다([[adr-002]]).
   - 기밀 데이터를 꺼내 다른 명령에 넘기는 것이 CLI 사용 목적이라, 비밀값을 기본으로 가리면 매번 플래그가 필요해진다. 반면 키 저장소 목록·상세처럼 운영 확인용 조회에 비밀이 섞여 나오면 화면과 로그에 의도치 않게 남는다.
   - 검증 API는 서명이 틀려도 HTTP 성공과 `result: false`를 돌려준다. 종료 코드 0으로 끝내면 `if` 분기 스크립트가 위조 데이터를 통과시킨다.
-  - 공식 문서: [API v1.3 가이드](https://docs.nhncloud.com/ko/Security/Secure%20Key%20Manager/ko/api-guide-v1.3/), [공공기관용 API v1.3 가이드](https://docs.gov-nhncloud.com/ko/Security/Secure%20Key%20Manager/ko/api-guide-v1.3-gov/). 두 문서의 경로와 응답 봉투(`header.isSuccessful`, 숫자 `resultCode`)가 같다.
+  - 공식 문서: [API v1.3 가이드](https://docs.nhncloud.com/ko/Security/Secure%20Key%20Manager/ko/api-guide-v1.3/), [공공기관용 API v1.3 가이드](https://docs.gov-nhncloud.com/ko/Security/Secure%20Key%20Manager/ko/api-guide-v1.3-gov/). 두 문서의 경로와 응답 봉투(`header.isSuccessful`, 숫자 `resultCode`)가 같다. 비대칭키 조회 응답의 `standardEncodedKey`(PKCS#8)는 공공기관용 문서에만 있어, 없으면 `encodedKey`를 출력한다.
 - **대안 기각**:
   - 인증서 인증을 함께 지원: `undici`와 p12 파일·비밀번호 입력 경로를 추가해야 한다. 요구가 확인될 때 별도 결정으로 다룬다.
   - 비밀값을 기본으로 가리고 `--reveal`로만 출력: 기밀 데이터 조회 명령은 비밀값을 받으려고 부르는 명령이라 플래그가 매번 필요하다. 스크립트마다 같은 플래그가 반복될 뿐 노출 범위는 줄지 않는다.

@@ -40,7 +40,7 @@ nhncloud skm secret get <key-id> --quiet
 - `symmetric-key encrypt`: 암호문
 - `symmetric-key decrypt`: 평문
 - `asymmetric-key sign`: 서명값
-- `asymmetric-key public-key`·`private-key`: `standardEncodedKey`
+- `asymmetric-key public-key`·`private-key`: `standardEncodedKey`(PKCS#8), 응답에 없으면 `encodedKey`. 일반망 문서의 응답에는 `standardEncodedKey`가 없다.
 - `symmetric-key create-local-key`: 평문 키와 암호화된 키 두 줄
 - `asymmetric-key verify`: 출력 없음
 
