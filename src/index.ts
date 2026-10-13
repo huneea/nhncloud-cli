@@ -5,6 +5,7 @@ import { warnLegacyDeployTargets } from "./config/credentials.js";
 import { NhnCloudCliError } from "./utils/errors.js";
 import { sanitizeMultilineForTerminal } from "./utils/terminal.js";
 import { setRequestTimeoutMs } from "./api/timeout.js";
+import { installProxy, resolveProxySettings } from "./api/proxy.js";
 import { parseIntegerOption } from "./commands/parse-options.js";
 import { configureCommanderExitCodes } from "./commands/commander-errors.js";
 import { configureGlobalOptionsHelp } from "./commands/help.js";
@@ -168,11 +169,18 @@ program
   .option("--quiet", "최소 출력 (자동화용)")
   .option("--no-color", "색상 비활성화")
   .option("--request-timeout <sec>", "HTTP 요청 타임아웃 (초, 기본 30, 범위 1~3600). NHNCLOUD_REQUEST_TIMEOUT 로도 지정")
+  .option("--proxy <url>", "HTTP 요청에 쓸 프록시 URL. HTTPS_PROXY·HTTP_PROXY 보다 우선하고 NO_PROXY 는 그대로 따른다")
   .addHelpText("after", rootAgentHints);
 
 // 전역 옵션 훅 — no-color: chalk 비활성화 / json·quiet: spinner 비활성화
-program.hook("preAction", () => {
-  const opts = program.opts<{ color: boolean; json?: boolean; quiet?: boolean; requestTimeout?: string }>();
+program.hook("preAction", async () => {
+  const opts = program.opts<{
+    color: boolean;
+    json?: boolean;
+    quiet?: boolean;
+    requestTimeout?: string;
+    proxy?: string;
+  }>();
   // 빈 문자열은 미지정으로 취급한다. `NHNCLOUD_REQUEST_TIMEOUT= nhncloud ...` 처럼 셸에서 값을 비우거나
   // `export TIMEOUT=${USER_TIMEOUT:-}` 로 넘기는 경우 ?? 만으로는 걸러지지 않아 모든 명령이 exit 3 이 된다.
   const rawTimeout = opts.requestTimeout ?? process.env["NHNCLOUD_REQUEST_TIMEOUT"];
@@ -184,6 +192,8 @@ program.hook("preAction", () => {
       opts.requestTimeout !== undefined ? "--request-timeout" : "NHNCLOUD_REQUEST_TIMEOUT",
       { min: 1, max: 3600 },
     );
+  // 잘못된 프록시 값은 HTTP 요청이 없는 명령에서도 여기서 종료 코드 3으로 끝난다(ADR-044).
+  const proxySettings = resolveProxySettings(opts.proxy, process.env);
 
   if (!opts.color || process.env["NO_COLOR"]) {
     chalk.level = 0;
@@ -193,6 +203,9 @@ program.hook("preAction", () => {
   }
   if (timeoutSec !== undefined) {
     setRequestTimeoutMs(timeoutSec * 1000);
+  }
+  if (proxySettings) {
+    await installProxy(proxySettings);
   }
 });
 
