@@ -1,6 +1,6 @@
 import { readFileSync, statSync } from "node:fs";
-import { NhnCloudCliError } from "../../utils/errors.js";
-import { EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
+import { NhnCloudCliError } from "../utils/errors.js";
+import { EXIT_PARAM_ERROR } from "../utils/exit-codes.js";
 
 export interface StdinSource {
   isTTY: boolean | undefined;
@@ -14,7 +14,7 @@ export const processStdin: StdinSource = {
   read: () => readFileSync(0),
 };
 
-export interface SkmInputSpec {
+export interface InputSourceSpec {
   /** 직접 값을 받는 옵션 이름. 예: "--plaintext". 없으면 파일과 표준 입력으로만 받는다. */
   textFlag?: string;
   /** 파일 경로를 받는 옵션 이름. 기본 "--file" */
@@ -24,7 +24,7 @@ export interface SkmInputSpec {
   maxBytes: number;
 }
 
-function assertWithinLimit(size: number, spec: SkmInputSpec): void {
+function assertWithinLimit(size: number, spec: InputSourceSpec): void {
   if (size > spec.maxBytes) {
     throw new NhnCloudCliError(
       `${spec.label}가 너무 큽니다: ${size}바이트 (한도 ${spec.maxBytes}바이트).`,
@@ -33,7 +33,7 @@ function assertWithinLimit(size: number, spec: SkmInputSpec): void {
   }
 }
 
-function readInputFile(file: string, spec: SkmInputSpec): Buffer {
+function readInputFile(file: string, spec: InputSourceSpec): Buffer {
   let stat: ReturnType<typeof statSync>;
   try {
     stat = statSync(file);
@@ -48,7 +48,7 @@ function readInputFile(file: string, spec: SkmInputSpec): Buffer {
   return readFileSync(file);
 }
 
-function readStdin(stdin: StdinSource, spec: SkmInputSpec): Buffer {
+function readStdin(stdin: StdinSource, spec: InputSourceSpec): Buffer {
   try {
     return stdin.read();
   } catch (e) {
@@ -61,9 +61,9 @@ function readStdin(stdin: StdinSource, spec: SkmInputSpec): Buffer {
  * textFlag 값 > --file > stdin 순으로 읽어 Buffer 로 돌려준다.
  * 받은 바이트를 그대로 쓰므로 끝 줄바꿈도 지우지 않는다.
  */
-export function readSkmInput(
+export function readInputSource(
   source: { text?: string; file?: string },
-  spec: SkmInputSpec,
+  spec: InputSourceSpec,
   stdin: StdinSource = processStdin,
 ): Buffer {
   const fileFlag = spec.fileFlag ?? "--file";

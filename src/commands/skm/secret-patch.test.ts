@@ -5,7 +5,7 @@ import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_API_ERROR, EXIT_AUTH_ERROR, EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
 import { configureCommanderExitCodes } from "../commander-errors.js";
 import { resolveSkmClient } from "./helpers.js";
-import { processStdin } from "./input.js";
+import { processStdin } from "../input-source.js";
 import { secretCommand } from "./secret.js";
 
 vi.mock("./helpers.js", async (importOriginal) => {
