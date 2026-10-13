@@ -11,6 +11,8 @@ const AUTH_RESULT_CODES: ReadonlySet<number> = new Set([80401, 80403]);
  */
 export class RdsMysqlApiError extends NhnCloudCliError {
   readonly resultCode: number | string;
+  /** 봉투를 HTTP 오류 응답 본문에서 읽었으면 그 상태 코드다. HTTP 200 봉투 실패면 undefined 다. */
+  readonly httpStatus?: number;
 
   constructor(resultCode: number | string, resultMessage: string, httpStatus?: number) {
     const isAuthError =
@@ -21,5 +23,6 @@ export class RdsMysqlApiError extends NhnCloudCliError {
     );
     this.name = "RdsMysqlApiError";
     this.resultCode = resultCode;
+    this.httpStatus = httpStatus;
   }
 }

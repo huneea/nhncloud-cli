@@ -288,6 +288,7 @@ flowchart TD
 profile 공통 UAK를 정적 헤더로, `rds-mysql.appkey`를 `X-TC-APP-KEY` 헤더로 보낸다. 망은 profile `environment`로, region은 `--region`(기본 `kr1`)으로 고른다([[adr-046]]).
 일반망은 `kr1`, `kr2`, `jp1`, 공공망은 `kr1`만 받는다. 다른 region은 자격증명을 읽은 뒤, API 호출 전에 종료 코드 3으로 끝난다.
 `rds-mysql instance list`로 DB 인스턴스 ID를 찾고, `schema list`와 `user list`에 넘긴다. `user list`의 `dbUserId`를 `user update`와 `user delete`에 넘긴다.
+ID 인수(`<db-instance-id>`, `<db-user-id>`, `<job-id>`)는 UUID만 받고 이름은 해석하지 않는다. 같은 이름의 사용자가 host마다 있을 수 있기 때문이다. 형식이 틀리면 자격증명을 읽기 전에 종료 코드 3으로 끝난다.
 목록 API에는 페이지가 없어 한 번의 응답을 그대로 출력한다. 빈 목록도 성공이다.
 
 #### RDS for MySQL 쓰기
@@ -302,16 +303,17 @@ flowchart TD
   B -->|지원하지 않는 region| E3r[종료 코드 3, 요청 없음]
   B --> C[DB 인스턴스 상세 조회]
   C -->|조회 실패| E1[API 오류]
+  C -->|--auth-plugin, --tls 를 줬는데 인증 플러그인 미지원| E3p[종료 코드 3, 쓰기 없음]
   C -->|progressStatus 가 NONE 이 아님| W[stderr 경고 후 계속]
   C --> D[스키마 또는 사용자 목록 조회와 사전 검사]
   W --> D
-  D -->|이미 있음, dbUserId 없음, 인증 플러그인 미지원| E3b[종료 코드 3, 쓰기 없음]
+  D -->|이미 있음, dbUserId 없음| E3b[종료 코드 3, 쓰기 없음]
   D -->|권한이 이미 같음| U[unchanged 출력, 종료 코드 0, 쓰기 없음]
   D --> F{--yes 인가}
   F -->|아니다| P[미리보기 출력, 종료 코드 0]
   F -->|그렇다| G[쓰기 요청]
-  G -->|봉투 실패| K[서버 메시지로 종료, 재실행 안내 없음]
-  G -->|시간 초과, 연결 오류, 응답 형식 오류| X[접수 여부 불명 안내, 종료 코드 1]
+  G -->|5xx 가 아닌 응답의 봉투 실패| K[서버 메시지로 종료, 재실행 안내 없음]
+  G -->|HTTP 5xx, 시간 초과, 연결 오류, 응답 형식 오류| X[접수 여부 불명 안내, 종료 코드 1]
   G -->|jobId| H{--wait 인가}
   H -->|아니다| R[jobId 출력, 종료 코드 0]
   H -->|그렇다| J[작업 상태를 3초 간격으로 조회]
@@ -320,7 +322,8 @@ flowchart TD
   J -->|COMPLETED_WITH_ERROR, DELETED, 상한 초과, 조회 실패| UNK[결과 출력, 재실행 금지와 job get 안내, 종료 코드 1]
 ```
 
-- 미리보기와 반영은 같은 사전 검사를 한다. 같은 이름의 스키마나 같은 `이름@host` 사용자가 있으면 종료 코드 3이다. 결과를 모르는 실패 뒤 같은 명령을 다시 실행하면 이 검사가 중복 생성을 막는다.
+- 스키마 이름, 사용자 이름, host의 형식은 자격증명을 읽기 전에 검사하고 틀리면 종료 코드 3이다. 규칙은 공식 문서의 제약을 따르며 사용자 안내는 [rds-mysql.md](../skills/nhncloud-cli/references/rds-mysql.md)가 소유한다. MySQL 예약어인지는 서버가 판정한다.
+- 미리보기와 반영은 같은 사전 검사를 한다. 같은 이름의 스키마나 같은 `이름@host` 사용자가 있으면 종료 코드 3이다. host는 대소문자를 구분하지 않고 비교하고, 사용자 이름은 정확히 일치할 때만 같다고 본다. 결과를 모르는 실패 뒤 같은 명령을 다시 실행하면 이 검사가 중복 생성을 막는다.
 - `--auth-plugin`이나 `--tls`를 주었는데 인스턴스 상세의 `supportAuthenticationPlugin`이 `false`면 종료 코드 3이다.
 - `user create`의 비밀번호는 `--password-file`이나 표준 입력으로만 받는다. 끝의 줄바꿈 하나(`\n`이나 `\r\n`)를 지우고 4자 이상 256자 이하인지 본다. 터미널에서 입력 없이 실행하면 대화형으로 묻지 않고 종료 코드 3으로 끝난다. 비밀번호는 미리보기, 결과, 오류 어디에도 나오지 않는다.
 - `user update`는 `--authority`만 바꾼다. 목록에서 읽은 현재 인증 플러그인과 TLS 옵션을 함께 보내고, 인스턴스가 인증 플러그인을 지원하지 않으면(`supportAuthenticationPlugin: false`) 두 값을 보내지 않는다. 현재 권한이 `CUSTOM`이면 바꾼 뒤 다시 `CUSTOM`으로 돌릴 수 없다고 stderr에 경고한다.

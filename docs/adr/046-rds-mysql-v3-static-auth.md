@@ -5,7 +5,7 @@
   - 인증은 요청마다 `X-TC-APP-KEY`(profile `rds-mysql.appkey`), `X-TC-AUTHENTICATION-ID`, `X-TC-AUTHENTICATION-SECRET`(profile 공통 UAK)를 보낸다. OAuth 토큰으로 교환하지 않고 토큰 캐시를 쓰지 않는다.
   - host 는 `{region}-rds-mysql.api.nhncloudservice.com` 이고, region 은 `--region`(기본 `kr1`)으로 받는다. 일반망은 `kr1`, `kr2`, `jp1`, 공공망(profile `environment: gov`)은 `kr1` 만 받고 `kr1-rds-mysql.api.gov-nhncloudservice.com` 을 쓴다. 그 밖의 region 은 API 호출 전에 종료 코드 3으로 끝난다.
   - 명령 이름은 엔진을 드러낸 `rds-mysql` 이다.
-  - 응답은 HTTP 200 과 `header.isSuccessful` 봉투로 판정한다. 결과 필드는 `body` 가 아니라 `header` 옆의 이름 있는 필드(`dbInstances`, `dbUsers`, `jobId` 등)다. `resultCode` 가 `80401`, `80403` 이면 인증 오류(종료 코드 2)다.
+  - 응답은 HTTP 200 과 `header.isSuccessful` 봉투로 판정한다. 결과 필드는 `body` 가 아니라 `header` 옆의 이름 있는 필드(`dbInstances`, `dbUsers`, `jobId` 등)다. `resultCode` 가 `80401`, `80403` 이거나 HTTP 상태가 401, 403 이면 인증 오류(종료 코드 2)다.
 - **맥락**:
   - 공식 문서에 v3 와 v4 가이드가 함께 있다. 경로와 요청·응답 필드는 같고 인증만 다르다. v3 는 UAK ID 와 Secret 을 정적 헤더로, v4 는 `X-NHN-AUTHORIZATION` 에 UAK 토큰을 보낸다.
   - v4 문서는 헤더 값에 `Bearer ` 접두사를 붙이는지 밝히지 않는다. 실호출 없이 확정할 수 없다. v3 는 헤더 이름과 값이 문서에 모두 있다.

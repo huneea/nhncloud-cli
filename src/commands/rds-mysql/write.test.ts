@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Command } from "commander";
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import { RdsMysqlClient } from "../../services/rds-mysql/client.js";
@@ -189,6 +192,21 @@ describe("rds-mysql 쓰기 명령 (ADR-047)", () => {
       expect(createDbUser).not.toHaveBeenCalled();
     });
 
+    it("host 대소문자만 다른 사용자가 있으면 같은 사용자로 보고 EXIT_PARAM_ERROR다", async () => {
+      listDbUsers.mockResolvedValue([
+        { dbUserId: USER_ID, dbUserName: "app", host: "App.example.com", authorityType: "CRUD", dbUserStatus: "STABLE" },
+      ]);
+      await expect(
+        run("user", "create", INSTANCE_ID, "--name", "app", "--host", "app.example.com", "--authority", "read", "--yes"),
+      ).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR, message: "이미 있는 DB 사용자입니다: 'app'@'app.example.com'" });
+      expect(createDbUser).not.toHaveBeenCalled();
+    });
+
+    it("이름 대소문자가 다르면 다른 사용자로 보고 미리보기를 낸다", async () => {
+      await run("--json", "user", "create", INSTANCE_ID, "--name", "App", "--host", "%", "--authority", "read");
+      expect(JSON.parse(stdout())).toMatchObject({ target: "'App'@'%'", applied: false });
+    });
+
     it("--auth-plugin을 줬는데 인스턴스가 지원하지 않으면 EXIT_PARAM_ERROR다", async () => {
       getDbInstance.mockResolvedValue({ ...INSTANCE, supportAuthenticationPlugin: false });
       await expect(run(...CREATE_ARGS, "--auth-plugin", "native", "--yes")).rejects.toMatchObject({
@@ -203,6 +221,74 @@ describe("rds-mysql 쓰기 명령 (ADR-047)", () => {
         message: "--timeout은 --wait와 함께 씁니다.",
       });
       expect(resolveRdsMysqlClient).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("user create 입력 검증", () => {
+    const createWith = (option: string, value: string): string[] => {
+      const base: Record<string, string> = { "--name": "app", "--host": "10.0.0.%", "--authority": "crud" };
+      base[option] = value;
+      return ["user", "create", INSTANCE_ID, ...Object.entries(base).flat()];
+    };
+
+    it.each([
+      ["--name", "빈 값", ""],
+      ["--name", "33자", "a".repeat(33)],
+      ["--name", "제어 문자", "app\x01"],
+      ["--name", "예약 이름", "admin"],
+      ["--host", "공백 포함", "10.0.0. 1"],
+      ["--host", "46자", "h".repeat(46)],
+      ["--authority", "CUSTOM", "custom"],
+      ["--authority", "프로토타입 키", "__proto__"],
+      ["--auth-plugin", "지원하지 않는 값", "md5"],
+      ["--auth-plugin", "프로토타입 키", "toString"],
+      ["--tls", "지원하지 않는 값", "tls"],
+      ["--tls", "프로토타입 키", "constructor"],
+    ])("%s %s는 EXIT_PARAM_ERROR이고 client를 만들지 않는다", async (option, _case, value) => {
+      const error = await run(...createWith(option, value)).catch((e: unknown) => e);
+      expect(error).toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+      expect((error as Error).message).not.toContain(PASSWORD);
+      expect(resolveRdsMysqlClient).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["--name", "32자", "a".repeat(32), `'${"a".repeat(32)}'@'10.0.0.%'`],
+      ["--host", "45자", "h".repeat(45), `'app'@'${"h".repeat(45)}'`],
+    ])("%s %s는 받아 미리보기를 낸다", async (option, _case, value, target) => {
+      await run("--json", ...createWith(option, value));
+      expect(JSON.parse(stdout())).toMatchObject({ target, applied: false });
+    });
+
+    it("257자 비밀번호는 EXIT_PARAM_ERROR이고 오류 문구에 값을 넣지 않는다", async () => {
+      const longPassword = "p".repeat(257);
+      pipeStdin(`${longPassword}\n`);
+      const error = await run(...CREATE_ARGS).catch((e: unknown) => e);
+      expect(error).toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+      expect((error as Error).message).not.toContain(longPassword.slice(0, 16));
+      expect(resolveRdsMysqlClient).not.toHaveBeenCalled();
+    });
+
+    it("256자 비밀번호는 받아 그대로 보낸다", async () => {
+      const maxPassword = "p".repeat(256);
+      pipeStdin(`${maxPassword}\n`);
+      await run(...CREATE_ARGS, "--yes");
+      expect(createDbUser).toHaveBeenCalledWith(INSTANCE_ID, expect.objectContaining({ dbPassword: maxPassword }));
+    });
+
+    it("--password-file은 끝 줄바꿈을 지운 값을 요청 본문에 넣는다", async () => {
+      const filePassword = "file-only-pass";
+      const dir = mkdtempSync(join(tmpdir(), "nhncloud-rds-mysql-test-"));
+      try {
+        const file = join(dir, "password.txt");
+        writeFileSync(file, `${filePassword}\n`);
+        await run("--json", ...CREATE_ARGS, "--password-file", file, "--yes");
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+
+      expect(createDbUser).toHaveBeenCalledWith(INSTANCE_ID, expect.objectContaining({ dbPassword: filePassword }));
+      expect(stdout()).not.toContain(filePassword);
+      expect(stderr()).not.toContain(filePassword);
     });
   });
 
@@ -262,6 +348,14 @@ describe("rds-mysql 쓰기 명령 (ADR-047)", () => {
         message: `DB 사용자를 찾을 수 없습니다: ${missing}. nhncloud rds-mysql user list ${INSTANCE_ID}로 dbUserId를 확인하세요.`,
       });
       expect(deleteDbUser).not.toHaveBeenCalled();
+    });
+
+    it("--yes 없이 실행하면 지우지 않고 applied가 false다", async () => {
+      await run("--json", "user", "delete", INSTANCE_ID, USER_ID);
+
+      expect(deleteDbUser).not.toHaveBeenCalled();
+      expect(JSON.parse(stdout())).toMatchObject({ operation: "user-delete", action: "delete", applied: false, jobId: null });
+      expect(stderr()).toContain("미리보기입니다. 요청하지 않았습니다. 반영하려면 --yes를 붙입니다.");
     });
 
     it("--yes면 지우고 현재 권한을 결과에 담는다", async () => {
@@ -325,6 +419,27 @@ describe("rds-mysql 쓰기 명령 (ADR-047)", () => {
 
     it("요청이 RdsMysqlApiError로 실패하면 접수 여부 불명 안내를 하지 않는다", async () => {
       const original = new RdsMysqlApiError(80400, "invalid parameter");
+      createDbUser.mockRejectedValue(original);
+
+      await expect(run(...CREATE_ARGS, "--yes")).rejects.toBe(original);
+      expect(stderr()).not.toContain("요청이 접수됐는지 알 수 없습니다");
+    });
+  });
+
+  describe("요청 실패의 HTTP 상태", () => {
+    it("HTTP 5xx 봉투로 실패하면 결과를 아는 실패로 보지 않고 접수 여부 불명을 안내한다", async () => {
+      const original = new RdsMysqlApiError(80500, "internal error", 503);
+      createDbUser.mockRejectedValue(original);
+
+      await expect(run(...CREATE_ARGS, "--yes")).rejects.toBe(original);
+      expect(stderr()).toContain("요청이 접수됐는지 알 수 없습니다");
+    });
+
+    it.each([
+      ["HTTP 400", 400],
+      ["HTTP 200 봉투", undefined],
+    ])("%s 실패는 접수 여부 불명 안내를 하지 않는다", async (_case, httpStatus) => {
+      const original = new RdsMysqlApiError(80400, "invalid parameter", httpStatus);
       createDbUser.mockRejectedValue(original);
 
       await expect(run(...CREATE_ARGS, "--yes")).rejects.toBe(original);

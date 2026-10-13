@@ -18,13 +18,17 @@ import {
   parseWaitOptions,
   type RdsMysqlCommandOptions,
   type RdsMysqlWriteOptions,
-  type RdsMysqlWriteResult,
+  rdsMysqlWriteResult,
   readDbUserPassword,
   resolveRdsMysqlClient,
   withRdsMysqlOptions,
   withRdsMysqlSpinner,
   withRdsMysqlWriteOptions,
 } from "./helpers.js";
+
+function listDbUsers(client: RdsMysqlClient, dbInstanceId: string): Promise<RdsMysqlDbUser[]> {
+  return withRdsMysqlSpinner(`DB 사용자 목록 조회 중 (${dbInstanceId})...`, () => client.listDbUsers(dbInstanceId));
+}
 
 const listCommand = withRdsMysqlOptions(
   new Command("list")
@@ -35,9 +39,7 @@ const listCommand = withRdsMysqlOptions(
   const parsedId = parseUuidArgument(dbInstanceId, "<db-instance-id>");
   const { client } = await resolveRdsMysqlClient(opts);
 
-  const users = await withRdsMysqlSpinner(`DB 사용자 목록 조회 중 (${parsedId})...`, () =>
-    client.listDbUsers(parsedId),
-  );
+  const users = await listDbUsers(client, parsedId);
   output(opts, {
     headers: [
       "dbUserId", "dbUserName", "host", "authorityType", "dbUserStatus", "authenticationPlugin", "tlsOption",
@@ -50,10 +52,6 @@ const listCommand = withRdsMysqlOptions(
     ids: users.map((u) => u.dbUserId),
   });
 });
-
-function listDbUsers(client: RdsMysqlClient, dbInstanceId: string): Promise<RdsMysqlDbUser[]> {
-  return withRdsMysqlSpinner(`DB 사용자 목록 조회 중 (${dbInstanceId})...`, () => client.listDbUsers(dbInstanceId));
-}
 
 async function findDbUser(client: RdsMysqlClient, dbInstanceId: string, dbUserId: string): Promise<RdsMysqlDbUser> {
   const user = (await listDbUsers(client, dbInstanceId)).find((u) => u.dbUserId === dbUserId);
@@ -106,7 +104,9 @@ const createCommand = withRdsMysqlWriteOptions(
   await checkInstanceForWrite(client, parsedId, authPlugin !== undefined || tls !== undefined);
   const target = userTarget(name, host);
   const users = await listDbUsers(client, parsedId);
-  if (users.some((u) => u.dbUserName === name && u.host === host)) {
+  // MySQL 은 host 를 대소문자 구분 없이 비교한다. 사용자 이름은 정확히 일치할 때만 같은 사용자로 본다.
+  const lowerHost = host.toLowerCase();
+  if (users.some((u) => u.dbUserName === name && u.host.toLowerCase() === lowerHost)) {
     throw new NhnCloudCliError(`이미 있는 DB 사용자입니다: ${target}`, EXIT_PARAM_ERROR);
   }
 
@@ -115,20 +115,15 @@ const createCommand = withRdsMysqlWriteOptions(
     opts,
     wait,
     client,
-    {
+    rdsMysqlWriteResult({
       operation: "user-create",
       dbInstanceId: parsedId,
       target,
-      dbUserId: null,
       authorityType,
-      previousAuthorityType: null,
       authenticationPlugin: authPlugin ?? null,
       tlsOption: tls ?? null,
       action: "create",
-      applied: false,
-      jobId: null,
-      jobStatus: null,
-    },
+    }),
     () =>
       client.createDbUser(parsedId, {
         dbUserName: name,
@@ -170,7 +165,7 @@ const updateCommand = withRdsMysqlWriteOptions(
   }
 
   const unchanged = user.authorityType === authorityType;
-  const result: RdsMysqlWriteResult = {
+  const result = rdsMysqlWriteResult({
     operation: "user-update",
     dbInstanceId: parsedId,
     target: userTarget(user.dbUserName, user.host),
@@ -180,10 +175,7 @@ const updateCommand = withRdsMysqlWriteOptions(
     authenticationPlugin: body.authenticationPlugin ?? null,
     tlsOption: body.tlsOption ?? null,
     action: unchanged ? "unchanged" : "update",
-    applied: false,
-    jobId: null,
-    jobStatus: null,
-  };
+  });
 
   if (unchanged) {
     outputRdsMysqlWriteResult(opts, result);
@@ -223,20 +215,14 @@ const deleteCommand = withRdsMysqlWriteOptions(
     opts,
     wait,
     client,
-    {
+    rdsMysqlWriteResult({
       operation: "user-delete",
       dbInstanceId: parsedId,
       target: userTarget(user.dbUserName, user.host),
       dbUserId: parsedUserId,
       authorityType: user.authorityType,
-      previousAuthorityType: null,
-      authenticationPlugin: null,
-      tlsOption: null,
       action: "delete",
-      applied: false,
-      jobId: null,
-      jobStatus: null,
-    },
+    }),
     () => client.deleteDbUser(parsedId, parsedUserId),
     `nhncloud rds-mysql user list ${parsedId}`,
   );

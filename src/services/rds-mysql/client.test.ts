@@ -263,7 +263,21 @@ describe("RdsMysqlClient 응답 형식과 오류", () => {
     const err = await client().listDbInstances().catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(RdsMysqlApiError);
-    expect(err).toMatchObject({ resultCode: 80401, exitCode: EXIT_AUTH_ERROR });
+    expect(err).toMatchObject({ resultCode: 80401, httpStatus: 401, exitCode: EXIT_AUTH_ERROR });
+  });
+
+  it("봉투 본문의 HTTP 503 오류는 RdsMysqlApiError 이고 HTTP 상태를 담은 API 오류다", async () => {
+    vi.mocked(ky.get).mockReturnValue(
+      httpErrorResponse(
+        503,
+        JSON.stringify({ header: { resultCode: 99999, resultMessage: "Service Unavailable", isSuccessful: false } }),
+      ),
+    );
+
+    const err = await client().listDbInstances().catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(RdsMysqlApiError);
+    expect(err).toMatchObject({ resultCode: 99999, httpStatus: 503, exitCode: EXIT_API_ERROR });
   });
 
   it("봉투가 아닌 본문의 HTTP 500 오류는 RdsMysqlApiError 가 아닌 API 오류다", async () => {

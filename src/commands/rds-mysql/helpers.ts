@@ -32,7 +32,7 @@ export function withRdsMysqlOptions(command: Command): Command {
 }
 
 /**
- * ID 인자는 UUID 만 받는다. 이름 해석은 하지 않는다 (ADR-046).
+ * ID 인자는 UUID 만 받는다. 이름 해석은 하지 않는다 (docs/flow.md 「RDS for MySQL」).
  * 앞뒤 공백을 지우지 않고 그대로 거른다.
  */
 export function parseUuidArgument(value: string, label: string): string {
@@ -65,6 +65,7 @@ export async function resolveRdsMysqlClient(opts: {
 }
 
 function stringifyValue(value: unknown): string {
+  // instance get 은 응답 키를 그대로 옮기므로, 중첩 필드가 [object Object] 로 찍히지 않게 JSON 으로 쓴다.
   if (typeof value === "object" && value !== null) return JSON.stringify(value);
   return String(value);
 }
@@ -135,6 +136,32 @@ export interface RdsMysqlWriteResult {
   jobStatus: string | null;
 }
 
+type RdsMysqlWriteResultFields = Pick<RdsMysqlWriteResult, "operation" | "dbInstanceId" | "target" | "action"> &
+  Partial<
+    Pick<
+      RdsMysqlWriteResult,
+      "dbUserId" | "authorityType" | "previousAuthorityType" | "authenticationPlugin" | "tlsOption"
+    >
+  >;
+
+/** 요청 전 결과 객체를 만든다. 주지 않은 필드는 null, applied 는 false 다. 키 순서가 곧 table 출력 순서다. */
+export function rdsMysqlWriteResult(fields: RdsMysqlWriteResultFields): RdsMysqlWriteResult {
+  return {
+    operation: fields.operation,
+    dbInstanceId: fields.dbInstanceId,
+    target: fields.target,
+    dbUserId: fields.dbUserId ?? null,
+    authorityType: fields.authorityType ?? null,
+    previousAuthorityType: fields.previousAuthorityType ?? null,
+    authenticationPlugin: fields.authenticationPlugin ?? null,
+    tlsOption: fields.tlsOption ?? null,
+    action: fields.action,
+    applied: false,
+    jobId: null,
+    jobStatus: null,
+  };
+}
+
 /** --json 은 객체 그대로, --quiet 은 jobId 가 있을 때만 그 한 줄, table 은 키 순서대로 field/value 다. */
 export function outputRdsMysqlWriteResult(opts: OutputOptions, result: RdsMysqlWriteResult): void {
   output(opts, {
@@ -179,6 +206,7 @@ function errorMessage(err: unknown): string {
 /**
  * 미리보기, 요청, 작업 대기를 한 흐름으로 처리한다 (ADR-047).
  * 서버가 봉투로 알린 실패(RdsMysqlApiError)와 결과를 모르는 실패를 다른 문구로 안내한다.
+ * HTTP 5xx 는 본문이 봉투여도 게이트웨이나 서버 내부 오류일 수 있어 결과를 모르는 실패로 본다.
  * wait 는 명령이 파싱 단계에서 parseWaitOptions 로 얻은 값이다.
  */
 export async function applyRdsMysqlWrite(
@@ -199,7 +227,9 @@ export async function applyRdsMysqlWrite(
   try {
     jobId = await withRdsMysqlSpinner(`RDS for MySQL ${result.operation} 요청 중 (${result.dbInstanceId})...`, request);
   } catch (err) {
-    if (!(err instanceof RdsMysqlApiError)) {
+    const knownOutcome =
+      err instanceof RdsMysqlApiError && !(err.httpStatus !== undefined && err.httpStatus >= 500);
+    if (!knownOutcome) {
       process.stderr.write(
         `주의: 요청이 접수됐는지 알 수 없습니다. 다시 실행하기 전에 ${listHint}로 반영 여부를 확인하세요.\n`,
       );
