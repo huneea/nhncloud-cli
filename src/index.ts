@@ -70,6 +70,10 @@ import { keyCommand as skmKeyCommand } from "./commands/skm/key.js";
 import { secretCommand as skmSecretCommand } from "./commands/skm/secret.js";
 import { symmetricKeyCommand as skmSymmetricKeyCommand } from "./commands/skm/symmetric-key.js";
 import { asymmetricKeyCommand as skmAsymmetricKeyCommand } from "./commands/skm/asymmetric-key.js";
+import { instanceCommand as rdsMysqlInstanceCommand } from "./commands/rds-mysql/instance.js";
+import { schemaCommand as rdsMysqlSchemaCommand } from "./commands/rds-mysql/schema.js";
+import { userCommand as rdsMysqlUserCommand } from "./commands/rds-mysql/user.js";
+import { jobCommand as rdsMysqlJobCommand } from "./commands/rds-mysql/job.js";
 import { listCommand as loadBalancerListCommand } from "./commands/loadbalancer/list.js";
 import { getCommand as loadBalancerGetCommand } from "./commands/loadbalancer/get.js";
 import { ipaclCommand as loadBalancerIpAclCommand } from "./commands/loadbalancer/ipacl.js";
@@ -364,6 +368,16 @@ skmCommand.addCommand(skmSymmetricKeyCommand);
 skmCommand.addCommand(skmAsymmetricKeyCommand);
 
 program.addCommand(skmCommand);
+
+// RDS for MySQL 커맨드 그룹
+const rdsMysqlCommand = new Command("rds-mysql")
+  .description("NHN Cloud RDS for MySQL DB 인스턴스·스키마·사용자 명령");
+rdsMysqlCommand.addCommand(rdsMysqlInstanceCommand);
+rdsMysqlCommand.addCommand(rdsMysqlSchemaCommand);
+rdsMysqlCommand.addCommand(rdsMysqlUserCommand);
+rdsMysqlCommand.addCommand(rdsMysqlJobCommand);
+
+program.addCommand(rdsMysqlCommand);
 program.addCommand(skillsCommand);
 program.addCommand(doctorCommand);
 program.addCommand(createCommandsCommand(program));
