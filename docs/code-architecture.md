@@ -5,6 +5,7 @@
 - Node.js와 TypeScript
 - Commander.js 명령 트리
 - `ky` HTTP 클라이언트
+- `undici` 프록시 dispatcher(프록시를 지정할 때만 설치)
 - tsup 번들과 vitest 테스트
 - pnpm 패키지 관리
 
@@ -67,6 +68,8 @@ skill ──> config와 독립된 사용자 데이터 경계
 | NCR Harbor data plane | UAK Basic Auth | registry 응답에서 검증한 host |
 | Log & Crash collector | 서비스 규약에 맞춘 body | collector endpoint |
 
+프록시는 `src/index.ts`의 전역 옵션 훅이 `src/api/proxy.ts`로 해석하고 Node fetch 의 전역 dispatcher 로 설치한다. 서비스 client 와 인증 모듈은 프록시를 모르고, 새 client 도 따로 할 일이 없다([[adr-044]]).
+
 자격증명 필드와 캐시 파일 구조는 [data-schema.md](data-schema.md)가 소유한다.
 서비스별 헤더, 봉투와 예외는 [ADR Index](adr/INDEX.md)에서 관련 결정을 골라 확인한다.
 
@@ -89,6 +92,7 @@ HTTP 오류 응답의 본문은 `src/api/httpError.ts`의 `readHttpErrorBody`로
 Network 쓰기 요청의 400·409 응답은 `src/services/network/errors.ts`가 `NeutronError.message`를 덧붙이고, Log & Crash 500 응답은 `src/services/logncrash/errors.ts`가 `requestId`를 보존하며, Secure Key Manager 응답은 `src/services/skm/client.ts`가 `header.resultMessage`로 메시지를 바꾼다.
 `config`는 파일과 profile 오류를 보존하면서 서비스 블록 부재를 구분해 반환하고,
 공통 명령 경계는 블록이나 appkey가 없을 때만 서비스별 설정 안내로 바꾼다.
+SKM 기밀 데이터를 JSON 객체로 해석하고 다시 쓰는 규칙(객체 판정, 정밀도를 잃는 숫자 거절, 들여쓰기 유지, 해시 대조)은 `src/commands/skm/secret-json.ts`가 소유하고 `secret get --field`와 `secret patch`가 함께 쓴다([[adr-045]]).
 Log & Crash export는 API 수집 상태와 로컬 파일 완결 상태를 분리하고, 완료 결과를 최종 경로 교체 실패 때문에 삭제하지 않는다(ADR-034).
 Log & Crash service client는 공식 `available-token` 응답의 정수 필드를 검증한다.
 명령 계층은 검색과 scroll 요청 직전에 이 값을 확인하고, 0 이하이면 검색 호출을 차단한다(ADR-036).

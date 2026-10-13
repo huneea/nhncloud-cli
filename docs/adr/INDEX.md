@@ -51,3 +51,5 @@ ADR-NNN 내용은 `docs/adr/NNN-*.md` 로 찾는다(번호 glob: slug 몰라도 
 - [ADR-041](041-release-publish-local-ci-verify.md): npm 게시는 로컬에서 사람이 하고 태그 push 워크플로는 검증만 한다
 - [ADR-042](042-doctor-offline-default-and-exit-code.md): doctor 는 기본 오프라인, 연결 확인은 `--check-connection`, 진단 결과로 종료 코드를 바꾸지 않는다
 - [ADR-043](043-codex-skill-path-shared-repository.md): 공개 스킬을 Claude Code 와 Codex 경로에 함께 연결하고 두 경로를 한 단위로 바꾼다
+- [ADR-044](044-http-proxy-global-dispatcher.md): HTTP 프록시는 undici `EnvHttpProxyAgent` 를 전역 dispatcher 로 설치해 모든 요청에 적용한다
+- [ADR-045](045-skm-secret-field-patch.md): SKM 기밀 데이터의 필드 하나만 바꾸는 patch 는 미리보기가 기본이고 반영 뒤 다시 조회해 대조한다
