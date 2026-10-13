@@ -48,6 +48,7 @@ nhncloud skm secret get <key-id> --field <name> --quiet
 - `symmetric-key create-local-key`: 평문 키와 암호화된 키 두 줄
 - `asymmetric-key verify`: 출력 없음
 - `key create`·`secret update`·`key delete|purge`: `keyId`
+- `secret patch`: `action`(`added`, `replaced`, `deleted`, `unchanged`)
 - `keystore create|update|delete`: `keyStoreId`
 - `keystore auth add|delete|purge`: 입력한 IPv4·MAC 값(소문자로 정규화) 또는 인증서 이름
 - `keystore auth get`: 조회한 인증 정보의 값 또는 인증서 이름
@@ -72,6 +73,26 @@ printf '%s' "$SECRET" | nhncloud skm key create <keystore-id> --type secret --na
 - 대칭키·비대칭키는 자동 회전 없이 만들어진다. 자동 회전은 콘솔에서 설정한다.
 - MAC 값은 소문자로 바꿔 보내므로 콘솔에서 대문자로 등록한 MAC은 CLI로 지우지 못할 수 있다.
 
+값이 JSON 객체인 기밀 데이터는 `secret patch`로 최상위 필드 하나만 더하거나 바꾸거나 지운다.
+
+```bash
+printf '%s' "$NEW_PASSWORD" | nhncloud skm secret patch <key-id> db_password --replace          # 미리보기
+printf '%s' "$NEW_PASSWORD" | nhncloud skm secret patch <key-id> db_password --replace --yes    # 반영
+nhncloud skm secret patch <key-id> old_field --delete --yes
+```
+
+- 값이 JSON 객체인 기밀 데이터에만 쓴다. 값이 JSON 객체가 아니거나, 다시 쓰면 바뀌는 숫자(안전 정수 범위 밖의 정수, 유효 숫자 15자리를 넘는 소수)가 있으면 종료 코드 3이다.
+- 새 값은 `--file`이나 표준 입력으로만 받고 JSON 문자열로 들어간다. 끝 줄바꿈도 값에 들어가므로 `echo` 대신 `printf '%s'`로 넘긴다.
+- 기본은 미리보기라 동작(`action`)만 출력하고 쓰지 않는다. `--yes`를 줄 때만 전체 값을 쓴다. 동작이 `unchanged`면 `--yes`를 줘도 쓰지 않는다.
+- 이미 있는 필드의 값을 다른 값으로 바꾸려면 `--replace`가 필요하다. 없으면 미리보기에서도 종료 코드 3이다. `--delete`는 `--file`·`--replace`와 함께 쓸 수 없고, 지울 필드가 없으면 `unchanged`다.
+- 반영 뒤 같은 키를 다시 조회해 바꾼 필드와 다른 필드를 대조하고, 결과를 `fieldVerified`, `othersVerified`로 낸다. 어긋나거나 다시 조회하지 못하면 결과를 출력한 뒤 종료 코드 1로 끝난다.
+- 실패 문구에 따라 할 일이 다르다.
+  - 쓰기 요청 실패: 반영 여부를 알 수 없다. 같은 명령을 `--yes` 없이 다시 실행해 `action`이 `unchanged`인지 확인한다.
+  - 다시 조회 실패: 값은 바꿨지만 검증하지 못했다. `secret get`으로 현재 값을 확인한다.
+  - 대조 불일치: 다른 쓰기가 끼어들었거나 승인 기능 때문에 변경이 대기 중일 수 있다. `secret get`으로 현재 값을 확인한다.
+- 기밀 데이터에는 버전이 없다. 같은 키를 동시에 고치면 나중에 쓴 쪽이 앞의 변경을 덮어쓰고, 덮어쓴 값은 되돌릴 수 없다.
+- 같은 이름의 키가 둘 이상이면 뒤의 것만 남는다. 들여쓰기와 끝 줄바꿈은 원래 값을 따르고, 그 밖의 공백과 이스케이프는 다시 쓴다. 필드 순서는 유지하고 새 필드는 끝에 붙는다.
+
 ## 입력과 크기 한도
 
 암복호화·서명·검증 명령의 입력은 `--plaintext`·`--ciphertext`, `--file`, 표준 입력 순서로 고른다.
@@ -83,6 +104,8 @@ printf '%s' "$SECRET" | nhncloud skm key create <keystore-id> --type secret --na
   - `symmetric-key decrypt`: 암호문 1MB(1,000,000바이트)
   - `asymmetric-key sign`·`verify`: 245바이트, `--standard`를 주면 64KB(65536바이트)
   - `key create --type secret`·`secret update`: 기밀 데이터 값 1MB(1,000,000바이트)
+  - `secret patch`: 필드에 넣을 값 1MB(1,000,000바이트)
+- 기밀 데이터는 공식 문서 기준 32KB 이하 텍스트이며, 이 상한은 서버가 판정한다.
   - 인증서 비밀번호: 1024바이트
 - `--standard`는 바이너리 입력을 base64로 바꿔 보낸다.
 
@@ -106,6 +129,7 @@ nhncloud skm secret get <key-id> --json | jq -j '.secret' > secret.txt
 필드가 없거나 값이 JSON 객체가 아니면 종료 코드 3이다.
 인증서 인증 상세의 `password`는 `***`로 가린다.
 `secret update`는 바꾼 값을 출력하지 않는다.
+`secret patch`는 값과 해시를 출력하지 않는다. 출력은 `keyId`, `field`, `action`, `applied`, `fieldVerified`, `othersVerified`뿐이다.
 `symmetric-key get`은 대칭키 원문을 stdout에 낸다.
 `key get`, `keystore get`, `keystore auth get`은 메타데이터만 출력하고 키 원문과 인증서 비밀번호는 내지 않는다.
 비밀값 명령의 stdout을 로그나 이슈, 채팅에 붙이지 않는다.
