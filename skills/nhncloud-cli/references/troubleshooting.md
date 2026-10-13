@@ -5,7 +5,7 @@
 ## 빠른 진단 순서
 
 1. 명령에 `--profile <name>`을 명시했는지 확인한다.
-2. IaaS/NKS/NCR 명령이면 `--region <region>`이 의도와 맞는지 확인한다.
+2. IaaS/NKS/NCR/RDS for MySQL 명령이면 `--region <region>`이 의도와 맞는지 확인한다.
 3. 조회 명령을 `--json`으로 다시 실행해 stdout shape를 확인한다.
 4. `nhncloud commands --json`으로 실제 command path와 option 이름을 확인한다.
 5. exit code를 확인한다.
@@ -29,6 +29,7 @@
 | NCS | UAK id 와 secret, NCS appkey |
 | API Gateway | UAK id 와 secret, API Gateway appkey |
 | Secure Key Manager | UAK id 와 secret, SKM appkey, 키 저장소 IPv4·MAC 인증 |
+| RDS for MySQL | UAK id 와 secret(정적 헤더), RDS for MySQL appkey |
 
 ## Exit code
 
@@ -47,7 +48,7 @@ profile 선택 순서는 [Profile 우선순위](common.md#profile-우선순위)�
 
 ## Region mismatch
 
-IaaS/NKS/NCR은 region별 endpoint를 사용한다.
+IaaS/NKS/NCR/RDS for MySQL은 region별 endpoint를 사용한다.
 리소스가 보이지 않으면 같은 profile에서 다른 region을 조회했을 수 있다.
 
 ```bash
@@ -55,6 +56,7 @@ nhncloud instance list --region kr1 --json
 nhncloud instance list --region kr2 --json
 nhncloud nks cluster list --region kr1 --json
 nhncloud ncr list --region kr2 --json
+nhncloud rds-mysql instance list --region kr2 --json
 ```
 
 ## JSON shape 혼동
