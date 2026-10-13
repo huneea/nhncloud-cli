@@ -309,4 +309,38 @@ describe("configure logncrash Search v3", () => {
 
     expect(setServiceCredential).not.toHaveBeenCalled();
   });
+
+  it("--rds-mysql-appkey 단독 호출이 rds-mysql 자격증명으로 저장된다", async () => {
+    await programWithConfigure().parseAsync([
+      "node",
+      "nhncloud",
+      "configure",
+      "--profile",
+      "profile-rds",
+      "--no-verify",
+      "--rds-mysql-appkey",
+      " rds-mysql-appkey ",
+    ]);
+
+    expect(vi.mocked(setServiceCredential).mock.calls).toStrictEqual([
+      ["profile-rds", "rds-mysql", { appkey: "rds-mysql-appkey" }],
+    ]);
+  });
+
+  it("--rds-mysql-appkey 공백 값은 EXIT_PARAM_ERROR 로 거부된다", async () => {
+    await expect(
+      programWithConfigure().parseAsync([
+        "node",
+        "nhncloud",
+        "configure",
+        "--profile",
+        "profile-rds",
+        "--no-verify",
+        "--rds-mysql-appkey",
+        "  ",
+      ]),
+    ).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+
+    expect(setServiceCredential).not.toHaveBeenCalled();
+  });
 });

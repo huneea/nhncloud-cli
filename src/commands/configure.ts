@@ -36,6 +36,7 @@ interface ConfigureOptions {
   ncsAppkey?: string;
   apigatewayAppkey?: string;
   skmAppkey?: string;
+  rdsMysqlAppkey?: string;
   deployAppkey?: string;
   verify: boolean;
 }
@@ -52,6 +53,7 @@ async function saveAndVerify(
   ncs: ServiceCredential | undefined,
   apigateway: ServiceCredential | undefined,
   skm: ServiceCredential | undefined,
+  rdsMysql: ServiceCredential | undefined,
   deploy: ServiceCredential | undefined,
   doVerify: boolean,
   logncrashUak: UserAccessKey | undefined = uak,
@@ -177,6 +179,9 @@ async function saveAndVerify(
   }
   if (skm) {
     await setServiceCredential(profileName, "skm", skm);
+  }
+  if (rdsMysql) {
+    await setServiceCredential(profileName, "rds-mysql", rdsMysql);
   }
   if (deploy) {
     await setServiceCredential(profileName, "deploy", deploy);
@@ -336,7 +341,7 @@ async function runInteractive(opts: ConfigureOptions): Promise<void> {
   if (opts.verify) {
     // 대화형: 실패 시 저장 여부 재확인
     try {
-      await saveAndVerify(profileName, uak, logncrash, iaas, ncr, ncs, undefined, undefined, deploy, true, uak);
+      await saveAndVerify(profileName, uak, logncrash, iaas, ncr, ncs, undefined, undefined, undefined, deploy, true, uak);
     } catch (err) {
       if (err instanceof NhnCloudCliError && err.exitCode === EXIT_AUTH_ERROR) {
         // 여기서 catch 해 대화를 이어가므로 index.ts 의 출력 관문을 지나지 않는다.
@@ -349,13 +354,13 @@ async function runInteractive(opts: ConfigureOptions): Promise<void> {
           process.stderr.write(chalk.yellow("저장이 취소되었습니다.\n"));
           return;
         }
-        await saveAndVerify(profileName, uak, logncrash, iaas, ncr, ncs, undefined, undefined, deploy, false, uak);
+        await saveAndVerify(profileName, uak, logncrash, iaas, ncr, ncs, undefined, undefined, undefined, deploy, false, uak);
       } else {
         throw err;
       }
     }
   } else {
-    await saveAndVerify(profileName, uak, logncrash, iaas, ncr, ncs, undefined, undefined, deploy, false, uak);
+    await saveAndVerify(profileName, uak, logncrash, iaas, ncr, ncs, undefined, undefined, undefined, deploy, false, uak);
   }
 }
 
@@ -384,6 +389,9 @@ async function runNonInteractive(opts: ConfigureOptions): Promise<void> {
   }
   if (opts.skmAppkey !== undefined && opts.skmAppkey.trim().length === 0) {
     throw new NhnCloudCliError("--skm-appkey 값은 비어 있을 수 없습니다.", EXIT_PARAM_ERROR);
+  }
+  if (opts.rdsMysqlAppkey !== undefined && opts.rdsMysqlAppkey.trim().length === 0) {
+    throw new NhnCloudCliError("--rds-mysql-appkey 값은 비어 있을 수 없습니다.", EXIT_PARAM_ERROR);
   }
   if (opts.deployAppkey !== undefined && opts.deployAppkey.trim().length === 0) {
     throw new NhnCloudCliError("--deploy-appkey 값은 비어 있을 수 없습니다.", EXIT_PARAM_ERROR);
@@ -432,16 +440,20 @@ async function runNonInteractive(opts: ConfigureOptions): Promise<void> {
     ? { appkey: opts.skmAppkey.trim() }
     : undefined;
 
+  const rdsMysql: ServiceCredential | undefined = opts.rdsMysqlAppkey?.trim()
+    ? { appkey: opts.rdsMysqlAppkey.trim() }
+    : undefined;
+
   const deploy: ServiceCredential | undefined = opts.deployAppkey?.trim()
     ? { appkey: opts.deployAppkey.trim() }
     : undefined;
 
-  if (!uak && !logncrash && !iaas && !ncr && !ncs && !apigateway && !skm && !deploy) {
+  if (!uak && !logncrash && !iaas && !ncr && !ncs && !apigateway && !skm && !rdsMysql && !deploy) {
     throw new NhnCloudCliError(
       "비대화형 모드: --uak-id + UAK secret, --logncrash-appkey,\n" +
         "--iaas-tenant-id + --iaas-username + iaas password,\n" +
-        "--ncr-appkey, --ncs-appkey, --apigateway-appkey, --skm-appkey, 또는 --deploy-appkey\n" +
-        "중 하나가 필요합니다.\n" +
+        "--ncr-appkey, --ncs-appkey, --apigateway-appkey, --skm-appkey, --rds-mysql-appkey,\n" +
+        "또는 --deploy-appkey 중 하나가 필요합니다.\n" +
         "secret/password 는 노출 방지를 위해 환경변수 권장:\n" +
         "NHNCLOUD_UAK_SECRET / NHNCLOUD_IAAS_PASSWORD.",
       EXIT_PARAM_ERROR,
@@ -466,6 +478,7 @@ async function runNonInteractive(opts: ConfigureOptions): Promise<void> {
     ncs,
     apigateway,
     skm,
+    rdsMysql,
     deploy,
     opts.verify,
     logncrashUak,
@@ -490,6 +503,7 @@ export const configureCommand = new Command("configure")
   .option("--ncs-appkey <key>", "ncs appkey (비대화형)")
   .option("--apigateway-appkey <key>", "API Gateway appkey (비대화형)")
   .option("--skm-appkey <key>", "Secure Key Manager appkey (비대화형)")
+  .option("--rds-mysql-appkey <key>", "RDS for MySQL appkey (비대화형)")
   .option("--deploy-appkey <key>", "deploy appkey (비대화형)")
   .option("--no-verify", "연결 테스트 생략")
   .action(async (opts: ConfigureOptions) => {
@@ -505,6 +519,7 @@ export const configureCommand = new Command("configure")
       opts.ncsAppkey !== undefined ||
       opts.apigatewayAppkey !== undefined ||
       opts.skmAppkey !== undefined ||
+      opts.rdsMysqlAppkey !== undefined ||
       opts.deployAppkey !== undefined;
 
     try {

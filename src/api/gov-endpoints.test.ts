@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   endpointFor, keystoneIdentityUrl, ncrHost, instanceHost, imageHost,
-  networkHost, blockStorageHost, nksHost,
+  networkHost, blockStorageHost, nksHost, rdsMysqlHost,
 } from "./endpoints.js";
 import { EXIT_PARAM_ERROR } from "../utils/exit-codes.js";
 
@@ -12,6 +12,7 @@ describe("공공망 endpoint 선택", () => {
     expect(keystoneIdentityUrl()).toBe("https://api-identity-infrastructure.nhncloudservice.com/v2.0/tokens");
     expect(ncrHost("kr1")).toBe("kr1-ncr.api.nhncloudservice.com");
     expect(instanceHost("kr1")).toBe("kr1-api-instance-infrastructure.nhncloudservice.com");
+    expect(rdsMysqlHost("jp1")).toBe("jp1-rds-mysql.api.nhncloudservice.com");
   });
 
   it("gov profile은 공식 공공망 주소를 사용한다", () => {
@@ -24,11 +25,13 @@ describe("공공망 endpoint 선택", () => {
     expect(networkHost("kr2", "gov")).toBe("kr2-api-network-infrastructure.gov-nhncloudservice.com");
     expect(blockStorageHost("kr2", "gov")).toBe("kr2-api-block-storage-infrastructure.gov-nhncloudservice.com");
     expect(nksHost("kr1", "gov")).toBe("kr1-api-kubernetes-infrastructure.gov-nhncloudservice.com");
+    expect(rdsMysqlHost("kr1", "gov")).toBe("kr1-rds-mysql.api.gov-nhncloudservice.com");
   });
 
   it("공식 문서에 없는 공공망 region과 서비스는 요청 전에 거부한다", () => {
     expect(() => ncrHost("kr2", "gov")).toThrow(expect.objectContaining({ exitCode: EXIT_PARAM_ERROR }));
     expect(() => instanceHost("kr3", "gov")).toThrow(expect.objectContaining({ exitCode: EXIT_PARAM_ERROR }));
+    expect(() => rdsMysqlHost("kr2", "gov")).toThrow(expect.objectContaining({ exitCode: EXIT_PARAM_ERROR }));
     expect(() => endpointFor("logncrash", "gov")).toThrow();
   });
 });

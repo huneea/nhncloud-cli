@@ -285,3 +285,39 @@ export function apigatewayHost(region: string): string {
   }
   return host;
 }
+
+// ── RDS for MySQL ────────────────────────────────────────────────────────────
+
+/**
+ * region → RDS for MySQL API v3 host 맵 (ADR-046).
+ * 일반망은 공식 문서의 kr1·kr2·jp1 만 둔다. 공공망은 판교(kr1) host 하나만 문서에 있다.
+ */
+const RDS_MYSQL_HOST: Record<string, string> = {
+  kr1: "kr1-rds-mysql.api.nhncloudservice.com",
+  kr2: "kr2-rds-mysql.api.nhncloudservice.com",
+  jp1: "jp1-rds-mysql.api.nhncloudservice.com",
+};
+
+/**
+ * region 에 해당하는 RDS for MySQL API host 를 반환한다.
+ * 미등록 region 은 사용 가능한 region 목록 안내와 함께 EXIT_PARAM_ERROR 를 던진다.
+ */
+export function rdsMysqlHost(region: string, environment: CloudEnvironment = "real"): string {
+  if (environment === "gov") {
+    if (region !== "kr1") {
+      throw new NhnCloudCliError(
+        `지원하지 않는 공공망 RDS for MySQL region 입니다: "${region}". 사용 가능한 region: kr1`,
+        EXIT_PARAM_ERROR,
+      );
+    }
+    return "kr1-rds-mysql.api.gov-nhncloudservice.com";
+  }
+  const host = RDS_MYSQL_HOST[region];
+  if (!host) {
+    throw new NhnCloudCliError(
+      `지원하지 않는 RDS for MySQL region 입니다: "${region}". 사용 가능한 region: ${Object.keys(RDS_MYSQL_HOST).join(", ")}`,
+      EXIT_PARAM_ERROR,
+    );
+  }
+  return host;
+}
