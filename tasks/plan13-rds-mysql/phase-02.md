@@ -59,7 +59,7 @@ export function rdsMysqlHost(region: string, environment: CloudEnvironment = "re
 타입과 가드를 둔다. 가드 이름은 `is<타입명>` 이다.
 
 - `RdsMysqlDbInstance`: 필수 string `dbInstanceId`, `dbInstanceName`, `dbInstanceStatus`. 표시용 선택 필드 `dbVersion`, `dbInstanceType`, `progressStatus` 는 있으면 string 또는 null 이어야 한다. 그 밖의 키(`dbInstanceGroupId`, `description`, `dbPort`, `createdYmdt` 등)는 검사하지 않고 `[key: string]: unknown` 으로 남긴다.
-- `RdsMysqlDbInstanceDetail extends RdsMysqlDbInstance`: 선택 `supportAuthenticationPlugin` 은 있으면 boolean 이어야 한다. boolean 이 아니면(null 포함) 가드는 통과시키되 타입은 `boolean | null | undefined` 로 두고, 쓰는 쪽은 `=== false` 일 때만 미지원으로 본다.
+- `RdsMysqlDbInstanceDetail extends RdsMysqlDbInstance`: 선택 `supportAuthenticationPlugin` 은 가드가 검사하지 않는다. 타입은 `boolean | null | undefined` 로 두고, 쓰는 쪽은 `=== false` 일 때만 미지원으로 본다.
 - `RdsMysqlDbSchema`: 필수 string `dbSchemaId`, `dbSchemaName`, `dbSchemaStatus`. 표시용 선택 `createdYmdt`(string 또는 null).
 - `RdsMysqlDbUser`: 필수 string `dbUserId`, `dbUserName`, `host`, `authorityType`, `dbUserStatus`. 표시용 선택 필드 `authenticationPlugin` 과 `tlsOption` 은 둘 다 string 또는 null 이다. 그 밖의 키는 검사하지 않는다.
 - `RdsMysqlJob`: 필수 string `jobId`, `jobStatus`. 표시용 선택 `resourceRelations` 는 있으면 배열이어야 하고, 각 원소의 `resourceType`, `resourceId` 는 string 또는 null 이다. `createdYmdt`, `updatedYmdt` 는 string 또는 null.
