@@ -146,6 +146,7 @@ nhncloud instance create --help
 | NCS | template을 기준으로 workload를 만들고 관찰 | [ncs.md](../skills/nhncloud-cli/references/ncs.md) |
 | API Gateway | service·stage·resource 탐색 뒤 설정·배포 | [apigateway.md](../skills/nhncloud-cli/references/apigateway.md) |
 | Secure Key Manager | 키 저장소와 키 탐색 뒤 기밀 데이터 조회, 암복호화, 서명과 검증 | [skm.md](../skills/nhncloud-cli/references/skm.md) |
+| RDS for MySQL | DB 인스턴스 탐색 뒤 DB 스키마와 DB 사용자 조회·변경 | [rds-mysql.md](../skills/nhncloud-cli/references/rds-mysql.md) |
 
 ## 조회와 페이지 이동
 
@@ -281,6 +282,51 @@ flowchart TD
 - 출력에는 값과 해시가 없다. `--json`은 `keyId`, `field`, `action`, `applied`, `fieldVerified`, `othersVerified`를, `--quiet`은 `action`만 낸다. 반영하지 않았거나 다시 조회하지 못했으면 두 대조 값은 `null`이다.
 - 쓰기 요청이 실패하면 반영 여부를 알 수 없는 경우가 있다. 같은 명령을 `--yes` 없이 다시 실행해 `unchanged`인지 확인한다. 같은 값이면 다시 실행해도 쓰지 않는다.
 - 같은 키를 동시에 고치면 나중에 쓴 쪽이 앞의 변경을 덮어쓴다. 다시 조회한 값이 기대와 다르면 종료 코드 1로 알리지만 덮어쓴 값은 되돌리지 못한다.
+
+### RDS for MySQL
+
+profile 공통 UAK를 정적 헤더로, `rds-mysql.appkey`를 `X-TC-APP-KEY` 헤더로 보낸다. 망은 profile `environment`로, region은 `--region`(기본 `kr1`)으로 고른다([[adr-046]]).
+일반망은 `kr1`, `kr2`, `jp1`, 공공망은 `kr1`만 받는다. 다른 region은 자격증명을 읽은 뒤, API 호출 전에 종료 코드 3으로 끝난다.
+`rds-mysql instance list`로 DB 인스턴스 ID를 찾고, `schema list`와 `user list`에 넘긴다. `user list`의 `dbUserId`를 `user update`와 `user delete`에 넘긴다.
+목록 API에는 페이지가 없어 한 번의 응답을 그대로 출력한다. 빈 목록도 성공이다.
+
+#### RDS for MySQL 쓰기
+
+`schema create`, `user create`, `user update`, `user delete`는 같은 흐름을 따른다([[adr-047]]).
+
+```mermaid
+flowchart TD
+  A[인수 검증, 비밀번호 읽기] -->|형식 오류, 빈 비밀번호| E3[종료 코드 3, 요청 없음]
+  A --> B[profile, appkey, UAK, region host 해석]
+  B -->|설정 없음| E4[종료 코드 4]
+  B -->|지원하지 않는 region| E3r[종료 코드 3, 요청 없음]
+  B --> C[DB 인스턴스 상세 조회]
+  C -->|조회 실패| E1[API 오류]
+  C -->|progressStatus 가 NONE 이 아님| W[stderr 경고 후 계속]
+  C --> D[스키마 또는 사용자 목록 조회와 사전 검사]
+  W --> D
+  D -->|이미 있음, dbUserId 없음, 인증 플러그인 미지원| E3b[종료 코드 3, 쓰기 없음]
+  D -->|권한이 이미 같음| U[unchanged 출력, 종료 코드 0, 쓰기 없음]
+  D --> F{--yes 인가}
+  F -->|아니다| P[미리보기 출력, 종료 코드 0]
+  F -->|그렇다| G[쓰기 요청]
+  G -->|봉투 실패| K[서버 메시지로 종료, 재실행 안내 없음]
+  G -->|시간 초과, 연결 오류, 응답 형식 오류| X[접수 여부 불명 안내, 종료 코드 1]
+  G -->|jobId| H{--wait 인가}
+  H -->|아니다| R[jobId 출력, 종료 코드 0]
+  H -->|그렇다| J[작업 상태를 3초 간격으로 조회]
+  J -->|COMPLETED| OK[결과 출력, 종료 코드 0]
+  J -->|실패 상태| FAIL[결과 출력, 원인 확인 뒤 재실행 안내, 종료 코드 1]
+  J -->|COMPLETED_WITH_ERROR, DELETED, 상한 초과, 조회 실패| UNK[결과 출력, 재실행 금지와 job get 안내, 종료 코드 1]
+```
+
+- 미리보기와 반영은 같은 사전 검사를 한다. 같은 이름의 스키마나 같은 `이름@host` 사용자가 있으면 종료 코드 3이다. 결과를 모르는 실패 뒤 같은 명령을 다시 실행하면 이 검사가 중복 생성을 막는다.
+- `--auth-plugin`이나 `--tls`를 주었는데 인스턴스 상세의 `supportAuthenticationPlugin`이 `false`면 종료 코드 3이다.
+- `user create`의 비밀번호는 `--password-file`이나 표준 입력으로만 받는다. 끝의 줄바꿈 하나(`\n`이나 `\r\n`)를 지우고 4자 이상 256자 이하인지 본다. 터미널에서 입력 없이 실행하면 대화형으로 묻지 않고 종료 코드 3으로 끝난다. 비밀번호는 미리보기, 결과, 오류 어디에도 나오지 않는다.
+- `user update`는 `--authority`만 바꾼다. 목록에서 읽은 현재 인증 플러그인과 TLS 옵션을 함께 보낸다. 현재 권한이 `CUSTOM`이면 바꾼 뒤 다시 `CUSTOM`으로 돌릴 수 없다고 stderr에 경고한다.
+- 권한(`read`, `crud`, `ddl`, `all`)은 인스턴스의 모든 스키마에 적용된다. 스키마 하나로 좁히려면 DB에 접속해 `GRANT ... ON <schema>.*`를 직접 실행해야 하고, 그 권한은 콘솔에 `CUSTOM`으로 보일 수 있다.
+- `--quiet`은 요청했을 때 `jobId`만 출력한다. 미리보기와 `unchanged`는 stdout에 아무것도 내지 않는다.
+- `--wait` 없이 요청한 작업은 `rds-mysql job get <job-id>`로 상태를 확인한다. `--timeout`은 `--wait`와 함께만 쓴다.
 
 ## 공개 스킬 수명주기
 
