@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
 import {
+  assertNoLossyNumber,
   formatFieldValue,
   hasLossyNumber,
   parseFieldName,
@@ -32,6 +33,22 @@ describe("parseSecretObject", () => {
     expect(error).toMatchObject({ exitCode: EXIT_PARAM_ERROR });
     expect((error as Error).message).toContain("--field");
     expect((error as Error).message).not.toContain("p@ss");
+  });
+});
+
+describe("assertNoLossyNumber", () => {
+  it("거절 문구는 원문 대신 --field 없는 조회와 secret update 를 안내한다", () => {
+    const text = '{"id":12345678901234567890}';
+    expect(() => assertNoLossyNumber(text, "--field")).toThrow(
+      expect.objectContaining({
+        exitCode: EXIT_PARAM_ERROR,
+        message: expect.stringContaining("--field 없이 secret get으로 받고"),
+      }),
+    );
+    expect(() => assertNoLossyNumber(text, "--field")).toThrow(expect.not.objectContaining({
+      message: expect.stringContaining("12345678901234567890"),
+    }));
+    expect(() => assertNoLossyNumber('{"id":1}', "--field")).not.toThrow();
   });
 });
 

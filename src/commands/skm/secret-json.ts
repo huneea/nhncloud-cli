@@ -68,7 +68,7 @@ export function hasLossyNumber(text: string): boolean {
 export function assertNoLossyNumber(text: string, usage: string): void {
   if (hasLossyNumber(text)) {
     throw new NhnCloudCliError(
-      `기밀 데이터에 다시 쓰면 값이 바뀌는 숫자가 있어 ${usage}를 쓸 수 없습니다. 전체 값은 secret get과 secret update로 다루세요.`,
+      `기밀 데이터에 다시 쓰면 값이 바뀌는 숫자가 있어 ${usage}를 쓸 수 없습니다. 전체 값은 --field 없이 secret get으로 받고, 바꿀 때는 secret update로 전체 값을 보내세요.`,
       EXIT_PARAM_ERROR,
     );
   }
