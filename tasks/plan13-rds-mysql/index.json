@@ -1,0 +1,15 @@
+{
+  "name": "plan13-rds-mysql",
+  "description": "RDS for MySQL API v3 로 DB 인스턴스·스키마·사용자 조회와 스키마 생성, 사용자 생성·권한 변경·삭제를 미리보기 기본과 --wait 로 제공한다",
+  "status": "pending",
+  "created_at": "2026-10-13",
+  "total_phases": 5,
+  "current_phase": 1,
+  "phases": [
+    { "number": 1, "file": "phase-01.md", "execution_profile": "fast" },
+    { "number": 2, "file": "phase-02.md", "execution_profile": "standard" },
+    { "number": 3, "file": "phase-03.md", "execution_profile": "standard" },
+    { "number": 4, "file": "phase-04.md", "execution_profile": "deep" },
+    { "number": 5, "file": "phase-05.md", "execution_profile": "standard" }
+  ]
+}
