@@ -120,9 +120,9 @@ action 순서. 1~5는 `resolveSkmClient` 보다 앞이다.
 - 미리보기: `--json secret patch k1 db --replace` 는 `updateSecret` 을 부르지 않고, stdout 을 `JSON.parse` 하면 `{ keyId: "k1", field: "db", action: "replaced", applied: false, fieldVerified: null, othersVerified: null }` 이며, stderr 에 `--yes를 붙이세요` 가 있다.
 - `--replace` 누락: `secret patch k1 db` 는 `EXIT_PARAM_ERROR`, `updateSecret` 미호출.
 - 반영 성공: `getSecret` 두 번째 응답을 `{"db":"new","port":5432}` 로 두고 `--json secret patch k1 db --replace --yes` 가 `updateSecret("k1", "{\"db\":\"new\",\"port\":5432}")` 를 부르며 결과가 `applied: true`, 두 대조 값 `true` 다. stdout 전체에 `new` 와 `old`, `sha` 가 없다(`updateSecret` 응답의 `secretValue` 도 나오지 않는다).
-- 추가: `newkey` 필드를 `--yes` 로 더하면 `action: "added"`, 종료 코드 0.
+- 추가: 두 번째 `getSecret` 응답을 `{"db":"old","port":5432,"newkey":"new"}` 로 두고 `newkey` 필드를 `--yes` 로 더하면 `action: "added"`, 종료 코드 0.
 - 같은 값: 표준 입력이 `old` 면 `--yes` 를 줘도 `updateSecret` 을 부르지 않고 `action: "unchanged"`, `applied: false`.
-- 삭제: `secret patch k1 db --delete --yes` 는 표준 입력을 읽지 않고(`read` 미호출) `{"port":5432}` 를 보낸다. `--delete --replace`, `--delete --file x` 는 `resolveSkmClient` 전에 `EXIT_PARAM_ERROR`.
+- 삭제: 두 번째 `getSecret` 응답을 `{"port":5432}` 로 두고 `secret patch k1 db --delete --yes` 는 표준 입력을 읽지 않고(`read` 미호출) `{"port":5432}` 를 보낸다. `--delete --replace`, `--delete --file x` 는 `resolveSkmClient` 전에 `EXIT_PARAM_ERROR`.
 - 대조 불일치: 두 번째 응답이 `{"db":"other","port":5432}` 면 결과(`fieldVerified: false`, `othersVerified: true`)를 출력하고 `EXIT_API_ERROR` 로 거절되며 오류 문구에 `승인 기능` 이 있다. 두 번째 응답의 `port` 가 바뀌면 `othersVerified: false`.
 - 다시 조회 실패: 두 번째 `getSecret` 이 `NhnCloudCliError("API 호출 실패 (500): boom", EXIT_API_ERROR)` 로 거절되면 `applied: true`, 대조 값 `null` 을 출력하고 `검증하지 못했습니다` 를 담은 `EXIT_API_ERROR` 다.
 - 쓰기 실패: `updateSecret` 이 `NhnCloudCliError("API 호출 실패 (403): denied", EXIT_AUTH_ERROR)` 로 거절되면 stdout 이 비어 있고, 오류는 `EXIT_AUTH_ERROR` 이며 `--yes 없이 다시 실행` 을 담는다.

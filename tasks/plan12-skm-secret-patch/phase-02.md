@@ -92,6 +92,7 @@ export function parseFieldName(value: string, label: string): string;
 - `secret get k1 --field missing` 은 `EXIT_PARAM_ERROR` 로 거절되고 stdout 이 비어 있다.
 - `getSecret` 이 `plain-text-secret` 이면 `--field db` 가 `EXIT_PARAM_ERROR` 로 거절되고 오류 문구에 `plain-text-secret` 이 없다.
 - `getSecret` 이 `{"id":12345678901234567890,"db":"p1"}` 이면 `--field db` 는 `p1` 을 내고 `--field id` 는 `EXIT_PARAM_ERROR` 다.
+- `getSecret` 이 `{"a":"1"}` 일 때 `--field toString` 과 `--field __proto__` 는 `EXIT_PARAM_ERROR` 다(`Object.hasOwn` 을 `in` 으로 바꾸면 실패해야 한다).
 - `--field ""` 는 `resolveSkmClient` 를 부르기 전에 `EXIT_PARAM_ERROR` 다.
 
 ### 5. 사용자 문서
