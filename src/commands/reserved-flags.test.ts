@@ -31,6 +31,7 @@ const RESERVED_ROOT_FLAGS = [
   "--quiet",
   "--no-color",
   "--request-timeout",
+  "--proxy",
 ];
 
 function flagsOf(command: Command): string[] {

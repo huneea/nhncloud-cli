@@ -2,6 +2,7 @@ import { HTTPError, TimeoutError } from "ky";
 import { getRequestTimeoutMs } from "./timeout.js";
 import { NhnCloudCliError } from "../utils/errors.js";
 import { EXIT_API_ERROR, EXIT_AUTH_ERROR } from "../utils/exit-codes.js";
+import { sanitizeForTerminal } from "../utils/terminal.js";
 
 /**
  * HTTP 오류 응답의 본문을 JSON 으로 읽는다. 본문이 비었거나 JSON 이 아니면 undefined 를 돌려준다.
@@ -44,6 +45,14 @@ export function toNhnCloudCliError(err: unknown): NhnCloudCliError {
   }
 
   if (err instanceof Error) {
+    // fetch 의 연결 실패는 "fetch failed" 만 담고 실제 원인(ECONNREFUSED, 프록시 거절 등)은 cause 에 둔다.
+    const cause = err.cause;
+    if (cause instanceof Error && cause.message !== "" && cause.message !== err.message) {
+      return new NhnCloudCliError(
+        `${err.message} (${sanitizeForTerminal(cause.message)})`,
+        EXIT_API_ERROR,
+      );
+    }
     return new NhnCloudCliError(err.message, EXIT_API_ERROR);
   }
 

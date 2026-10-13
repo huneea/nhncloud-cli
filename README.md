@@ -33,7 +33,7 @@ nhncloud skills install
 
 ## 빠른 시작
 
-Node.js 20 이상이 필요해요.
+Node.js 20.18.1 이상이 필요해요.
 
 ### 1. 설치해요
 
@@ -143,6 +143,8 @@ nhncloud apigateway service list                              # API Gateway 서�
 nhncloud apigateway stage deploy create <service-id> <stage-id> --yes  # API Gateway 스테이지 배포
 nhncloud skm key list <keystore-id>                           # Secure Key Manager 키 목록
 nhncloud skm secret get <key-id> --quiet                      # 기밀 데이터 원문
+nhncloud skm secret get <key-id> --field <name> --quiet       # JSON 기밀 데이터의 필드 하나
+printf '%s' "$VALUE" | nhncloud skm secret patch <key-id> <field> --replace --yes   # JSON 기밀 데이터의 필드 하나만 바꾸기
 ```
 
 삭제처럼 되돌리기 어려운 일부 명령은 `--yes` 를 붙여야 실행돼요. 비대화형 환경에서 `--yes` 가 없으면 API 를 호출하기 전에 끝나요.
@@ -186,6 +188,7 @@ nhncloud logncrash available-token --json | jq -r '.availableToken'
 
 - 설정이 의심되면 `nhncloud doctor` 를 먼저 실행해 보세요.
 - 에이전트가 새 명령을 모르면 `nhncloud skills update` 를 실행해 주세요.
+- 프록시를 거쳐야 하면 `--proxy http://proxy.example:3128` 또는 `HTTPS_PROXY` 를 지정해요. 자세한 규칙은 [공통 가이드](skills/nhncloud-cli/references/common.md)의 「프록시」 절에 있어요.
 - 종료 코드별 대처는 [문제 해결](skills/nhncloud-cli/references/troubleshooting.md)에 있어요.
 - 버그나 제안은 [GitHub Issues](https://github.com/jon890/nhncloud-cli/issues) 에 남겨 주세요. 설정 문제라면 `nhncloud doctor --json` 출력을 함께 붙여 주세요.
   비밀값은 출력에 들어가지 않지만 파일 경로에 사용자 이름이 보일 수 있으니 필요하면 가려 주세요.

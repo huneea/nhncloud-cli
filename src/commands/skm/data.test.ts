@@ -89,6 +89,64 @@ describe("skm 데이터 명령", () => {
     expect(JSON.parse(stdout())).toEqual({ secret: "line1\nline2\u001b[31m" });
   });
 
+  describe("secret get --field", () => {
+    const objectSecret = '{"db":"p1\\n","port":5432,"nested":{"k":"v"}}';
+
+    beforeEach(() => {
+      getSecret.mockResolvedValue(objectSecret);
+    });
+
+    it("--quiet은 문자열 필드 원문과 개행 하나를 쓴다", async () => {
+      await run("--quiet", "secret", "get", "k1", "--field", "db");
+      expect(stdout()).toBe("p1\n\n");
+    });
+
+    it("--json은 keyId, field, 원래 타입의 value를 쓴다", async () => {
+      await run("--json", "secret", "get", "k1", "--field", "port");
+      expect(JSON.parse(stdout())).toEqual({ keyId: "k1", field: "port", value: 5432 });
+    });
+
+    it("객체 필드는 JSON 표기로 쓴다", async () => {
+      await run("secret", "get", "k1", "--field", "nested");
+      expect(stdout()).toBe('{"k":"v"}\n');
+    });
+
+    it("없는 필드는 EXIT_PARAM_ERROR로 거절하고 stdout을 비운다", async () => {
+      await expect(run("secret", "get", "k1", "--field", "missing"))
+        .rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+      expect(stdout()).toBe("");
+    });
+
+    it("JSON 객체가 아닌 값은 원문을 오류에 싣지 않고 거절한다", async () => {
+      getSecret.mockResolvedValue("plain-text-secret");
+      const error = await run("secret", "get", "k1", "--field", "db").catch((e: unknown) => e);
+      expect(error).toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+      expect((error as Error).message).not.toContain("plain-text-secret");
+    });
+
+    it("정밀도를 잃는 숫자는 문자열 필드만 허용한다", async () => {
+      getSecret.mockResolvedValue('{"id":12345678901234567890,"db":"p1"}');
+      await run("--quiet", "secret", "get", "k1", "--field", "db");
+      expect(stdout()).toBe("p1\n");
+      await expect(run("secret", "get", "k1", "--field", "id"))
+        .rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+    });
+
+    it("상속된 이름은 필드로 보지 않는다", async () => {
+      getSecret.mockResolvedValue('{"a":"1"}');
+      for (const name of ["toString", "__proto__"]) {
+        await expect(run("secret", "get", "k1", "--field", name))
+          .rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+      }
+    });
+
+    it("빈 필드 이름은 client 해석 전에 거절한다", async () => {
+      await expect(run("secret", "get", "k1", "--field", ""))
+        .rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+      expect(resolveSkmClient).not.toHaveBeenCalled();
+    });
+  });
+
   it("symmetric-key encrypt는 평문 끝 줄바꿈을 지우지 않고 보낸다", async () => {
     await run("symmetric-key", "encrypt", "k1", "--plaintext", "a\n");
     expect(encrypt).toHaveBeenCalledWith("k1", "a\n");

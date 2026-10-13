@@ -69,6 +69,7 @@ AWS CLI 같은 통합 명령줄 도구가 없어 매번 토큰·엔드포인트�
   - 애플리케이션 배포 스크립트와 에이전트가 SDK 없이 키를 꺼내 쓰는 것이 목적이다. 일반망과 공공망 profile을 모두 지원한다.
   - 인증은 공통 UAK OAuth 토큰과 profile의 `skm.appkey`다. 키 저장소의 IPv4·MAC 인증을 지원하고 인증서 인증은 지원하지 않는다.
   - 키 저장소, 키, 인증 정보를 생성·수정·삭제하고 기밀 데이터 값을 바꾼다. 삭제 예약과 즉시 삭제는 다른 명령이며 모두 `--yes`가 필요하다([[adr-040]]).
+  - JSON 객체로 담은 기밀 데이터는 필드 하나를 읽고, 필드 하나만 더하거나 바꾸거나 지운다. 필드 수정은 미리보기가 기본이고 `--yes`로 반영한 뒤 다시 조회해 대조한다([[adr-045]]).
 - `nhncloud skills`: 공개 스킬의 상태 조회·설치·갱신·제거. 버전과 콘텐츠 해시로 오래된 설치와 사용자 수정본을 구분한다([[adr-025]]).
   Claude Code 와 Codex 의 스킬 경로를 같은 관리 저장소에 함께 연결하고 함께 바꾼다([[adr-043]]).
 - `nhncloud commands`와 `doctor`: 기계 판독 가능한 명령 탐색과 로컬 설정 진단. `doctor`는 `--json` 보고서를 내고, `--check-connection`을 줄 때만 대상 profile 의 연결을 확인한다([[adr-042]]).
@@ -76,6 +77,7 @@ AWS CLI 같은 통합 명령줄 도구가 없어 매번 토큰·엔드포인트�
 - 공공망 profile(`environment: gov`)은 OAuth, Deploy, NCR, IaaS, NKS, Secure Key Manager를 지원하고 NCS, API Gateway, Log & Crash는 호출 전에 거부한다 ([[adr-037]])
 - 출력 3모드: 테이블 / `--json` / `--quiet`
 - `--profile` 로 profile 전환
+- `--proxy` 와 `HTTPS_PROXY`·`HTTP_PROXY`·`NO_PROXY` 로 토큰 발급을 포함한 모든 HTTP 요청을 프록시로 보낸다 ([[adr-044]])
 
 ## 성공 지표
 

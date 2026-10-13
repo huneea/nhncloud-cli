@@ -1,0 +1,25 @@
+# ADR-044: HTTP 프록시는 undici `EnvHttpProxyAgent` 를 전역 dispatcher 로 설치해 모든 요청에 적용한다
+
+- **status**: `accepted`
+- **결정**: 전역 옵션 `--proxy <url>` 과 `HTTPS_PROXY`·`HTTP_PROXY`·`NO_PROXY` 환경변수를 받아, 명령 실행 전에 undici 의 `EnvHttpProxyAgent` 를 Node fetch 의 전역 dispatcher 로 설치한다.
+  - 우선순위는 `--proxy` > 환경변수다. `--proxy` 는 HTTP와 HTTPS 요청 모두의 프록시를 바꾸고, `NO_PROXY` 는 `--proxy` 를 줘도 그대로 따른다.
+  - 환경변수는 소문자(`https_proxy`)를 대문자보다 먼저 읽는다. `HTTPS_PROXY` 가 없으면 HTTPS 요청에도 `HTTP_PROXY` 를 쓴다(undici 동작).
+  - 프록시 값이 하나도 없으면 dispatcher 를 바꾸지 않는다. 프록시를 쓰지 않는 사용자의 동작은 이전과 같다.
+  - 값은 `http:` 또는 `https:` URL 이어야 한다. 아니면 API 호출 전에 종료 코드 3으로 끝나고, 오류 문구에는 값 대신 옵션이나 환경변수 이름만 쓴다. URL 의 사용자 정보는 `Proxy-Authorization` 헤더가 된다.
+  - 의존성 `undici` 7.x 를 더하고 `engines.node` 를 undici 7 의 하한(`>=20.18.1`)으로 올린다.
+- **맥락**:
+  - 외부로 나가는 길이 프록시뿐인 서버에서는 토큰 발급부터 실패해 CLI 를 쓸 수 없었다.
+  - `ky` 가 쓰는 Node 내장 fetch 는 Node 24 의 `NODE_USE_ENV_PROXY` 같은 실행 옵션 말고는 프록시를 읽지 않는다. 지원 범위인 Node 20·22 에는 그 옵션이 없고 `--proxy` 를 표현할 수도 없다.
+  - `ky` 를 부르는 파일이 OAuth, Keystone 과 서비스 client 를 합쳐 14개다. [[adr-026]] 의 타임아웃과 같이 한 곳에서 정해야 빠지는 곳이 생기지 않는다.
+  - Node 내장 fetch 는 `Symbol.for("undici.globalDispatcher.1")` 에 놓인 dispatcher 를 쓴다. undici 패키지의 `setGlobalDispatcher` 가 그 자리에 쓰므로 `ky` 호출을 고치지 않고 모든 요청이 프록시를 거친다. Node 22.18, 22.23, 24.15 에서 `ky` 요청이 가짜 프록시의 CONNECT 와 프록시 인증을 거치는 것을 확인했다.
+- **대안 기각**:
+  - 요청마다 `dispatcher` 옵션 전달: `ky` 가 알 수 없는 옵션을 fetch 로 넘기지만 요청 지점을 모두 고쳐야 하고, 새 client 가 빠뜨려도 드러나지 않는다.
+  - undici 6.x: Node 20 초기 버전까지 받지만 `EnvHttpProxyAgent` 가 실험 기능이라 생성할 때마다 stderr 에 경고를 낸다. `--json` 을 쓰는 자동화의 stderr 를 더럽힌다.
+  - `NODE_USE_ENV_PROXY` 안내만 하기: Node 24 이상에서만 동작하고 `--proxy` 를 둘 수 없다.
+  - 프록시 직접 구현(`http.request` 로 CONNECT): fetch 를 대신할 수 없어 `ky` 를 버려야 한다.
+- **결과**:
+  - 얻는 것: 토큰 발급, `configure` 연결 확인, `doctor --check-connection` 을 포함한 모든 HTTP 요청이 같은 규칙으로 프록시를 거친다. 서비스 client 는 프록시를 모른다.
+  - 감당할 것: 런타임 의존성이 하나 늘고 Node 20.18.0 이하는 지원하지 않는다. 내장 fetch 와 undici 패키지의 dispatcher 계약이 깨지면 프록시가 무시될 수 있어, 로컬 가짜 프록시 테스트가 그 계약을 지킨다. 프록시 연결 실패는 fetch 의 `cause` 메시지를 오류에 덧붙여 원인을 보인다.
+- **적용 범위**: Node fetch 를 쓰는 모든 요청. 공개 스킬 설치처럼 HTTP 요청이 없는 명령은 프록시를 거치지 않는다.
+  - 프록시 값 검사는 모든 명령 앞의 전역 훅에서 한다. 그래서 값이 잘못되면 `skills`, `commands`, `configure`, `doctor` 처럼 HTTP 요청이 없는 명령도 종료 코드 3으로 끝난다.
+  - 숨은 프록시 설정이 조용히 무시되는 것보다 바로 알리는 편이 낫다고 보고 이 동작을 받아들인다. 오류 문구가 옵션이나 환경변수 이름을 알려 주므로 사용자가 고칠 수 있다.

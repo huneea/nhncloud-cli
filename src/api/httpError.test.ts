@@ -107,3 +107,33 @@ describe("readHttpErrorBody", () => {
     expect(await readHttpErrorBody(err)).toEqual({ a: 1 });
   });
 });
+
+describe("toNhnCloudCliError 연결 실패 원인", () => {
+  it("fetch 실패의 cause 메시지를 괄호로 덧붙인다", () => {
+    const err = new TypeError("fetch failed", { cause: new Error("connect ECONNREFUSED 127.0.0.1:9") });
+    const result = toNhnCloudCliError(err);
+    expect(result.message).toBe("fetch failed (connect ECONNREFUSED 127.0.0.1:9)");
+    expect(result.exitCode).toBe(EXIT_API_ERROR);
+  });
+
+  it("cause 의 제어 문자를 터미널 출력 전에 치환한다", () => {
+    const err = new TypeError("fetch failed", { cause: new Error("bad\x1b[31m proxy") });
+    expect(toNhnCloudCliError(err).message).toBe("fetch failed (bad?[31m proxy)");
+  });
+
+  it("cause 가 없으면 메시지가 그대로다", () => {
+    const result = toNhnCloudCliError(new TypeError("fetch failed"));
+    expect(result.message).toBe("fetch failed");
+    expect(result.exitCode).toBe(EXIT_API_ERROR);
+  });
+
+  it("cause 가 Error 가 아니면 메시지가 그대로다", () => {
+    const result = toNhnCloudCliError(new TypeError("fetch failed", { cause: "ECONNREFUSED" }));
+    expect(result.message).toBe("fetch failed");
+  });
+
+  it("cause 메시지가 비었거나 본 메시지와 같으면 덧붙이지 않는다", () => {
+    expect(toNhnCloudCliError(new Error("x", { cause: new Error("") })).message).toBe("x");
+    expect(toNhnCloudCliError(new Error("x", { cause: new Error("x") })).message).toBe("x");
+  });
+});

@@ -248,6 +248,32 @@ deploy 바이너리 업로드·다운로드의 상한은 최소 600초를 유지
 `instance create --timeout` 과 `ncs workload create --timeout` 은 상태 폴링 대기 시간을 지정한다.
 HTTP 요청 상한과는 다른 설정이므로 서로 대체하지 않는다.
 
+## 프록시
+
+외부로 나가는 길이 프록시뿐인 서버에서는 전역 옵션이나 환경변수로 프록시를 지정한다.
+토큰 발급을 포함한 모든 HTTP 요청이 같은 프록시를 거친다.
+
+```bash
+nhncloud --proxy http://proxy.example:3128 skm confirm --json
+HTTPS_PROXY=http://proxy.example:3128 nhncloud skm confirm --json
+```
+
+우선순위는 다음과 같다.
+
+1. `--proxy <url>`: HTTP와 HTTPS 요청 모두에 쓴다.
+2. 소문자 환경변수 `https_proxy`, `http_proxy`
+3. 대문자 환경변수 `HTTPS_PROXY`, `HTTP_PROXY`
+
+- `HTTPS_PROXY` 가 없으면 HTTPS 요청에도 `HTTP_PROXY` 를 쓴다.
+- `NO_PROXY`(또는 `no_proxy`)에 적은 host 는 프록시를 거치지 않는다. `--proxy` 를 줘도 `NO_PROXY` 는 그대로 적용된다.
+- 빈 값은 지정하지 않은 것으로 본다. 프록시 값이 하나도 없으면 직접 연결한다.
+- 값은 `http://` 또는 `https://` 로 시작하는 URL 이어야 한다. 아니면 API 호출 전에 종료 코드 3으로 실패하고, 오류 문구에는 값 대신 옵션이나 환경변수 이름만 나온다.
+  이 검사는 모든 명령 앞에서 하므로 `skills`, `commands`, `configure`, `doctor` 처럼 HTTP 요청이 없는 명령도 종료 코드 3으로 끝난다.
+- 프록시에 연결하지 못하면 종료 코드 1로 실패하고, 오류 문구 뒤 괄호에 원인이 붙는다(예: `fetch failed (connect ECONNREFUSED ...)`).
+
+프록시 인증이 필요하면 `http://user:password@proxy.example:3128` 형식으로 사용자 정보를 URL 에 넣는다.
+비밀번호가 셸 이력에 남지 않도록 `--proxy` 대신 환경변수로 넘긴다.
+
 ## Command catalog
 
 `nhncloud commands`는 command path, argument, option, description을 출력한다. 외부 API를 호출하지 않는다.
@@ -264,7 +290,7 @@ nhncloud commands --json | jq '.commands[] | select(.path=="nks cluster list")'
 
 | 확인 방식 | 명령 |
 |---|---|
-| TTY 여부와 관계없이 `--yes` 필수 | `apigateway stage update`, `apigateway stage import-resources`, `apigateway stage deploy create`, `apigateway stage deploy rollback`, `apigateway resource set-path-plugin`, `apigateway resource set-method-plugin` (`--dry-run` 제외), `loadbalancer ipacl delete`, `loadbalancer ipacl target add`, `loadbalancer ipacl target remove`, `loadbalancer set-ipacl`, `loadbalancer clear-ipacl`, `network security-group delete`, `network security-group rule delete`, `instance security-group add`, `instance security-group remove`, `skm key delete`, `skm key purge`, `skm keystore delete`, `skm keystore auth delete`, `skm keystore auth purge` |
+| TTY 여부와 관계없이 `--yes` 필수 | `apigateway stage update`, `apigateway stage import-resources`, `apigateway stage deploy create`, `apigateway stage deploy rollback`, `apigateway resource set-path-plugin`, `apigateway resource set-method-plugin` (`--dry-run` 제외), `loadbalancer ipacl delete`, `loadbalancer ipacl target add`, `loadbalancer ipacl target remove`, `loadbalancer set-ipacl`, `loadbalancer clear-ipacl`, `network security-group delete`, `network security-group rule delete`, `instance security-group add`, `instance security-group remove`, `skm key delete`, `skm key purge`, `skm keystore delete`, `skm keystore auth delete`, `skm keystore auth purge`, `skm secret patch` (`--yes` 없으면 미리보기) |
 | 비대화형 환경에서는 `--yes` 필수, TTY에서는 확인 질문 | `instance delete`, `floatingip delete`, `nks cluster delete`, `nks cluster addon remove`, `nks nodegroup delete`, `ncs template delete`, `ncs template version delete`, `ncs workload delete` |
 | 확인 질문과 `--yes` 없음 | `instance keypair delete`, `deploy run`, `nks cluster resize --nodes-to-remove`, `nks nodegroup upgrade`, `ncs workload update` (PUT 전체 교체), `instance volume detach`, `instance resize`, `instance stop`, `instance reboot`, `nks nodegroup update-flavor`, `nks cluster set-ipacl`, `nks cluster set-control-plane-log`, `nks cluster update-sgw`, `ncs workload patch` (JSON Patch `remove` 포함 가능), `nks nodegroup stop-node` (지정 노드 중지), `ncs workload pause` (workload 일시정지), `ncs workload restart` (task 재시작), `instance resize-confirm` (새 flavor로 고정, 이후 `resize-revert` 불가), `skm secret update` (기밀 데이터 값 교체), `skm keystore update` (실행 위치가 키를 쓰지 못하게 될 수 있으므로 먼저 `skm confirm`) |
 
