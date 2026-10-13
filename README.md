@@ -143,6 +143,7 @@ nhncloud apigateway service list                              # API Gateway 서�
 nhncloud apigateway stage deploy create <service-id> <stage-id> --yes  # API Gateway 스테이지 배포
 nhncloud skm key list <keystore-id>                           # Secure Key Manager 키 목록
 nhncloud skm secret get <key-id> --quiet                      # 기밀 데이터 원문
+nhncloud skm secret get <key-id> --field <name> --quiet   # JSON 기밀 데이터의 필드 하나
 ```
 
 삭제처럼 되돌리기 어려운 일부 명령은 `--yes` 를 붙여야 실행돼요. 비대화형 환경에서 `--yes` 가 없으면 API 를 호출하기 전에 끝나요.

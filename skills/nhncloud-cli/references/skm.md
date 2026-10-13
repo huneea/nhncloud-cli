@@ -31,6 +31,7 @@ nhncloud skm keystore list
 nhncloud skm key list <keystore-id>
 nhncloud skm key list <keystore-id> --status active   # active|inactive 로 거른다
 nhncloud skm secret get <key-id> --quiet
+nhncloud skm secret get <key-id> --field <name> --quiet
 ```
 
 `--quiet`가 출력하는 값은 다음과 같다.
@@ -38,6 +39,7 @@ nhncloud skm secret get <key-id> --quiet
 - `keystore list`·`keystore get`: `keyStoreId`
 - `key list`·`key get`: `keyId`
 - `secret get`: 기밀 데이터
+- `secret get --field`: 필드 값(문자열이면 원문, 그 밖은 JSON 표기)
 - `symmetric-key get`: 대칭키 원문
 - `symmetric-key encrypt`: 암호문
 - `symmetric-key decrypt`: 평문
@@ -98,6 +100,10 @@ printf 'hello' | nhncloud skm symmetric-key encrypt <key-id> --quiet
 ```bash
 nhncloud skm secret get <key-id> --json | jq -j '.secret' > secret.txt
 ```
+
+`secret get --field <name>`은 값이 JSON 객체인 기밀 데이터에서 최상위 필드 하나만 낸다.
+`--json` 출력은 `{ keyId, field, value }`이고 `value`는 필드의 원래 JSON 타입이다.
+필드가 없거나 값이 JSON 객체가 아니면 종료 코드 3이다.
 인증서 인증 상세의 `password`는 `***`로 가린다.
 `secret update`는 바꾼 값을 출력하지 않는다.
 `symmetric-key get`은 대칭키 원문을 stdout에 낸다.
