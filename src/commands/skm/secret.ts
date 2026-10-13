@@ -1,4 +1,6 @@
 import { Command } from "commander";
+import { NhnCloudCliError } from "../../utils/errors.js";
+import { EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
 import { MAX_JSON_INPUT_BYTES } from "../../utils/limits.js";
 import { parseRequiredArgument } from "../parse-options.js";
 import {
@@ -12,26 +14,44 @@ import {
   withSkmSpinner,
 } from "./helpers.js";
 import { decodeUtf8Input, readSkmInput } from "./input.js";
+import { assertNoLossyNumber, formatFieldValue, parseFieldName, parseSecretObject } from "./secret-json.js";
 
 interface SecretUpdateOptions extends SkmCommandOptions {
   value?: string;
   file?: string;
 }
 
+interface SecretGetOptions extends SkmCommandOptions {
+  field?: string;
+}
+
 const getCommand = withSkmOptions(
   new Command("get")
-    .description("기밀 데이터를 조회한다 (원문을 stdout에 출력)")
-    .argument("<key-id>", "키 ID"),
+    .description("기밀 데이터를 조회한다 (원문을 stdout에 출력, --field로 JSON 객체의 필드 하나만)")
+    .argument("<key-id>", "키 ID")
+    .option("--field <name>", "JSON 객체 값에서 이 필드의 값만 출력한다"),
 ).action(async (keyId: string, _opts: unknown, command: Command) => {
-  const opts = command.optsWithGlobals<SkmCommandOptions>();
+  const opts = command.optsWithGlobals<SecretGetOptions>();
   const parsedKeyId = parseRequiredArgument(keyId, "key-id");
   const macAddress = parseMacAddressOption(opts.macAddress);
+  const field = opts.field === undefined ? undefined : parseFieldName(opts.field, "--field");
   const { client } = await resolveSkmClient({ profile: opts.profile, macAddress });
 
   const secret = await withSkmSpinner(`SKM 기밀 데이터 ${formatCell(parsedKeyId)} 조회 중...`, () =>
     client.getSecret(parsedKeyId),
   );
-  printSkmValue(opts, secret, { secret });
+  if (field === undefined) {
+    printSkmValue(opts, secret, { secret });
+    return;
+  }
+
+  const object = parseSecretObject(secret, "--field");
+  if (!Object.hasOwn(object, field)) {
+    throw new NhnCloudCliError(`기밀 데이터에 필드 ${JSON.stringify(field)}가 없습니다.`, EXIT_PARAM_ERROR);
+  }
+  const value = object[field];
+  if (typeof value !== "string") assertNoLossyNumber(secret, "--field");
+  printSkmValue(opts, formatFieldValue(value), { keyId: parsedKeyId, field, value });
 });
 
 const updateCommand = withSkmOptions(
