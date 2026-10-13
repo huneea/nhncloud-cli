@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
 
@@ -83,4 +85,82 @@ export function parseFieldName(value: string, label: string): string {
     throw new NhnCloudCliError(`${label}는 비어 있을 수 없습니다.`, EXIT_PARAM_ERROR);
   }
   return value;
+}
+
+export type PatchAction = "added" | "replaced" | "deleted" | "unchanged";
+export type PatchChange = { kind: "set"; value: string; replace: boolean } | { kind: "delete" };
+
+const DEFAULT_INDENT = "  ";
+
+/** 들여쓰기와 끝 줄바꿈을 원문에 맞춰 직렬화한다. */
+export function serializeSecretObject(object: SecretObject, originalText: string): string {
+  if (!originalText.trimEnd().includes("\n")) return JSON.stringify(object);
+  const indent = /\n([ \t]+)\S/.exec(originalText)?.[1] ?? DEFAULT_INDENT;
+  const serialized = JSON.stringify(object, null, indent);
+  return originalText.endsWith("\n") ? serialized + "\n" : serialized;
+}
+
+export function sha256Hex(text: string): string {
+  return createHash("sha256").update(text, "utf8").digest("hex");
+}
+
+/**
+ * 동작과 반영 뒤 객체를 정한다. 값이 다른 기존 필드에 replace 가 없으면 던진다.
+ * 필드 이름이 __proto__ 여도 자기 속성으로 다루도록 대입 대신 entries 로 새 객체를 만든다.
+ */
+export function planSecretPatch(
+  before: SecretObject,
+  field: string,
+  change: PatchChange,
+): { action: PatchAction; after: SecretObject } {
+  const exists = Object.hasOwn(before, field);
+  if (change.kind === "delete") {
+    if (!exists) return { action: "unchanged", after: before };
+    return { action: "deleted", after: Object.fromEntries(Object.entries(before).filter(([key]) => key !== field)) };
+  }
+  if (!exists) {
+    return { action: "added", after: Object.fromEntries([...Object.entries(before), [field, change.value]]) };
+  }
+  if (before[field] === change.value) return { action: "unchanged", after: before };
+  if (!change.replace) {
+    throw new NhnCloudCliError(
+      `필드 ${JSON.stringify(field)}가 이미 있습니다. 값을 바꾸려면 --replace를 붙이세요.`,
+      EXIT_PARAM_ERROR,
+    );
+  }
+  return {
+    action: "replaced",
+    after: Object.fromEntries(
+      Object.entries(before).map(([key, value]) => [key, key === field ? change.value : value]),
+    ),
+  };
+}
+
+function entriesWithout(object: SecretObject, field: string): [string, unknown][] {
+  return Object.entries(object).filter(([key]) => key !== field);
+}
+
+/** 다시 조회한 값을 대조한다. fetched 가 null 이면(JSON 객체가 아님) 둘 다 false. */
+export function verifySecretPatch(
+  before: SecretObject,
+  fetched: SecretObject | null,
+  field: string,
+  change: PatchChange,
+): { fieldVerified: boolean; othersVerified: boolean } {
+  if (fetched === null) return { fieldVerified: false, othersVerified: false };
+
+  let fieldVerified: boolean;
+  if (change.kind === "delete") {
+    fieldVerified = !Object.hasOwn(fetched, field);
+  } else {
+    const value = Object.hasOwn(fetched, field) ? fetched[field] : undefined;
+    fieldVerified = typeof value === "string" && sha256Hex(value) === sha256Hex(change.value);
+  }
+
+  const expected = entriesWithout(before, field);
+  const actual = new Map(entriesWithout(fetched, field));
+  const othersVerified =
+    expected.length === actual.size &&
+    expected.every(([key, value]) => actual.has(key) && isDeepStrictEqual(actual.get(key), value));
+  return { fieldVerified, othersVerified };
 }

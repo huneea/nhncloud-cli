@@ -15,8 +15,8 @@ export const processStdin: StdinSource = {
 };
 
 export interface SkmInputSpec {
-  /** 직접 값을 받는 옵션 이름. 예: "--plaintext" */
-  textFlag: string;
+  /** 직접 값을 받는 옵션 이름. 예: "--plaintext". 없으면 파일과 표준 입력으로만 받는다. */
+  textFlag?: string;
   /** 파일 경로를 받는 옵션 이름. 기본 "--file" */
   fileFlag?: string;
   /** 오류 문구에 쓰는 이름. 예: "암호화할 데이터" */
@@ -67,7 +67,7 @@ export function readSkmInput(
   stdin: StdinSource = processStdin,
 ): Buffer {
   const fileFlag = spec.fileFlag ?? "--file";
-  if (source.text !== undefined && source.file !== undefined) {
+  if (spec.textFlag !== undefined && source.text !== undefined && source.file !== undefined) {
     throw new NhnCloudCliError(`${spec.textFlag}와 ${fileFlag}은 함께 지정할 수 없습니다.`, EXIT_PARAM_ERROR);
   }
 
@@ -78,6 +78,11 @@ export function readSkmInput(
     input = readInputFile(source.file, spec);
   } else if (!stdin.isTTY) {
     input = readStdin(stdin, spec);
+  } else if (spec.textFlag === undefined) {
+    throw new NhnCloudCliError(
+      `${spec.label}가 필요합니다. ${fileFlag} <경로>나 표준 입력(파이프)으로 전달하세요.`,
+      EXIT_PARAM_ERROR,
+    );
   } else {
     throw new NhnCloudCliError(
       `${spec.label}가 필요합니다. ${spec.textFlag} <값>, ${fileFlag} <경로>, 표준 입력(파이프) 중 하나로 전달하세요.`,

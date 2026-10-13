@@ -117,6 +117,21 @@ describe("readSkmInput", () => {
     );
   });
 
+  it("textFlag가 없으면 입력 없음 오류에 파일과 표준 입력만 안내한다", () => {
+    const fileOnlySpec: SkmInputSpec = { label: "필드에 넣을 데이터", maxBytes: 3 };
+    let error: unknown;
+    try {
+      readSkmInput({}, fileOnlySpec, ttyStdin);
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toMatchObject({
+      message: "필드에 넣을 데이터가 필요합니다. --file <경로>나 표준 입력(파이프)으로 전달하세요.",
+      exitCode: EXIT_PARAM_ERROR,
+    });
+    expect((error as Error).message).not.toContain("undefined");
+  });
+
   it("fileFlag를 주면 함께 지정 오류와 입력 없음 오류에 그 옵션 이름을 쓴다", () => {
     const passwordSpec: SkmInputSpec = {
       textFlag: "--password", fileFlag: "--password-file", label: "인증서 비밀번호", maxBytes: 3,
