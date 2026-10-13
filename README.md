@@ -143,7 +143,7 @@ nhncloud apigateway service list                              # API Gateway 서�
 nhncloud apigateway stage deploy create <service-id> <stage-id> --yes  # API Gateway 스테이지 배포
 nhncloud skm key list <keystore-id>                           # Secure Key Manager 키 목록
 nhncloud skm secret get <key-id> --quiet                      # 기밀 데이터 원문
-nhncloud skm secret get <key-id> --field <name> --quiet   # JSON 기밀 데이터의 필드 하나
+nhncloud skm secret get <key-id> --field <name> --quiet       # JSON 기밀 데이터의 필드 하나
 printf '%s' "$VALUE" | nhncloud skm secret patch <key-id> <field> --replace --yes   # JSON 기밀 데이터의 필드 하나만 바꾸기
 ```
 

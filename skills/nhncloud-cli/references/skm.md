@@ -91,7 +91,7 @@ nhncloud skm secret patch <key-id> old_field --delete --yes
   - 다시 조회 실패: 값은 바꿨지만 검증하지 못했다. `secret get`으로 현재 값을 확인한다.
   - 대조 불일치: 다른 쓰기가 끼어들었거나 승인 기능 때문에 변경이 대기 중일 수 있다. `secret get`으로 현재 값을 확인한다.
 - 기밀 데이터에는 버전이 없다. 같은 키를 동시에 고치면 나중에 쓴 쪽이 앞의 변경을 덮어쓰고, 덮어쓴 값은 되돌릴 수 없다.
-- 같은 이름의 키가 둘 이상이면 뒤의 것만 남는다. 들여쓰기와 끝 줄바꿈은 원래 값을 따르고, 그 밖의 공백과 이스케이프는 다시 쓴다. 필드 순서는 유지하고 새 필드는 끝에 붙는다.
+- 같은 이름의 키가 둘 이상이면 뒤의 것만 남는다. 들여쓰기와 끝 줄바꿈은 원래 값을 따르고, 그 밖의 공백, 이스케이프, 숫자 표기(`1.0` 은 `1`)는 다시 쓴다. 필드 순서는 유지하고 새 필드는 끝에 붙는다.
 
 ## 입력과 크기 한도
 
@@ -105,8 +105,8 @@ nhncloud skm secret patch <key-id> old_field --delete --yes
   - `asymmetric-key sign`·`verify`: 245바이트, `--standard`를 주면 64KB(65536바이트)
   - `key create --type secret`·`secret update`: 기밀 데이터 값 1MB(1,000,000바이트)
   - `secret patch`: 필드에 넣을 값 1MB(1,000,000바이트)
-- 기밀 데이터는 공식 문서 기준 32KB 이하 텍스트이며, 이 상한은 서버가 판정한다.
   - 인증서 비밀번호: 1024바이트
+- 기밀 데이터는 공식 문서 기준 32KB 이하 텍스트이며, 이 상한은 서버가 판정한다.
 - `--standard`는 바이너리 입력을 base64로 바꿔 보낸다.
 
 ```bash
@@ -127,6 +127,8 @@ nhncloud skm secret get <key-id> --json | jq -j '.secret' > secret.txt
 `secret get --field <name>`은 값이 JSON 객체인 기밀 데이터에서 최상위 필드 하나만 낸다.
 `--json` 출력은 `{ keyId, field, value }`이고 `value`는 필드의 원래 JSON 타입이다.
 필드가 없거나 값이 JSON 객체가 아니면 종료 코드 3이다.
+문자열이 아닌 필드의 숫자가 정밀도를 잃을 수 있으면(안전 정수 범위를 넘거나 유효 숫자 15자리를 넘으면) 이때도 종료 코드 3이다.
+
 인증서 인증 상세의 `password`는 `***`로 가린다.
 `secret update`는 바꾼 값을 출력하지 않는다.
 `secret patch`는 값과 해시를 출력하지 않는다. 출력은 `keyId`, `field`, `action`, `applied`, `fieldVerified`, `othersVerified`뿐이다.
