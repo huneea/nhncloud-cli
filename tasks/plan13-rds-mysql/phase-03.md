@@ -86,6 +86,7 @@ import 는 `instanceCommand as rdsMysqlInstanceCommand` 처럼 별칭을 붙인�
 - `user list <uuid> --json` 이 배열을 그대로 출력한다.
 - `instance get not-a-uuid` 가 EXIT_PARAM_ERROR 로 끝나고 `resolveRdsMysqlClient` 를 부르지 않는다.
 - `job get <uuid> --quiet` 이 `jobStatus` 를 출력한다.
+- `instance get <uuid>` 의 table 과 `--json` 출력에 `header` 가 없다(client 가 `header` 를 뺀 객체를 돌려준다는 phase-02 규칙을 출력에서 확인한다. spy 는 `header` 없는 객체를 돌려주게 두고, 출력이 키를 그대로 옮기는지 본다).
 - `schema list <uuid>` 의 빈 배열이 table 모드에서 `결과 없음` 을 출력하고 성공한다.
 - `formatCell` 이 null 을 `-` 로, 배열을 `a,b` 로, 제어 문자를 치환해 출력한다.
 
@@ -94,7 +95,7 @@ import 는 `instanceCommand as rdsMysqlInstanceCommand` 처럼 별칭을 붙인�
 ```bash
 node_modules/.bin/vitest run src/commands/rds-mysql/read.test.ts src/commands/reserved-flags.test.ts src/commands/commands.test.ts
 node_modules/.bin/tsc --noEmit
-node_modules/.bin/tsup && node dist/index.js commands --json | node -e 'const c=JSON.parse(require("fs").readFileSync(0,"utf8")); const p=(c.commands||c).map(x=>x.path).filter(x=>x.startsWith("rds-mysql")); console.log(p.join("\n")); if(p.length<5) process.exit(1)'
+node_modules/.bin/tsup && node dist/index.js commands --json | node -e 'const p=JSON.parse(require("fs").readFileSync(0,"utf8")).commands.map(x=>x.path); const need=["rds-mysql instance list","rds-mysql instance get","rds-mysql schema list","rds-mysql user list","rds-mysql job get"]; const miss=need.filter(x=>!p.includes(x)); if(miss.length){console.error("missing",miss); process.exit(1)}'
 ```
 
 기대값: 테스트 통과, 타입 오류 0, 카탈로그에 `rds-mysql instance list`, `rds-mysql instance get`, `rds-mysql schema list`, `rds-mysql user list`, `rds-mysql job get` 이 있다.

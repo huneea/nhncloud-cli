@@ -5,7 +5,7 @@
   - `--yes` 가 없으면 미리보기다. DB 인스턴스와 대상 목록을 조회해 검사하고 보낼 내용을 출력한 뒤 종료 코드 0으로 끝난다. 쓰기 요청은 `--yes` 일 때만 보낸다.
   - 미리보기와 반영 모두 같은 사전 검사를 한다. 같은 이름의 스키마나 같은 `이름@host` 사용자가 있으면, 또는 바꾸거나 지울 `dbUserId` 가 목록에 없으면 종료 코드 3으로 끝난다. 권한이 이미 같으면 `--yes` 를 줘도 요청하지 않는다.
   - DB 사용자 비밀번호는 `--password-file` 이나 표준 입력으로만 받는다. `--password` 인수는 두지 않는다. 비밀번호는 어떤 출력에도 내지 않는다.
-  - `user update` 는 권한(`authorityType`)만 바꾼다. 요청에는 목록 조회로 읽은 현재 `authenticationPlugin`, `tlsOption` 을 함께 넣고 비밀번호는 넣지 않는다.
+  - `user update` 는 권한(`authorityType`)만 바꾼다. 요청에는 목록 조회로 읽은 현재 `authenticationPlugin`, `tlsOption` 을 함께 넣고 비밀번호는 넣지 않는다. 인스턴스 상세의 `supportAuthenticationPlugin` 이 `false` 면 두 값도 넣지 않는다.
   - 권한 유형은 `read`, `crud`, `ddl`, `all` 만 받는다. `CUSTOM` 은 받지 않는다.
   - 쓰기 응답은 `jobId` 뿐이다. `--wait` 는 `GET /v3.0/jobs/{jobId}` 를 3초 간격으로 조회한다(기본 상한 300초, `--timeout <sec>`).
     - `COMPLETED` 는 성공(종료 코드 0)이다.

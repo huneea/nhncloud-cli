@@ -36,7 +36,7 @@ RDS for MySQL 명령이 DB 사용자 비밀번호를 같은 규칙으로 읽게 
 
 ### 3. 이 phase 를 검증하는 테스트를 옮기고 import 를 고친다
 
-- `git mv src/commands/skm/input.test.ts src/commands/input-source.test.ts` 후 import 를 `./input-source.js` 로, 이름을 새 이름으로 바꾼다. describe 이름도 `readInputSource` 로 바꾼다. 단언은 그대로 둔다.
+- `git mv src/commands/skm/input.test.ts src/commands/input-source.test.ts` 후 import 를 `./input-source.js` 로, `../../utils/exit-codes.js` 처럼 두 단계 위를 가리키던 import 를 `../utils/...` 로 바꾸고, 이름을 새 이름으로 바꾼다. describe 이름도 `readInputSource` 로 바꾼다. 단언은 그대로 둔다.
 - `src/commands/skm/key-write.test.ts`, `keystore-write.test.ts`, `secret-patch.test.ts` 의 `import { processStdin } from "./input.js";` 를 `"../input-source.js"` 로 바꾼다.
 
 ## 검증
