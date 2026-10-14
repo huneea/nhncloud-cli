@@ -54,6 +54,7 @@ printf '%s' "$DB_PASSWORD" | nhncloud rds-mysql user create <db-instance-id> --n
 - 쓰기 응답은 `jobId`뿐이다. `--wait`를 주면 작업 상태를 3초 간격으로 조회하고, 대기 상한은 기본 300초다. `--timeout <sec>`(1~3600)은 `--wait`와 함께만 쓴다.
 - `--wait` 없이 요청한 작업은 `rds-mysql job get <job-id>`로 확인한다.
 - 비밀번호는 `--password-file`이나 표준 입력으로만 받는다. `--password` 인수는 없다. 끝 줄바꿈(`\n` 또는 `\r\n`) 하나를 지우고 4자 이상 256자 이하인지 본다. 터미널에서 입력 없이 실행하면 묻지 않고 종료 코드 3이다. 비밀번호는 어떤 출력에도 나오지 않는다.
+- `user create`는 `--yes` 없는 미리보기에서도 비밀번호를 받아 검사한다. 미리보기와 반영이 같은 검사를 하게 하려는 것이므로, 미리보기만 볼 때도 `--password-file`이나 표준 입력을 넘긴다.
 - 셸 이력에 남지 않도록 `echo` 대신 `printf '%s' "$DB_PASSWORD" |`나 파일을 쓴다.
 - `--auth-plugin`(`native`, `caching-sha2`, `sha256`)과 `--tls`(`none`, `ssl`, `x509`)는 `user create`에서만 받는다. 인스턴스가 지원하지 않으면(MySQL 5.7.33 미만) 종료 코드 3이다.
 - `user update`는 권한만 바꾼다. 현재 인증 플러그인과 TLS 옵션을 읽어 함께 보내므로 두 설정은 유지된다. 인스턴스가 인증 플러그인을 지원하지 않으면 두 값을 보내지 않는다. 비밀번호 변경과 사용자 정의 권한은 콘솔에서 한다.
