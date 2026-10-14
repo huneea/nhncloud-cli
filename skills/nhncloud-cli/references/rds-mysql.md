@@ -63,7 +63,7 @@ printf '%s' "$DB_PASSWORD" | nhncloud rds-mysql user create <db-instance-id> --n
 - 현재 권한이 `CUSTOM`인 사용자를 `user update`로 바꾸면 `CUSTOM`으로 되돌릴 수 없다. 실행 전에 stderr 경고를 확인한다.
 - 권한은 `read`, `crud`, `ddl`, `all`만 받는다. `CUSTOM`은 받지 않는다.
 - 이름과 host는 요청 전에 검사하고, 어기면 종료 코드 3이다.
-  - 스키마 이름: 영문으로 시작하고 영문, 숫자, `_`로 된 64자 이하. `information_schema`, `performance_schema`, `db_helper`, `sys`, `mysql`, `rds_maintenance`(대소문자 무시)는 쓸 수 없다. MySQL 예약어는 서버가 거절한다.
+  - 스키마 이름: 영문으로 시작하고 영문, 숫자, `_`로 된 64자 이하. `information_schema`, `performance_schema`, `db_helper`, `sys`, `mysql`, `rds_maintenance`(대소문자 무시)는 쓸 수 없다. MySQL 예약어(예: `select`, `order`)는 CLI가 검사하지 않는다. 미리보기는 통과하고, `--yes`로 보낸 요청을 서버가 봉투 실패로 거절해 종료 코드 1로 끝난다.
   - 사용자 이름: 1자 이상 32자 이하이고 제어 문자가 없어야 한다. `mysql.session`, `mysql.sys`, `mysql.infoschema`, `sqlgw`, `admin`, `etladm`, `alertman`, `prom`, `rds_admin`, `rds_mha`, `rds_repl`은 쓸 수 없다.
   - host: 공백 없는 45자 이하. `%`로 범위를 지정한다(예: `10.0.0.%`).
 - DB 인스턴스가 다른 작업을 진행 중이면(`progressStatus`가 `NONE`이 아니면) stderr에 경고하고 계속한다.
@@ -71,13 +71,16 @@ printf '%s' "$DB_PASSWORD" | nhncloud rds-mysql user create <db-instance-id> --n
 ## 권한 범위
 
 `read`, `crud`, `ddl`, `all`은 인스턴스의 모든 스키마(`*.*`)에 적용된다. 스키마 하나로 좁히는 API는 없다.
-스키마 하나로 좁히려면 DB에 접속해 직접 부여한다.
+콘솔 가이드의 GRANT 문이 모두 `ON *.*`이라 `crud`도 `mysql` 같은 시스템 스키마까지 쓰기 권한을 준다.
+
+스키마 하나로 좁히려면 `read`나 `crud`로 만든 뒤 DB에 접속해 `*.*` 권한을 `REVOKE`하고 `GRANT ... ON <schema>.*`를 직접 실행한다.
 
 ```sql
+REVOKE ALL PRIVILEGES, GRANT OPTION FROM '<user>'@'<host>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON `<schema>`.* TO '<user>'@'<host>';
 ```
 
-이렇게 부여한 권한은 콘솔과 `user list`에 `CUSTOM`으로 보일 수 있다.
+이렇게 바꾼 권한은 그 뒤 콘솔과 `user list`에 `CUSTOM`으로 보일 수 있다(실호출로 확인하지 않았다).
 CLI가 DB에 접속해 권한을 관리하지는 않는다.
 
 ## 실패와 재실행
@@ -89,6 +92,8 @@ CLI가 DB에 접속해 권한을 관리하지는 않는다.
 | 쓰기 요청의 HTTP 5xx, 시간 초과, 연결 오류, 응답 형식 오류 | 1 | 접수 여부를 알 수 없다. 다시 실행하기 전에 `schema list`나 `user list`로 반영 여부를 확인한다. |
 | `--wait` 중 작업이 `FAILED` 등 실패 상태로 끝남 | 1 | 작업이 실패했다. 원인을 확인해 고친 뒤 다시 실행한다. |
 | `--wait`의 결과 불확정(`COMPLETED_WITH_ERROR`, `DELETED`), 대기 상한 초과, 상태 조회 실패 | 1 | 다시 실행하지 않는다. `job get <job-id>`와 목록으로 확인한다. 작업은 계속 진행 중일 수 있다. |
+
+작업 실패와 결과 불확정은 종료 코드가 둘 다 1이다. 자동화에서 둘을 가르려면 `--json` 결과의 `jobStatus`를 본다. 실패 상태(`FAILED`, `ERROR`, `CANCELED`, `INTERRUPTED`, `CANNOT_PROGRESS`, `FAIL_TO_READY`, `FAIL_TO_REGISTER`)면 원인을 고쳐 다시 실행한다. 그 밖의 값이나 `null`(대기 상한 초과, 상태 조회 실패)이면 결과가 불확정이므로 다시 실행하지 않고 `job get`으로 확인한다.
 
 결과를 모르는 실패 뒤에 같은 생성 명령을 다시 실행하면 사전 검사가 이미 있는 대상을 종료 코드 3으로 막아 중복 생성을 피한다.
 `--wait`가 실패해도 `jobId`가 담긴 결과는 먼저 출력한다.
