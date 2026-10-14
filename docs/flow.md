@@ -307,7 +307,7 @@ flowchart TD
   C -->|progressStatus 가 NONE 이 아님| W[stderr 경고 후 계속]
   C --> D[스키마 또는 사용자 목록 조회와 사전 검사]
   W --> D
-  D -->|이미 있음, dbUserId 없음| E3b[종료 코드 3, 쓰기 없음]
+  D -->|이미 있음, 같은 사용자 DELETING, dbUserId 없음, 대상 사용자가 STABLE 아님| E3b[종료 코드 3, 쓰기 없음]
   D -->|권한이 이미 같음| U[unchanged 출력, 종료 코드 0, 쓰기 없음]
   D --> F{--yes 인가}
   F -->|아니다| P[미리보기 출력, 종료 코드 0]
@@ -324,6 +324,7 @@ flowchart TD
 
 - 스키마 이름, 사용자 이름, host의 형식은 자격증명을 읽기 전에 검사하고 틀리면 종료 코드 3이다. 규칙은 공식 문서의 제약을 따르며 사용자 안내는 [rds-mysql.md](../skills/nhncloud-cli/references/rds-mysql.md)가 소유한다. MySQL 예약어인지는 서버가 판정한다.
 - 미리보기와 반영은 같은 사전 검사를 한다. 같은 이름의 스키마나 같은 `이름@host` 사용자가 있으면 종료 코드 3이다. host는 대소문자를 구분하지 않고 비교하고, 사용자 이름은 정확히 일치할 때만 같다고 본다. 결과를 모르는 실패 뒤 같은 명령을 다시 실행하면 이 검사가 중복 생성을 막는다.
+- 사용자 사전 검사는 `dbUserStatus`를 본다. `user create`는 `DELETED` 사용자를 중복으로 보지 않고, 같은 사용자가 `DELETING`이면 종료 코드 3이다. `user update`와 `user delete`는 대상이 `STABLE`이 아니면 종료 코드 3이다. 권한이 같아도 `STABLE`이 아니면 `unchanged`가 아니라 종료 코드 3이다.
 - `--auth-plugin`이나 `--tls`를 주었는데 인스턴스 상세의 `supportAuthenticationPlugin`이 `false`면 종료 코드 3이다.
 - `user create`의 비밀번호는 `--password-file`이나 표준 입력으로만 받는다. 끝의 줄바꿈 하나(`\n`이나 `\r\n`)를 지우고 4자 이상 256자 이하인지 본다. 터미널에서 입력 없이 실행하면 대화형으로 묻지 않고 종료 코드 3으로 끝난다. 비밀번호는 미리보기, 결과, 오류 어디에도 나오지 않는다.
 - `user update`는 `--authority`만 바꾼다. 목록에서 읽은 현재 TLS 옵션을 함께 보내고, 인증 플러그인과 비밀번호는 보내지 않는다. 인스턴스가 인증 플러그인을 지원하지 않으면(`supportAuthenticationPlugin: false`) TLS 옵션도 보내지 않는다. 인증 플러그인은 비밀번호를 바꿀 때만 바뀌므로 콘솔에서 바꾼다. 현재 권한이 `CUSTOM`이면 바꾼 뒤 다시 `CUSTOM`으로 돌릴 수 없다고 stderr에 경고한다.

@@ -4,6 +4,7 @@ import type { RdsMysqlClient } from "../../services/rds-mysql/client.js";
 import type { RdsMysqlDbUser, RdsMysqlDbUserUpdateInput } from "../../services/rds-mysql/types.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
+import { sanitizeForTerminal } from "../../utils/terminal.js";
 import {
   applyRdsMysqlWrite,
   checkInstanceForWrite,
@@ -64,6 +65,27 @@ async function findDbUser(client: RdsMysqlClient, dbInstanceId: string, dbUserId
   return user;
 }
 
+/** 삭제가 끝난 사용자다. 목록에 남아 있어도 같은 이름의 생성을 막지 않는다. */
+const DELETED_USER_STATUS = "DELETED";
+const DELETING_USER_STATUS = "DELETING";
+
+/**
+ * 바꾸거나 지울 사용자는 STABLE 이어야 한다. 다른 작업이 진행 중이거나 지워진 사용자에게
+ * 요청을 겹쳐 보내지 않도록 미리보기와 반영에서 똑같이 막는다 (ADR-047).
+ */
+function assertDbUserStable(user: RdsMysqlDbUser, dbInstanceId: string): void {
+  if (user.dbUserStatus === "STABLE") return;
+  const status = sanitizeForTerminal(user.dbUserStatus);
+  const reason =
+    user.dbUserStatus === DELETED_USER_STATUS || user.dbUserStatus === DELETING_USER_STATUS
+      ? "이미 지웠거나 지우는 중인 DB 사용자입니다"
+      : "DB 사용자에 다른 작업이 진행 중입니다";
+  throw new NhnCloudCliError(
+    `${reason} (dbUserStatus=${status}). 요청하지 않았습니다. nhncloud rds-mysql user list ${dbInstanceId}로 상태가 STABLE인지 확인한 뒤 다시 실행하세요.`,
+    EXIT_PARAM_ERROR,
+  );
+}
+
 function userTarget(name: string, host: string): string {
   return `'${name}'@'${host}'`;
 }
@@ -105,8 +127,18 @@ const createCommand = withRdsMysqlWriteOptions(
   const target = userTarget(name, host);
   const users = await listDbUsers(client, parsedId);
   // MySQL 은 host 를 대소문자 구분 없이 비교한다. 사용자 이름은 정확히 일치할 때만 같은 사용자로 본다.
+  // DELETED 는 삭제가 끝난 기록이라 중복으로 보지 않는다. DELETING 은 삭제가 끝날 때까지 막는다.
   const lowerHost = host.toLowerCase();
-  if (users.some((u) => u.dbUserName === name && u.host.toLowerCase() === lowerHost)) {
+  const sameUsers = users.filter(
+    (u) => u.dbUserName === name && u.host.toLowerCase() === lowerHost && u.dbUserStatus !== DELETED_USER_STATUS,
+  );
+  if (sameUsers.some((u) => u.dbUserStatus === DELETING_USER_STATUS)) {
+    throw new NhnCloudCliError(
+      `같은 DB 사용자를 지우는 중입니다: ${target}. 삭제가 끝난 뒤 nhncloud rds-mysql user list ${parsedId}로 확인하고 다시 실행하세요.`,
+      EXIT_PARAM_ERROR,
+    );
+  }
+  if (sameUsers.length > 0) {
     throw new NhnCloudCliError(`이미 있는 DB 사용자입니다: ${target}`, EXIT_PARAM_ERROR);
   }
 
@@ -157,6 +189,7 @@ const updateCommand = withRdsMysqlWriteOptions(
 
   const instance = await checkInstanceForWrite(client, parsedId, false);
   const user = await findDbUser(client, parsedId, parsedUserId);
+  assertDbUserStable(user, parsedId);
   // 인증 플러그인은 비밀번호 없이 보내면 플러그인 변경으로 처리될 수 있어 보내지 않는다.
   // 생략한 TLS 옵션의 처리가 문서에 없어 현재 값을 함께 보낸다. 비밀번호는 보내지 않는다 (ADR-047).
   const body: RdsMysqlDbUserUpdateInput = { authorityType };
@@ -209,6 +242,7 @@ const deleteCommand = withRdsMysqlWriteOptions(
 
   await checkInstanceForWrite(client, parsedId, false);
   const user = await findDbUser(client, parsedId, parsedUserId);
+  assertDbUserStable(user, parsedId);
 
   await applyRdsMysqlWrite(
     opts,

@@ -392,6 +392,79 @@ describe("rds-mysql 쓰기 명령 (ADR-047)", () => {
     });
   });
 
+  describe("DB 사용자 상태 (dbUserStatus)", () => {
+    function userWithStatus(dbUserStatus: string, dbUserId = USER_ID) {
+      return { dbUserId, dbUserName: "app", host: "%", authorityType: "CRUD", dbUserStatus };
+    }
+
+    it("user create는 같은 이름@host라도 DELETED 사용자는 중복으로 보지 않고 요청한다", async () => {
+      listDbUsers.mockResolvedValue([userWithStatus("DELETED")]);
+      await run("user", "create", INSTANCE_ID, "--name", "app", "--host", "%", "--authority", "read", "--yes");
+
+      expect(createDbUser).toHaveBeenCalledTimes(1);
+    });
+
+    it("user create는 DELETED 기록과 STABLE 사용자가 함께 있으면 중복으로 막는다", async () => {
+      listDbUsers.mockResolvedValue([
+        userWithStatus("DELETED", "99999999-9999-9999-9999-999999999999"),
+        userWithStatus("STABLE"),
+      ]);
+      await expect(
+        run("user", "create", INSTANCE_ID, "--name", "app", "--host", "%", "--authority", "read", "--yes"),
+      ).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR, message: "이미 있는 DB 사용자입니다: 'app'@'%'" });
+      expect(createDbUser).not.toHaveBeenCalled();
+    });
+
+    it("user create는 같은 사용자를 지우는 중(DELETING)이면 삭제가 끝난 뒤 다시 실행하라고 막는다", async () => {
+      listDbUsers.mockResolvedValue([userWithStatus("DELETING")]);
+      await expect(
+        run("user", "create", INSTANCE_ID, "--name", "app", "--host", "%", "--authority", "read", "--yes"),
+      ).rejects.toMatchObject({
+        exitCode: EXIT_PARAM_ERROR,
+        message: `같은 DB 사용자를 지우는 중입니다: 'app'@'%'. 삭제가 끝난 뒤 nhncloud rds-mysql user list ${INSTANCE_ID}로 확인하고 다시 실행하세요.`,
+      });
+      expect(createDbUser).not.toHaveBeenCalled();
+    });
+
+    it.each(["CREATING", "UPDATING", "SYNCING"])(
+      "user update는 %s 사용자를 미리보기에서도 막고 요청하지 않는다",
+      async (status) => {
+        listDbUsers.mockResolvedValue([userWithStatus(status)]);
+        await expect(run("user", "update", INSTANCE_ID, USER_ID, "--authority", "ddl")).rejects.toMatchObject({
+          exitCode: EXIT_PARAM_ERROR,
+          message: `DB 사용자에 다른 작업이 진행 중입니다 (dbUserStatus=${status}). 요청하지 않았습니다. nhncloud rds-mysql user list ${INSTANCE_ID}로 상태가 STABLE인지 확인한 뒤 다시 실행하세요.`,
+        });
+        expect(stdout()).toBe("");
+        expect(updateDbUser).not.toHaveBeenCalled();
+      },
+    );
+
+    it("user update는 권한이 같아도 STABLE이 아니면 unchanged 대신 막는다", async () => {
+      listDbUsers.mockResolvedValue([userWithStatus("UPDATING")]);
+      await expect(run("user", "update", INSTANCE_ID, USER_ID, "--authority", "crud", "--yes")).rejects.toMatchObject({
+        exitCode: EXIT_PARAM_ERROR,
+      });
+      expect(updateDbUser).not.toHaveBeenCalled();
+    });
+
+    it.each(["DELETING", "DELETED"])("user delete는 %s 사용자를 --yes여도 막는다", async (status) => {
+      listDbUsers.mockResolvedValue([userWithStatus(status)]);
+      await expect(run("user", "delete", INSTANCE_ID, USER_ID, "--yes")).rejects.toMatchObject({
+        exitCode: EXIT_PARAM_ERROR,
+        message: `이미 지웠거나 지우는 중인 DB 사용자입니다 (dbUserStatus=${status}). 요청하지 않았습니다. nhncloud rds-mysql user list ${INSTANCE_ID}로 상태가 STABLE인지 확인한 뒤 다시 실행하세요.`,
+      });
+      expect(deleteDbUser).not.toHaveBeenCalled();
+    });
+
+    it("오류 문구의 dbUserStatus는 제어 문자를 치환한다", async () => {
+      listDbUsers.mockResolvedValue([userWithStatus("UPD\u001b[31mATING")]);
+      await expect(run("user", "delete", INSTANCE_ID, USER_ID, "--yes")).rejects.toSatisfy(
+        (err: Error) => !err.message.includes("\u001b"),
+      );
+      expect(deleteDbUser).not.toHaveBeenCalled();
+    });
+  });
+
   describe("schema create", () => {
     it.each([["1abc"], ["mysql"], ["MySQL"]])("--name %s는 EXIT_PARAM_ERROR이고 client를 만들지 않는다", async (name) => {
       await expect(run("schema", "create", INSTANCE_ID, "--name", name)).rejects.toMatchObject({
