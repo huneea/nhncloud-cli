@@ -275,6 +275,30 @@ describe("rds-mysql 쓰기 명령 (ADR-047)", () => {
       expect(createDbUser).toHaveBeenCalledWith(INSTANCE_ID, expect.objectContaining({ dbPassword: maxPassword }));
     });
 
+    it("--password-file 앞에 BOM이 있으면 EXIT_PARAM_ERROR이고 오류 문구에 값을 넣지 않는다", async () => {
+      const dir = mkdtempSync(join(tmpdir(), "nhncloud-rds-mysql-test-"));
+      try {
+        const file = join(dir, "password.txt");
+        writeFileSync(file, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(`${PASSWORD}\n`)]));
+        const error = await run(...CREATE_ARGS, "--password-file", file, "--yes").catch((e: unknown) => e);
+        expect(error).toMatchObject({
+          exitCode: EXIT_PARAM_ERROR,
+          message: "DB 사용자 비밀번호 앞에 BOM(U+FEFF)이 있습니다. BOM 없는 UTF-8로 저장해 다시 실행하세요.",
+        });
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+      expect(resolveRdsMysqlClient).not.toHaveBeenCalled();
+      expect(createDbUser).not.toHaveBeenCalled();
+    });
+
+    it("따옴표, 백슬래시, %, 유니코드가 섞인 비밀번호를 바꾸지 않고 보낸다", async () => {
+      const special = `a'b"c\\d%e_한글🔑`;
+      pipeStdin(`${special}\n`);
+      await run(...CREATE_ARGS, "--yes");
+      expect(createDbUser).toHaveBeenCalledWith(INSTANCE_ID, expect.objectContaining({ dbPassword: special }));
+    });
+
     it("--password-file은 끝 줄바꿈을 지운 값을 요청 본문에 넣는다", async () => {
       const filePassword = "file-only-pass";
       const dir = mkdtempSync(join(tmpdir(), "nhncloud-rds-mysql-test-"));

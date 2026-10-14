@@ -389,10 +389,17 @@ const PASSWORD_LABEL = "DB 사용자 비밀번호";
 /**
  * 비밀번호는 --password-file 이나 표준 입력으로만 받는다 (ADR-047).
  * 끝 줄바꿈 하나만 지우고, 오류 문구에 값을 넣지 않는다.
+ * 앞쪽 BOM 은 편집기가 붙인 것일 가능성이 커서, 비밀번호에 섞어 보내지 않고 거부한다.
  */
 export function readDbUserPassword(file: string | undefined, stdin?: StdinSource): string {
   const input = readInputSource({ file }, { fileFlag: "--password-file", label: PASSWORD_LABEL, maxBytes: 1024 }, stdin);
   const password = decodeUtf8Input(input, PASSWORD_LABEL, "파일 인코딩을 확인하세요.").replace(/\r?\n$/, "");
+  if (password.startsWith("\uFEFF")) {
+    throw new NhnCloudCliError(
+      "DB 사용자 비밀번호 앞에 BOM(U+FEFF)이 있습니다. BOM 없는 UTF-8로 저장해 다시 실행하세요.",
+      EXIT_PARAM_ERROR,
+    );
+  }
   const length = [...password].length;
   if (length < 4 || length > 256) {
     throw new NhnCloudCliError("DB 사용자 비밀번호는 4자 이상 256자 이하여야 합니다.", EXIT_PARAM_ERROR);
