@@ -255,13 +255,15 @@ export async function applyRdsMysqlWrite(
   } catch (err) {
     outputRdsMysqlWriteResult(opts, result);
     throw new NhnCloudCliError(
-      `작업 상태를 확인하지 못했습니다 (jobId=${jobId}): ${errorMessage(err)}. 다시 실행하지 말고 nhncloud rds-mysql job get ${jobId}와 ${listHint}로 확인하세요.`,
+      `작업 상태를 확인하지 못했습니다 (jobId=${safeJobId}): ${errorMessage(err)}. 다시 실행하지 말고 nhncloud rds-mysql job get ${safeJobId}와 ${listHint}로 확인하세요.`,
       EXIT_API_ERROR,
     );
   }
 
   const jobStatus = waited.job?.jobStatus ?? null;
   result.jobStatus = jobStatus;
+  // 오류 문구는 jobId 와 같은 규칙으로 정제한다. 결과 객체에는 서버 값을 그대로 둔다.
+  const safeJobStatus = jobStatus === null ? null : sanitizeForTerminal(jobStatus);
   outputRdsMysqlWriteResult(opts, result);
 
   switch (waited.outcome) {
@@ -269,17 +271,17 @@ export async function applyRdsMysqlWrite(
       return;
     case "failed":
       throw new NhnCloudCliError(
-        `RDS for MySQL 작업이 실패했습니다 (jobId=${jobId}, jobStatus=${jobStatus}). 원인을 확인해 고친 뒤 다시 실행하세요.`,
+        `RDS for MySQL 작업이 실패했습니다 (jobId=${safeJobId}, jobStatus=${safeJobStatus}). 원인을 확인해 고친 뒤 다시 실행하세요.`,
         EXIT_API_ERROR,
       );
     case "uncertain":
       throw new NhnCloudCliError(
-        `RDS for MySQL 작업 결과를 확정하지 못했습니다 (jobId=${jobId}, jobStatus=${jobStatus}). 다시 실행하지 말고 nhncloud rds-mysql job get ${jobId}와 ${listHint}로 확인하세요.`,
+        `RDS for MySQL 작업 결과를 확정하지 못했습니다 (jobId=${safeJobId}, jobStatus=${safeJobStatus}). 다시 실행하지 말고 nhncloud rds-mysql job get ${safeJobId}와 ${listHint}로 확인하세요.`,
         EXIT_API_ERROR,
       );
     case "timeout":
       throw new NhnCloudCliError(
-        `RDS for MySQL 작업이 대기 상한(${wait.timeoutMs / 1000}초) 안에 끝나지 않았습니다 (jobId=${jobId}, 마지막 jobStatus=${jobStatus ?? "없음"}). 작업은 계속 진행될 수 있습니다. 다시 실행하지 말고 nhncloud rds-mysql job get ${jobId}로 확인하세요.`,
+        `RDS for MySQL 작업이 대기 상한(${wait.timeoutMs / 1000}초) 안에 끝나지 않았습니다 (jobId=${safeJobId}, 마지막 jobStatus=${safeJobStatus ?? "없음"}). 작업은 계속 진행될 수 있습니다. 다시 실행하지 말고 nhncloud rds-mysql job get ${safeJobId}로 확인하세요.`,
         EXIT_API_ERROR,
       );
   }

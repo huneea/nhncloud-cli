@@ -459,6 +459,17 @@ describe("rds-mysql 쓰기 명령 (ADR-047)", () => {
       expect(JSON.parse(stdout())).toMatchObject({ applied: true, jobId: JOB_ID, jobStatus: "FAILED" });
     });
 
+    it("오류 문구의 jobStatus 는 제어 문자를 치환하고 --json 결과에는 서버 값을 그대로 둔다", async () => {
+      waitForJob.mockResolvedValue({ outcome: "failed", job: { jobId: JOB_ID, jobStatus: "FAILED\x1b[31m" } });
+
+      const error = await run("--json", ...CREATE_ARGS, "--yes", "--wait").catch((e: unknown) => e);
+      expect(error).toMatchObject({
+        exitCode: EXIT_API_ERROR,
+        message: `RDS for MySQL 작업이 실패했습니다 (jobId=${JOB_ID}, jobStatus=FAILED?[31m). 원인을 확인해 고친 뒤 다시 실행하세요.`,
+      });
+      expect(JSON.parse(stdout())).toMatchObject({ jobStatus: "FAILED\x1b[31m" });
+    });
+
     it("uncertain이면 결과를 먼저 출력하고 다시 실행하지 말라고 안내한다", async () => {
       waitForJob.mockResolvedValue({ outcome: "uncertain", job: { jobId: JOB_ID, jobStatus: "COMPLETED_WITH_ERROR" } });
 
