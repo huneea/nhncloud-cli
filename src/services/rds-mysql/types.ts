@@ -66,10 +66,12 @@ export interface RdsMysqlDbUserCreateInput {
   tlsOption?: RdsMysqlTlsOption;
 }
 
-/** 지정하지 않은 값은 서버가 준 현재 값을 그대로 되돌려 보내므로 string 으로 받는다. */
+/**
+ * 권한 변경 요청 본문이다. tlsOption 은 서버가 준 현재 값을 그대로 되돌려 보내므로 string 으로 받는다.
+ * authenticationPlugin 은 두지 않는다. 플러그인 변경은 비밀번호 변경이 함께 있어야 해서다 (ADR-047).
+ */
 export interface RdsMysqlDbUserUpdateInput {
   authorityType: RdsMysqlAuthorityType;
-  authenticationPlugin?: string;
   tlsOption?: string;
 }
 

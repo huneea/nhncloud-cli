@@ -57,7 +57,8 @@ printf '%s' "$DB_PASSWORD" | nhncloud rds-mysql user create <db-instance-id> --n
 - `user create`는 `--yes` 없는 미리보기에서도 비밀번호를 받아 검사한다. 미리보기와 반영이 같은 검사를 하게 하려는 것이므로, 미리보기만 볼 때도 `--password-file`이나 표준 입력을 넘긴다.
 - 셸 이력에 남지 않도록 `echo` 대신 `printf '%s' "$DB_PASSWORD" |`나 파일을 쓴다.
 - `--auth-plugin`(`native`, `caching-sha2`, `sha256`)과 `--tls`(`none`, `ssl`, `x509`)는 `user create`에서만 받는다. 인스턴스가 지원하지 않으면(MySQL 5.7.33 미만) 종료 코드 3이다.
-- `user update`는 권한만 바꾼다. 현재 인증 플러그인과 TLS 옵션을 읽어 함께 보내므로 두 설정은 유지된다. 인스턴스가 인증 플러그인을 지원하지 않으면 두 값을 보내지 않는다. 비밀번호 변경과 사용자 정의 권한은 콘솔에서 한다.
+- `user update`는 권한만 바꾼다. 현재 TLS 옵션을 읽어 함께 보내고, 인증 플러그인과 비밀번호는 보내지 않는다. 인스턴스가 인증 플러그인을 지원하지 않으면 TLS 옵션도 보내지 않는다.
+- 인증 플러그인은 비밀번호를 바꿀 때만 바뀐다(콘솔 가이드: 「사용자 인증에 적용할 플러그인을 변경하려면 반드시 Password를 변경해야 합니다」). 비밀번호 변경, 인증 플러그인 변경, 사용자 정의 권한은 콘솔에서 한다.
 - 현재 권한이 `CUSTOM`인 사용자를 `user update`로 바꾸면 `CUSTOM`으로 되돌릴 수 없다. 실행 전에 stderr 경고를 확인한다.
 - 권한은 `read`, `crud`, `ddl`, `all`만 받는다. `CUSTOM`은 받지 않는다.
 - 이름과 host는 요청 전에 검사하고, 어기면 종료 코드 3이다.

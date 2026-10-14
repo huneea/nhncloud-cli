@@ -173,19 +173,12 @@ describe("RdsMysqlClient 요청 구성", () => {
     vi.mocked(ky.put).mockReturnValue(success({ jobId: "job-updated" }));
 
     await expect(
-      client().updateDbUser(INSTANCE_ID, USER_ID, {
-        authorityType: "READ",
-        authenticationPlugin: undefined,
-        tlsOption: "SSL",
-      }),
+      client().updateDbUser(INSTANCE_ID, USER_ID, { authorityType: "READ", tlsOption: undefined }),
     ).resolves.toBe("job-updated");
 
     const [url, options] = vi.mocked(ky.put).mock.calls[0] ?? [];
     expect(url).toBe(`${realBase}/db-instances/${INSTANCE_ID}/db-users/${USER_ID}`);
-    expect((options as { json?: unknown } | undefined)?.json).toStrictEqual({
-      authorityType: "READ",
-      tlsOption: "SSL",
-    });
+    expect((options as { json?: unknown } | undefined)?.json).toStrictEqual({ authorityType: "READ" });
   });
 
   it("deleteDbUser 는 DELETE 하고 jobId 를 돌려준다", async () => {

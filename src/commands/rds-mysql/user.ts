@@ -157,11 +157,11 @@ const updateCommand = withRdsMysqlWriteOptions(
 
   const instance = await checkInstanceForWrite(client, parsedId, false);
   const user = await findDbUser(client, parsedId, parsedUserId);
-  // 생략 필드 동작이 문서에 없어 현재 인증 플러그인과 TLS 옵션을 함께 보낸다. 비밀번호는 보내지 않는다 (ADR-047).
+  // 인증 플러그인은 비밀번호 없이 보내면 플러그인 변경으로 처리될 수 있어 보내지 않는다.
+  // 생략한 TLS 옵션의 처리가 문서에 없어 현재 값을 함께 보낸다. 비밀번호는 보내지 않는다 (ADR-047).
   const body: RdsMysqlDbUserUpdateInput = { authorityType };
-  if (instance.supportAuthenticationPlugin !== false) {
-    if (typeof user.authenticationPlugin === "string") body.authenticationPlugin = user.authenticationPlugin;
-    if (typeof user.tlsOption === "string") body.tlsOption = user.tlsOption;
+  if (instance.supportAuthenticationPlugin !== false && typeof user.tlsOption === "string") {
+    body.tlsOption = user.tlsOption;
   }
 
   const unchanged = user.authorityType === authorityType;
@@ -172,7 +172,6 @@ const updateCommand = withRdsMysqlWriteOptions(
     dbUserId: parsedUserId,
     authorityType,
     previousAuthorityType: user.authorityType,
-    authenticationPlugin: body.authenticationPlugin ?? null,
     tlsOption: body.tlsOption ?? null,
     action: unchanged ? "unchanged" : "update",
   });

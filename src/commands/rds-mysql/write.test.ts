@@ -301,20 +301,20 @@ describe("rds-mysql 쓰기 명령 (ADR-047)", () => {
       expect(stderr()).toContain("권한이 이미 CRUD라 요청하지 않았습니다.");
     });
 
-    it("권한이 다르면 현재 인증 플러그인과 TLS 옵션을 함께 보내고 비밀번호는 보내지 않는다", async () => {
+    it("권한이 다르면 현재 TLS 옵션만 함께 보내고 인증 플러그인과 비밀번호는 보내지 않는다", async () => {
       await run("--json", "user", "update", INSTANCE_ID, USER_ID, "--authority", "ddl", "--yes");
 
-      expect(updateDbUser).toHaveBeenCalledWith(INSTANCE_ID, USER_ID, {
-        authorityType: "DDL",
-        authenticationPlugin: "NATIVE",
-        tlsOption: "SSL",
-      });
+      expect(updateDbUser).toHaveBeenCalledTimes(1);
+      const body = updateDbUser.mock.calls[0]?.[2];
+      expect(body).toStrictEqual({ authorityType: "DDL", tlsOption: "SSL" });
       expect(JSON.parse(stdout())).toMatchObject({
         operation: "user-update",
         target: "'app'@'%'",
         dbUserId: USER_ID,
         authorityType: "DDL",
         previousAuthorityType: "CRUD",
+        authenticationPlugin: null,
+        tlsOption: "SSL",
         action: "update",
         applied: true,
         jobId: JOB_ID,
@@ -322,7 +322,27 @@ describe("rds-mysql 쓰기 명령 (ADR-047)", () => {
       expect(stderr()).toContain(`nhncloud rds-mysql job get ${JOB_ID}로 확인합니다`);
     });
 
-    it("인스턴스가 인증 플러그인을 지원하지 않으면 두 값을 본문에서 뺀다", async () => {
+    it("기본값이 아닌 인증 플러그인을 쓰는 사용자도 요청 본문에 authenticationPlugin을 넣지 않는다", async () => {
+      listDbUsers.mockResolvedValue([
+        {
+          dbUserId: USER_ID,
+          dbUserName: "app",
+          host: "%",
+          authorityType: "READ",
+          dbUserStatus: "STABLE",
+          authenticationPlugin: "CACHING_SHA2",
+          tlsOption: "X509",
+        },
+      ]);
+      await run("user", "update", INSTANCE_ID, USER_ID, "--authority", "crud", "--yes");
+
+      const body = updateDbUser.mock.calls[0]?.[2];
+      expect(body).not.toHaveProperty("authenticationPlugin");
+      expect(body).not.toHaveProperty("dbPassword");
+      expect(body).toStrictEqual({ authorityType: "CRUD", tlsOption: "X509" });
+    });
+
+    it("인스턴스가 인증 플러그인을 지원하지 않으면 TLS 옵션도 본문에서 뺀다", async () => {
       getDbInstance.mockResolvedValue({ ...INSTANCE, supportAuthenticationPlugin: false });
       await run("user", "update", INSTANCE_ID, USER_ID, "--authority", "all", "--yes");
 
