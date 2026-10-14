@@ -292,6 +292,12 @@ describe("rds-mysql 쓰기 명령 (ADR-047)", () => {
       expect(createDbUser).not.toHaveBeenCalled();
     });
 
+    it("표준 입력 앞에 BOM이 있어도 EXIT_PARAM_ERROR이고 client를 만들지 않는다", async () => {
+      pipeStdin(`\uFEFF${PASSWORD}\n`);
+      await expect(run(...CREATE_ARGS, "--yes")).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+      expect(resolveRdsMysqlClient).not.toHaveBeenCalled();
+    });
+
     it("따옴표, 백슬래시, %, 유니코드가 섞인 비밀번호를 바꾸지 않고 보낸다", async () => {
       const special = `a'b"c\\d%e_한글🔑`;
       pipeStdin(`${special}\n`);

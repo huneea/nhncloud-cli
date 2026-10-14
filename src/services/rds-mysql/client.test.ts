@@ -181,6 +181,15 @@ describe("RdsMysqlClient 요청 구성", () => {
     expect((options as { json?: unknown } | undefined)?.json).toStrictEqual({ authorityType: "READ" });
   });
 
+  it("updateDbUser 는 값이 있는 tlsOption 을 본문에 그대로 넣는다", async () => {
+    vi.mocked(ky.put).mockReturnValue(success({ jobId: "job-updated" }));
+
+    await client().updateDbUser(INSTANCE_ID, USER_ID, { authorityType: "CRUD", tlsOption: "SSL" });
+
+    const options = vi.mocked(ky.put).mock.calls[0]?.[1];
+    expect((options as { json?: unknown } | undefined)?.json).toStrictEqual({ authorityType: "CRUD", tlsOption: "SSL" });
+  });
+
   it("deleteDbUser 는 DELETE 하고 jobId 를 돌려준다", async () => {
     vi.mocked(ky.delete).mockReturnValue(success({ jobId: "job-deleted" }));
 
