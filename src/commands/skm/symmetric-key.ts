@@ -14,7 +14,7 @@ import {
   withSkmOptions,
   withSkmSpinner,
 } from "./helpers.js";
-import { decodeUtf8Input, readSkmInput } from "./input.js";
+import { decodeUtf8Input, readInputSource } from "../input-source.js";
 
 /** 대칭키 암호화 API 의 평문 한도 (32KB). */
 const MAX_ENCRYPT_BYTES = 32768;
@@ -44,7 +44,7 @@ const encryptCommand = withSkmOptions(
   const parsedKeyId = parseRequiredArgument(keyId, "key-id");
   const macAddress = parseMacAddressOption(opts.macAddress);
   const label = "암호화할 데이터";
-  const input = readSkmInput(
+  const input = readInputSource(
     { text: opts.plaintext, file: opts.file },
     { textFlag: "--plaintext", label, maxBytes: MAX_ENCRYPT_BYTES },
   );
@@ -68,7 +68,7 @@ const decryptCommand = withSkmOptions(
   const parsedKeyId = parseRequiredArgument(keyId, "key-id");
   const macAddress = parseMacAddressOption(opts.macAddress);
   const label = "복호화할 암호문";
-  const input = readSkmInput(
+  const input = readInputSource(
     { text: opts.ciphertext, file: opts.file },
     { textFlag: "--ciphertext", label, maxBytes: MAX_JSON_INPUT_BYTES },
   );

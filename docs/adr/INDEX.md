@@ -44,7 +44,7 @@ ADR-NNN 내용은 `docs/adr/NNN-*.md` 로 찾는다(번호 glob: slug 몰라도 
 - [ADR-034](034-logncrash-export-completed-result-preservation.md): Log & Crash export 완료 결과 보존: 조회 상태와 파일 형식 상태 분리
 - [ADR-035](035-required-option-exit-code.md): 필수 옵션 누락을 입력 오류로 정규화: Commander 메시지와 조기 검증 유지
 - [ADR-036](036-logncrash-available-token-preflight.md): Log & Crash 조회 토큰 사전 확인과 추정 대기 시간
-- [ADR-037](037-gov-profile-endpoints.md): 공공망 profile의 endpoint 선택 (OAuth, Deploy, NCR, IaaS, NKS, SKM)
+- [ADR-037](037-gov-profile-endpoints.md): 공공망 profile의 endpoint 선택 (OAuth, Deploy, NCR, IaaS, NKS, SKM, RDS for MySQL)
 - [ADR-038](038-security-group-write-safety.md): 보안그룹 쓰기: 이름 기반 인스턴스 연결과 삭제 안전 확인
 - [ADR-039](039-skm-client-auth-and-secret-output.md): Secure Key Manager: IP·MAC 클라이언트 인증과 명시 조회의 비밀값 출력. 쓰기 범위 제외는 ADR-040으로 대체
 - [ADR-040](040-skm-write-commands.md): Secure Key Manager 쓰기: 키 저장소 ID 지정, 삭제 예약과 즉시 삭제 분리, 키 저장소 부분 수정
@@ -53,3 +53,5 @@ ADR-NNN 내용은 `docs/adr/NNN-*.md` 로 찾는다(번호 glob: slug 몰라도 
 - [ADR-043](043-codex-skill-path-shared-repository.md): 공개 스킬을 Claude Code 와 Codex 경로에 함께 연결하고 두 경로를 한 단위로 바꾼다
 - [ADR-044](044-http-proxy-global-dispatcher.md): HTTP 프록시는 undici `EnvHttpProxyAgent` 를 전역 dispatcher 로 설치해 모든 요청에 적용한다
 - [ADR-045](045-skm-secret-field-patch.md): SKM 기밀 데이터의 필드 하나만 바꾸는 patch 는 미리보기가 기본이고 반영 뒤 다시 조회해 대조한다
+- [ADR-046](046-rds-mysql-v3-static-auth.md): RDS for MySQL 은 API v3 와 UAK 정적 헤더로 호출하고 region 은 명령 옵션으로 받는다
+- [ADR-047](047-rds-mysql-write-preview-and-job-wait.md): RDS for MySQL 쓰기는 미리보기가 기본이고, `--wait` 는 작업 상태를 성공·실패·불확정으로 나눈다

@@ -14,7 +14,7 @@ import {
   withSkmOptions,
   withSkmSpinner,
 } from "./helpers.js";
-import { decodeUtf8Input, readSkmInput } from "./input.js";
+import { decodeUtf8Input, readInputSource } from "../input-source.js";
 import {
   assertNoLossyNumber,
   formatFieldValue,
@@ -82,7 +82,7 @@ const updateCommand = withSkmOptions(
   const opts = command.optsWithGlobals<SecretUpdateOptions>();
   const parsedKeyId = parseRequiredArgument(keyId, "key-id");
   const macAddress = parseMacAddressOption(opts.macAddress);
-  const input = readSkmInput(
+  const input = readInputSource(
     { text: opts.value, file: opts.file },
     { textFlag: "--value", label: "기밀 데이터", maxBytes: MAX_JSON_INPUT_BYTES },
   );
@@ -124,7 +124,7 @@ const patchCommand = withSkmOptions(
     change = { kind: "delete" };
   } else {
     const label = "필드에 넣을 데이터";
-    const input = readSkmInput({ file: opts.file }, { label, maxBytes: MAX_JSON_INPUT_BYTES });
+    const input = readInputSource({ file: opts.file }, { label, maxBytes: MAX_JSON_INPUT_BYTES });
     const value = decodeUtf8Input(input, label, "바이너리는 base64로 인코딩해 전달하세요.");
     if (value.endsWith("\n")) {
       process.stderr.write(

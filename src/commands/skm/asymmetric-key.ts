@@ -15,7 +15,7 @@ import {
   withSkmOptions,
   withSkmSpinner,
 } from "./helpers.js";
-import { decodeUtf8Input, readSkmInput } from "./input.js";
+import { decodeUtf8Input, readInputSource } from "../input-source.js";
 
 /** 일반 서명 API 의 평문 한도 (245바이트). */
 const MAX_SIGN_BYTES = 245;
@@ -42,7 +42,7 @@ interface KeyVersionOptions extends SkmCommandOptions {
  * 일반 서명은 UTF-8 텍스트를 그대로, 표준 스킴은 받은 바이트를 base64 로 보낸다.
  */
 function readSignPayload(opts: SignInputOptions, label: string): string {
-  const input = readSkmInput(
+  const input = readInputSource(
     { text: opts.plaintext, file: opts.file },
     { textFlag: "--plaintext", label, maxBytes: opts.standard ? MAX_STANDARD_SIGN_BYTES : MAX_SIGN_BYTES },
   );

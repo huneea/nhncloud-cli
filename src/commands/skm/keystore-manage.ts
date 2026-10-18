@@ -22,7 +22,7 @@ import {
   withSkmSpinner,
   withTypeOption,
 } from "./helpers.js";
-import { decodeUtf8Input, readSkmInput } from "./input.js";
+import { decodeUtf8Input, readInputSource } from "../input-source.js";
 
 interface KeyStoreCreateOptions extends SkmCommandOptions {
   name: string;
@@ -161,7 +161,7 @@ function readCertificateOptions(opts: AuthAddOptions): { lifeTime: number; passw
     throw new NhnCloudCliError("인증서 추가에는 --life-time이 필요합니다.", EXIT_PARAM_ERROR);
   }
   const lifeTime = parsePositiveIntegerOption(opts.lifeTime, "--life-time");
-  const input = readSkmInput(
+  const input = readInputSource(
     { text: opts.password, file: opts.passwordFile },
     { textFlag: "--password", fileFlag: "--password-file", label: "인증서 비밀번호", maxBytes: PASSWORD_MAX_BYTES },
   );

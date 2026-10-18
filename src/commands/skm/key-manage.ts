@@ -18,7 +18,7 @@ import {
   withSkmOptions,
   withSkmSpinner,
 } from "./helpers.js";
-import { decodeUtf8Input, readSkmInput } from "./input.js";
+import { decodeUtf8Input, readInputSource } from "../input-source.js";
 
 interface KeyCreateOptions extends SkmCommandOptions {
   type: string;
@@ -53,7 +53,7 @@ export const createCommand = withSkmOptions(
 
   let secretValue: string | undefined;
   if (type === "SECRET") {
-    const input = readSkmInput(
+    const input = readInputSource(
       { text: opts.value, file: opts.file },
       { textFlag: "--value", label: "기밀 데이터", maxBytes: MAX_JSON_INPUT_BYTES },
     );
