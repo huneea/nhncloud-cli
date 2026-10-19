@@ -5,6 +5,7 @@ import { sanitizeForTerminal } from "../../utils/terminal.js";
 /**
  * 인증 실패와 권한 없음 결과 코드다 (ADR-046).
  * 문서는 80401·80403 을 싣지만, 실호출에서 잘못된 UAK 는 HTTP 200 과 resultCode 401 로 왔다.
+ * HTTP 5xx 본문의 봉투는 접수 여부를 모르는 실패라 결과 코드로 인증 오류를 가르지 않는다.
  */
 const AUTH_RESULT_CODES: ReadonlySet<number> = new Set([80401, 80403, 401, 403]);
 
@@ -34,8 +35,9 @@ export class RdsMysqlApiError extends NhnCloudCliError {
     httpStatus?: number,
     opts: { readRequest?: boolean } = {},
   ) {
+    const serverError = httpStatus !== undefined && httpStatus >= 500;
     const isAuthError =
-      AUTH_RESULT_CODES.has(Number(resultCode)) || httpStatus === 401 || httpStatus === 403;
+      (AUTH_RESULT_CODES.has(Number(resultCode)) && !serverError) || httpStatus === 401 || httpStatus === 403;
     const summary = `RDS for MySQL API 오류 (${sanitizeForTerminal(String(resultCode))}): ${sanitizeForTerminal(resultMessage)}`;
     const appkeyHint =
       opts.readRequest === true && httpStatus === undefined && Number(resultCode) === APPKEY_HINT_RESULT_CODE

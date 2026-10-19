@@ -319,6 +319,17 @@ describe("RdsMysqlClient 응답 형식과 오류", () => {
     expect((err as Error).message).not.toContain("appkey");
   });
 
+  it("HTTP 5xx 본문의 봉투 resultCode 403 은 인증 오류가 아니라 API 오류다", async () => {
+    vi.mocked(ky.get).mockReturnValue(
+      httpErrorResponse(
+        502,
+        JSON.stringify({ header: { resultCode: 403, resultMessage: "Forbidden", isSuccessful: false } }),
+      ),
+    );
+
+    await expect(client().listDbInstances()).rejects.toMatchObject({ httpStatus: 502, exitCode: EXIT_API_ERROR });
+  });
+
   it("봉투 본문의 HTTP 503 오류는 RdsMysqlApiError 이고 HTTP 상태를 담은 API 오류다", async () => {
     vi.mocked(ky.get).mockReturnValue(
       httpErrorResponse(
