@@ -245,6 +245,27 @@ describe("RdsMysqlClient 응답 형식과 오류", () => {
     await expect(client().listDbUsers(INSTANCE_ID)).rejects.toMatchObject({ exitCode: EXIT_AUTH_ERROR });
   });
 
+  it("HTTP 200 봉투의 resultCode 401 도 인증 오류다", async () => {
+    vi.mocked(ky.get).mockReturnValue(failure(401));
+
+    const err = await client().listDbInstances().catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(RdsMysqlApiError);
+    expect(err).toMatchObject({ resultCode: 401, exitCode: EXIT_AUTH_ERROR });
+  });
+
+  it("문자열 resultCode 403 도 인증 오류다", async () => {
+    vi.mocked(ky.get).mockReturnValue(failure("403"));
+
+    await expect(client().listDbInstances()).rejects.toMatchObject({ exitCode: EXIT_AUTH_ERROR });
+  });
+
+  it("봉투 실패 500 은 인증 오류가 아니라 API 오류다", async () => {
+    vi.mocked(ky.get).mockReturnValue(failure(500));
+
+    await expect(client().listDbInstances()).rejects.toMatchObject({ exitCode: EXIT_API_ERROR });
+  });
+
   it("봉투 실패 -1 은 API 오류다", async () => {
     vi.mocked(ky.get).mockReturnValue(failure(-1));
 

@@ -2,8 +2,12 @@ import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_API_ERROR, EXIT_AUTH_ERROR } from "../../utils/exit-codes.js";
 import { sanitizeForTerminal } from "../../utils/terminal.js";
 
-/** 공식 문서의 인증 실패(80401), 권한 없음(80403) 결과 코드다 (ADR-046). */
-const AUTH_RESULT_CODES: ReadonlySet<number> = new Set([80401, 80403]);
+/**
+ * 인증 실패와 권한 없음 결과 코드다 (ADR-046).
+ * 문서는 80401·80403 을 싣지만, 실호출에서 잘못된 UAK 는 HTTP 200 과 resultCode 401 로 왔다.
+ */
+const AUTH_RESULT_CODES: ReadonlySet<number> = new Set([80401, 80403, 401, 403]);
+
 
 /**
  * 서버가 봉투 header 로 알린 RDS for MySQL 실패다.
