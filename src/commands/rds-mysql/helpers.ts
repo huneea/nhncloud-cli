@@ -200,6 +200,7 @@ export async function checkInstanceForWrite(
 }
 
 function errorMessage(err: unknown): string {
+  if (err instanceof RdsMysqlApiError) return err.summary;
   return err instanceof Error ? err.message : String(err);
 }
 

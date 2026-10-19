@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } fr
 import { RdsMysqlClient } from "../../services/rds-mysql/client.js";
 import { RdsMysqlApiError } from "../../services/rds-mysql/errors.js";
 import type { RdsMysqlDbInstanceDetail } from "../../services/rds-mysql/types.js";
-import { EXIT_API_ERROR, EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
+import { EXIT_API_ERROR, EXIT_AUTH_ERROR, EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
 import { configureCommanderExitCodes } from "../commander-errors.js";
 import { processStdin } from "../input-source.js";
 import { resolveRdsMysqlClient } from "./helpers.js";
@@ -547,6 +547,14 @@ describe("rds-mysql 쓰기 명령 (ADR-047)", () => {
       await expect(run(...CREATE_ARGS, "--yes")).rejects.toBe(original);
       expect(stderr()).not.toContain("요청이 접수됐는지 알 수 없습니다");
     });
+
+    it("요청이 봉투 resultCode 401로 실패하면 인증 오류로 끝나고 접수 여부 불명 안내를 하지 않는다", async () => {
+      const original = new RdsMysqlApiError(401, "Unauthorized");
+      createDbUser.mockRejectedValue(original);
+
+      await expect(run(...CREATE_ARGS, "--yes")).rejects.toMatchObject({ exitCode: EXIT_AUTH_ERROR });
+      expect(stderr()).not.toContain("요청이 접수됐는지 알 수 없습니다");
+    });
   });
 
   describe("요청 실패의 HTTP 상태", () => {
@@ -626,6 +634,16 @@ describe("rds-mysql 쓰기 명령 (ADR-047)", () => {
       expect(JSON.parse(stdout())).toMatchObject({ applied: true, jobId: JOB_ID, jobStatus: null });
       expect(stdout()).not.toContain(PASSWORD);
       expect(stderr()).not.toContain(PASSWORD);
+    });
+
+    it("작업 조회가 봉투 500으로 실패하면 앱키 확인 안내 없이 한 줄 문구로 안내한다", async () => {
+      waitForJob.mockRejectedValue(new RdsMysqlApiError(500, "Internal Server Error", undefined, { readRequest: true }));
+
+      const error = await run("--json", ...CREATE_ARGS, "--yes", "--wait").catch((e: unknown) => e);
+      expect(error).toMatchObject({
+        exitCode: EXIT_API_ERROR,
+        message: `작업 상태를 확인하지 못했습니다 (jobId=${JOB_ID}): RDS for MySQL API 오류 (500): Internal Server Error. 다시 실행하지 말고 nhncloud rds-mysql job get ${JOB_ID}와 nhncloud rds-mysql user list ${INSTANCE_ID}로 확인하세요.`,
+      });
     });
   });
 });

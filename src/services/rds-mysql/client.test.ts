@@ -260,24 +260,29 @@ describe("RdsMysqlClient 응답 형식과 오류", () => {
     await expect(client().listDbInstances()).rejects.toMatchObject({ exitCode: EXIT_AUTH_ERROR });
   });
 
-  it("HTTP 200 봉투 실패 500 은 API 오류이고 앱키 확인 안내를 붙인다", async () => {
-    vi.mocked(ky.get).mockReturnValue(failure(500));
+  it.each([
+    ["숫자", 500],
+    ["문자열", "500"],
+  ])("조회 요청의 HTTP 200 봉투 실패 %s 500 은 API 오류이고 앱키 확인 안내를 붙인다", async (_case, resultCode) => {
+    vi.mocked(ky.get).mockReturnValue(failure(resultCode));
 
     const err = await client().listDbInstances().catch((e: unknown) => e);
 
     expect(err).toMatchObject({ exitCode: EXIT_API_ERROR });
     expect((err as Error).message).toContain("rds-mysql.appkey");
+    expect((err as RdsMysqlApiError).summary).not.toContain("appkey");
   });
 
-  it("봉투 실패 -1 에는 앱키 확인 안내를 붙이지 않는다", async () => {
-    vi.mocked(ky.get).mockReturnValue(failure(-1));
+  it("쓰기 요청의 HTTP 200 봉투 실패 500 에는 앱키 확인 안내를 붙이지 않는다", async () => {
+    vi.mocked(ky.post).mockReturnValue(failure(500));
 
-    const err = await client().listDbInstances().catch((e: unknown) => e);
+    const err = await client().createDbSchema(INSTANCE_ID, "app_db").catch((e: unknown) => e);
 
+    expect(err).toMatchObject({ resultCode: 500, exitCode: EXIT_API_ERROR });
     expect((err as Error).message).not.toContain("appkey");
   });
 
-  it("봉투 실패 -1 은 API 오류다", async () => {
+  it("봉투 실패 -1 은 API 오류이고 앱키 확인 안내를 붙이지 않는다", async () => {
     vi.mocked(ky.get).mockReturnValue(failure(-1));
 
     const err = await client().listDbUsers(INSTANCE_ID).catch((e: unknown) => e);
@@ -298,6 +303,20 @@ describe("RdsMysqlClient 응답 형식과 오류", () => {
 
     expect(err).toBeInstanceOf(RdsMysqlApiError);
     expect(err).toMatchObject({ resultCode: 80401, httpStatus: 401, exitCode: EXIT_AUTH_ERROR });
+  });
+
+  it("HTTP 500 본문의 봉투 resultCode 500 에는 앱키 확인 안내를 붙이지 않는다", async () => {
+    vi.mocked(ky.get).mockReturnValue(
+      httpErrorResponse(
+        500,
+        JSON.stringify({ header: { resultCode: 500, resultMessage: "Internal Server Error", isSuccessful: false } }),
+      ),
+    );
+
+    const err = await client().listDbInstances().catch((e: unknown) => e);
+
+    expect(err).toMatchObject({ resultCode: 500, httpStatus: 500, exitCode: EXIT_API_ERROR });
+    expect((err as Error).message).not.toContain("appkey");
   });
 
   it("봉투 본문의 HTTP 503 오류는 RdsMysqlApiError 이고 HTTP 상태를 담은 API 오류다", async () => {

@@ -55,13 +55,14 @@ function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
-function envelopeError(header: Record<string, unknown>, httpStatus?: number): RdsMysqlApiError {
+function envelopeError(header: Record<string, unknown>, httpStatus?: number, readRequest = false): RdsMysqlApiError {
   const code = header["resultCode"];
   const message = header["resultMessage"];
   return new RdsMysqlApiError(
     typeof code === "number" || typeof code === "string" ? code : String(code),
     typeof message === "string" ? message : "",
     httpStatus,
+    { readRequest },
   );
 }
 
@@ -125,7 +126,7 @@ export class RdsMysqlClient {
     }
 
     if (!isEnvelope(response)) throw formatError("header");
-    if (!response.header.isSuccessful) throw envelopeError(response.header);
+    if (!response.header.isSuccessful) throw envelopeError(response.header, undefined, method === "get");
     return response;
   }
 
