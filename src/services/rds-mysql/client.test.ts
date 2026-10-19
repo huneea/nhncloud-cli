@@ -260,10 +260,21 @@ describe("RdsMysqlClient 응답 형식과 오류", () => {
     await expect(client().listDbInstances()).rejects.toMatchObject({ exitCode: EXIT_AUTH_ERROR });
   });
 
-  it("봉투 실패 500 은 인증 오류가 아니라 API 오류다", async () => {
+  it("HTTP 200 봉투 실패 500 은 API 오류이고 앱키 확인 안내를 붙인다", async () => {
     vi.mocked(ky.get).mockReturnValue(failure(500));
 
-    await expect(client().listDbInstances()).rejects.toMatchObject({ exitCode: EXIT_API_ERROR });
+    const err = await client().listDbInstances().catch((e: unknown) => e);
+
+    expect(err).toMatchObject({ exitCode: EXIT_API_ERROR });
+    expect((err as Error).message).toContain("rds-mysql.appkey");
+  });
+
+  it("봉투 실패 -1 에는 앱키 확인 안내를 붙이지 않는다", async () => {
+    vi.mocked(ky.get).mockReturnValue(failure(-1));
+
+    const err = await client().listDbInstances().catch((e: unknown) => e);
+
+    expect((err as Error).message).not.toContain("appkey");
   });
 
   it("봉투 실패 -1 은 API 오류다", async () => {
