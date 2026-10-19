@@ -1,6 +1,6 @@
 {
   "name": "@bifos/nhncloud-cli",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "description": "CLI for NHN Cloud (Compute, Network, Kubernetes, Load Balancer, Log & Crash, Deploy, Secure Key Manager and more) — AI agent & terminal friendly",
   "keywords": [
     "nhncloud",
