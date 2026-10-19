@@ -12,7 +12,7 @@ DB 인스턴스는 조회만 하고, 스키마 생성과 사용자 생성·권�
 - 일반망의 `--region`은 `kr1`(기본), `kr2`, `jp1`이다.
 - 공공망은 profile의 `"environment": "gov"`로 고르고 `kr1`만 받는다. 다른 region은 API를 호출하기 전에 종료 코드 3이다.
 - 프로젝트 권한 `RDS for MySQL VIEWER`는 조회 명령만 쓸 수 있다.
-- 모든 명령이 `RDS for MySQL API 오류 (500)`으로 끝나면 먼저 appkey를 확인한다. 앱키가 없거나 RDS for MySQL이 인식하지 못하는 값이어도 서버는 이 오류를 돌려준다.
+- 모든 명령이 `RDS for MySQL API 오류 (500)`으로 끝나면 먼저 appkey를 확인한다. RDS for MySQL이 인식하지 못하는 appkey여도 서버는 이 오류를 돌려준다.
 
 ## 명령 탐색
 
