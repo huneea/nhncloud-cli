@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   resolveProfileName: vi.fn(),
   getServiceCredential: vi.fn(),
   getUserAccessKey: vi.fn(),
-  requireRealEnvironment: vi.fn(),
+  getProfileEnvironment: vi.fn(),
   getAccessToken: vi.fn(),
   clientConstructor: vi.fn(function () {
     return { kind: "logncrash-client" };
@@ -17,7 +17,7 @@ vi.mock("../../config/credentials.js", () => ({
   resolveProfileName: mocks.resolveProfileName,
   getServiceCredential: mocks.getServiceCredential,
   getUserAccessKey: mocks.getUserAccessKey,
-  requireRealEnvironment: mocks.requireRealEnvironment,
+  getProfileEnvironment: mocks.getProfileEnvironment,
 }));
 vi.mock("../../api/oauth.js", () => ({ getAccessToken: mocks.getAccessToken }));
 vi.mock("../../services/logncrash/client.js", () => ({
@@ -33,6 +33,7 @@ describe("resolveLogncrashClient", () => {
     mocks.getServiceCredential.mockResolvedValue({ appkey: "appkey" });
     mocks.getUserAccessKey.mockResolvedValue({ id: "uak-id", secret: "uak-secret" });
     mocks.getAccessToken.mockResolvedValue("access-token");
+    mocks.getProfileEnvironment.mockResolvedValue("real");
   });
 
   it("profile → appkey → UAK → OAuth token → client 순서로 해석한다", async () => {
@@ -45,8 +46,10 @@ describe("resolveLogncrashClient", () => {
       "resolved-profile",
       "uak-id",
       "uak-secret",
+      false,
+      "real",
     );
-    expect(mocks.clientConstructor).toHaveBeenCalledWith("appkey", "access-token");
+    expect(mocks.clientConstructor).toHaveBeenCalledWith("appkey", "access-token", "real");
     expect(client).toEqual({ kind: "logncrash-client" });
 
     const order = [
@@ -86,5 +89,14 @@ describe("resolveLogncrashClient", () => {
     await expect(resolveLogncrashClient()).rejects.toBe(error);
     expect(mocks.getUserAccessKey).not.toHaveBeenCalled();
     expect(mocks.getAccessToken).not.toHaveBeenCalled();
+  });
+
+  it("공공망 profile은 공공망 OAuth 토큰과 공공망 client를 만든다", async () => {
+    mocks.getProfileEnvironment.mockResolvedValue("gov");
+
+    await resolveLogncrashClient("public");
+
+    expect(mocks.getAccessToken).toHaveBeenCalledWith("resolved-profile", "uak-id", "uak-secret", false, "gov");
+    expect(mocks.clientConstructor).toHaveBeenCalledWith("appkey", "access-token", "gov");
   });
 });
