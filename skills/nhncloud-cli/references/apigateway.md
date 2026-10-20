@@ -8,6 +8,7 @@
 `nhncloud configure --apigateway-appkey <appkey>`로 `profile`의 `apigateway.appkey`를 설정한다.
 
 지원 `region`은 `kr1`, `kr2`, `kr3`이며 기본값은 `kr1`이다.
+공공망 profile(`"environment": "gov"`)은 `kr1`만 지원한다. 다른 region은 API를 호출하기 전에 종료 코드 3이다.
 
 ```bash
 nhncloud apigateway service list --region kr1 --json

@@ -79,7 +79,7 @@ AWS CLI 같은 통합 명령줄 도구가 없어 매번 토큰·엔드포인트�
   Claude Code 와 Codex 의 스킬 경로를 같은 관리 저장소에 함께 연결하고 함께 바꾼다([[adr-043]]).
 - `nhncloud commands`와 `doctor`: 기계 판독 가능한 명령 탐색과 로컬 설정 진단. `doctor`는 `--json` 보고서를 내고, `--check-connection`을 줄 때만 대상 profile 의 연결을 확인한다([[adr-042]]).
 - profile 기반 자격증명 (`~/.nhncloud/credentials.json` 과 `~/.nhncloud/config.json`)
-- 공공망 profile(`environment: gov`)은 OAuth, Deploy, NCR, IaaS, NKS, Secure Key Manager, RDS for MySQL을 지원하고 NCS, API Gateway, Log & Crash는 호출 전에 거부한다 ([[adr-037]])
+- 공공망 profile(`environment: gov`)은 OAuth, Deploy, NCR, IaaS, NKS, Secure Key Manager, RDS for MySQL, Log & Crash, NCS, API Gateway를 지원한다. 공공망 문서에 주소가 없는 region은 호출 전에 거부한다 ([[adr-037]])
 - 출력 3모드: 테이블 / `--json` / `--quiet`
 - `--profile` 로 profile 전환
 - `--proxy` 와 `HTTPS_PROXY`·`HTTP_PROXY`·`NO_PROXY` 로 토큰 발급을 포함한 모든 HTTP 요청을 프록시로 보낸다 ([[adr-044]])
