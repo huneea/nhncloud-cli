@@ -10,7 +10,7 @@ export interface LoadBalancer {
   vip_address: string;
   provisioning_status: string;
   operating_status: string;
-  ipacl_group_action: IpAclAction | null;
+  ipacl_group_action?: IpAclAction | null;
   ipacl_groups: LoadBalancerIpAclGroup[];
 }
 
@@ -126,7 +126,9 @@ export function isLoadBalancer(value: unknown): value is LoadBalancer {
     typeof value["vip_address"] === "string" &&
     typeof value["provisioning_status"] === "string" &&
     typeof value["operating_status"] === "string" &&
-    (value["ipacl_group_action"] === null || isIpAclAction(value["ipacl_group_action"])) &&
+    (value["ipacl_group_action"] === undefined ||
+      value["ipacl_group_action"] === null ||
+      isIpAclAction(value["ipacl_group_action"])) &&
     Array.isArray(value["ipacl_groups"]) &&
     value["ipacl_groups"].every(isLoadBalancerIpAclGroup)
   );

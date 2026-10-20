@@ -116,6 +116,22 @@ describe("LoadBalancerClient", () => {
     expect(result[0].ipacl_group_action).toBeNull();
   });
 
+  it("IP ACL이 연결되지 않아 ipacl_group_action 칸이 없는 응답도 목록과 단건에서 통과한다", async () => {
+    const { ipacl_group_action: _omitted, ...withoutAction } = {
+      ...loadBalancer,
+      ipacl_groups: [],
+    };
+    const client = new LoadBalancerClient("token-id", "https://example.com/v2.0");
+
+    mockJsonResponse({ loadbalancers: [withoutAction] });
+    const list = await client.listLoadBalancers();
+    expect(list).toEqual([withoutAction]);
+    expect(list[0].ipacl_group_action).toBeUndefined();
+
+    mockJsonResponse({ loadbalancer: withoutAction });
+    await expect(client.getLoadBalancer("lb-1")).resolves.toEqual(withoutAction);
+  });
+
   it("IP ACL 그룹 목록을 반환하고 문자열 target count를 보존한다", async () => {
     mockJsonResponse({ ipacl_groups: [ipAclGroup] });
 
