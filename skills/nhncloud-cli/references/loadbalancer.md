@@ -94,7 +94,15 @@ nhncloud loadbalancer clear-ipacl <loadbalancer> \
   --yes \
   --json
 
-# 대상 추가와 삭제
+# 대상 추가: --cidr 는 여러 번 줄 수 있다. 먼저 --dry-run 으로 확인한다
+nhncloud loadbalancer ipacl target add <group> \
+  --cidr <ip-or-cidr> \
+  --cidr <ip-or-cidr> \
+  --description <description> \
+  --profile <profile> \
+  --region <region> \
+  --dry-run \
+  --json
 nhncloud loadbalancer ipacl target add <group> \
   --cidr <ip-or-cidr> \
   --description <description> \
@@ -102,12 +110,30 @@ nhncloud loadbalancer ipacl target add <group> \
   --region <region> \
   --yes \
   --json
+
+# 대상 설명 변경: CIDR 은 바꿀 수 없으니 바꾸려면 삭제 후 다시 추가한다
+nhncloud loadbalancer ipacl target update <target-id> \
+  --description <description> \
+  --profile <profile> \
+  --region <region> \
+  --json
+
+# 대상 삭제: delete 는 remove 의 별칭이다
 nhncloud loadbalancer ipacl target remove <target-id> \
   --profile <profile> \
   --region <region> \
   --yes \
   --json
 ```
+
+`target add`는 그룹의 기존 대상과 입력 안의 반복을 비교해 이미 있는 CIDR은 만들지 않고 stderr 로 알린다.
+단독 IP 는 `/32`(IPv6 는 `/128`)와 같은 대상으로 본다.
+건너뛴 항목은 `skipped_duplicates`, 만든 항목은 `targets` 에 담긴다.
+모두 중복이면 `status` 는 `unchanged` 이고 대상 생성도 재바인딩도 하지 않으며 종료 코드는 0 이다.
+`--description` 은 이번 호출에서 만드는 모든 대상에 같은 값을 쓴다.
+`--dry-run` 은 `--yes` 없이 쓰기 없이 `would_create`, `skipped_duplicates`, `loadbalancers_to_rebind` 만 출력한다.
+여러 대상을 만드는 중간에 실패하면 이미 만든 대상은 되돌리지 않고 stderr 로 알린다.
+`target update` 는 설명만 바꾸므로 `--yes` 와 재바인딩이 없다.
 
 `set-ipacl`은 기존 연결에 그룹을 추가하는 명령이 아니다.
 전달한 그룹 목록으로 기존 연결 전체를 교체한다.
@@ -133,7 +159,8 @@ nhncloud loadbalancer ipacl target remove <target-id> \
 | `loadbalancer ipacl get` | 단일 IP ACL 그룹 객체 | 선택한 IP ACL 그룹 UUID 한 줄 |
 | `loadbalancer ipacl target list` | IP ACL 대상 배열 | IP ACL 대상 UUID를 한 줄에 하나씩 출력 |
 | `loadbalancer ipacl create/delete` | 작업 상태와 IP ACL 그룹 UUID 객체 | IP ACL 그룹 UUID 한 줄 |
-| `loadbalancer ipacl target add/remove` | 대상과 재바인딩 결과 객체 | IP ACL 대상 UUID 한 줄 |
+| `loadbalancer ipacl target add` | 만든 대상 `targets`, 건너뛴 `skipped_duplicates`, 재바인딩 결과 객체 | 만든 IP ACL 대상 UUID 를 한 줄에 하나씩 출력 |
+| `loadbalancer ipacl target update/remove` | 대상(update 는 CIDR·설명 포함)과 작업 상태 객체 | IP ACL 대상 UUID 한 줄 |
 | `loadbalancer set-ipacl/clear-ipacl` | 작업 상태와 Load Balancer·그룹 UUID 객체 | Load Balancer UUID 한 줄 |
 
 옵션을 생략하면 사람이 읽기 좋은 테이블을 출력한다.
@@ -160,6 +187,14 @@ stdout JSON의 `status`는 `partial`이며, 실패마다 기계 실행용 `retry
     "id": "<target-id>",
     "ipacl_group_id": "<group-id>"
   },
+  "targets": [
+    {
+      "id": "<target-id>",
+      "cidr_address": "203.0.113.5",
+      "ipacl_group_id": "<group-id>"
+    }
+  ],
+  "skipped_duplicates": [],
   "rebind": {
     "skipped": false,
     "succeeded": [],
