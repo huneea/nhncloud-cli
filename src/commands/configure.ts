@@ -197,7 +197,9 @@ async function runInteractive(opts: ConfigureOptions): Promise<void> {
 
   // 2. UAK — 다른 profile 에 이미 있으면 재사용 여부 확인 (멀티 프로젝트 UAK 중복 완화)
   let uak: UserAccessKey | undefined;
-  const profilesWithUak = (await listProfilesWithUak()).filter((p) => p !== profileName);
+  // 같은 망의 profile 에서만 UAK 를 가져온다(ADR-037).
+  const environment = await getProfileEnvironment(profileName, true);
+  const profilesWithUak = (await listProfilesWithUak(environment)).filter((p) => p !== profileName);
 
   if (profilesWithUak.length > 0) {
     const reuse = await confirm({

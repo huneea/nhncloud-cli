@@ -126,6 +126,20 @@ describe("getProfileEnvironment", () => {
   });
 });
 
+describe("listProfilesWithUak", () => {
+  it("environment 를 주면 같은 망의 UAK profile 만 돌려준다", async () => {
+    const uak = { id: "<uak-id>", secret: "<uak-secret>" };
+    await writeCredentials({
+      version: 1,
+      profiles: { real: { userAccessKey: uak }, public: { environment: "gov", userAccessKey: uak }, empty: {} },
+    });
+
+    await expect(credentials.listProfilesWithUak()).resolves.toEqual(["real", "public"]);
+    await expect(credentials.listProfilesWithUak("real")).resolves.toEqual(["real"]);
+    await expect(credentials.listProfilesWithUak("gov")).resolves.toEqual(["public"]);
+  });
+});
+
 describe("warnLegacyDeployTargets", () => {
   it("deploy.targets 에 항목이 있으면 stderr 로 경고하고 계속 진행한다", async () => {
     await writeConfig({
