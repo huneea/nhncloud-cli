@@ -180,13 +180,6 @@ export async function getProfileEnvironment(profileName: string, allowMissing = 
   return environment ?? "real";
 }
 
-/** 공공망 endpoint가 확인되지 않은 서비스로 공공망 자격증명을 보내지 않는다. */
-export async function requireRealEnvironment(profileName: string, service: string): Promise<void> {
-  if (await getProfileEnvironment(profileName) === "gov") {
-    throw new NhnCloudCliError(`${service}의 공공망 API endpoint는 아직 지원하지 않습니다.`, EXIT_CONFIG_ERROR);
-  }
-}
-
 /**
  * 지정 profile 의 서비스 자격증명 블록을 반환한다.
  * 해당 블록이 없으면 설정 안내 메시지와 함께 EXIT_CONFIG_ERROR 를 던진다.

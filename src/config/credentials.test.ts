@@ -124,11 +124,6 @@ describe("getProfileEnvironment", () => {
     await writeCredentials({ version: 1, profiles: { bad: { environment: "other" } } });
     await expect(credentials.getProfileEnvironment("bad")).rejects.toMatchObject({ exitCode: EXIT_CONFIG_ERROR });
   });
-
-  it("지원하지 않는 서비스는 공공망 profile에서 요청 전에 거부한다", async () => {
-    await writeCredentials({ version: 1, profiles: { public: { environment: "gov" } } });
-    await expect(credentials.requireRealEnvironment("public", "NCS")).rejects.toMatchObject({ exitCode: EXIT_CONFIG_ERROR });
-  });
 });
 
 describe("warnLegacyDeployTargets", () => {
