@@ -53,6 +53,14 @@ export interface CreateIpAclTargetRequest {
   ipacl_target: CreateIpAclTargetInput;
 }
 
+export interface UpdateIpAclTargetInput {
+  description: string;
+}
+
+export interface UpdateIpAclTargetRequest {
+  ipacl_target: UpdateIpAclTargetInput;
+}
+
 export interface IpAclGroupBinding {
   ipacl_group_id: string;
 }

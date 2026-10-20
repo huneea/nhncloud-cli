@@ -364,6 +364,33 @@ describe("LoadBalancerClient", () => {
     );
   });
 
+  it("IP ACL 대상 설명 변경은 description만 PUT하고 식별자를 인코딩한다", async () => {
+    const client = new LoadBalancerClient("token-id", "https://example.com/v2.0");
+    const updated = { ...ipAclTarget, description: "new" };
+    vi.mocked(ky.put).mockReturnValue({ json: async () => ({ ipacl_target: updated }) } as never);
+
+    await expect(
+      client.updateIpAclTarget("target/id", { description: "new" }),
+    ).resolves.toEqual(updated);
+    expect(ky.put).toHaveBeenCalledWith(
+      "https://example.com/v2.0/lbaas/ipacl-targets/target%2Fid",
+      {
+        headers: { "X-Auth-Token": "token-id" },
+        json: { ipacl_target: { description: "new" } },
+        retry: 0,
+        timeout: 30_000,
+      },
+    );
+
+    vi.mocked(ky.put).mockReturnValue({ json: async () => ({ ipacl_target: null }) } as never);
+    await expect(
+      client.updateIpAclTarget("target-1", { description: "x" }),
+    ).rejects.toMatchObject({ exitCode: EXIT_API_ERROR });
+    await expect(
+      client.updateIpAclTarget(" ", { description: "x" }),
+    ).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+  });
+
   it("IP ACL 대상 삭제는 빈 본문을 JSON 파싱하지 않는다", async () => {
     vi.mocked(ky.delete).mockResolvedValue({} as never);
     const client = new LoadBalancerClient("token-id", "https://example.com/v2.0");
