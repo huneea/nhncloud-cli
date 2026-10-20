@@ -65,6 +65,8 @@ const client = new LoadBalancerClient("token-id", "https://example.com/v2.0");
 const getGroupMock = vi.spyOn(client, "getIpAclGroup");
 const getTargetMock = vi.spyOn(client, "getIpAclTarget");
 const getLoadBalancerMock = vi.spyOn(client, "getLoadBalancer");
+const listTargetsMock = vi.spyOn(client, "listIpAclTargets");
+const updateTargetMock = vi.spyOn(client, "updateIpAclTarget");
 const createTargetMock = vi.spyOn(client, "createIpAclTarget");
 const deleteTargetMock = vi.spyOn(client, "deleteIpAclTarget");
 const bindGroupsMock = vi.spyOn(client, "bindIpAclGroups");
@@ -97,6 +99,8 @@ describe("loadbalancer IP ACL 대상 쓰기 명령", () => {
     getGroupMock.mockResolvedValue(group);
     getTargetMock.mockResolvedValue(target);
     getLoadBalancerMock.mockImplementation(async (id) => loadBalancer(id));
+    listTargetsMock.mockResolvedValue([]);
+    updateTargetMock.mockResolvedValue({ ...target, description: "updated" });
     createTargetMock.mockResolvedValue(target);
     deleteTargetMock.mockResolvedValue();
     bindGroupsMock.mockResolvedValue([]);
@@ -354,6 +358,189 @@ describe("loadbalancer IP ACL 대상 쓰기 명령", () => {
     expect(process.exitCode).toBeUndefined();
   });
 
+  function addArgs(...extra: string[]): string[] {
+    return ["node", "nhncloud", "--json", "loadbalancer", "ipacl", "target", "add", "office", ...extra];
+  }
+
+  it("--cidr를 여러 번 주면 모두 만들고 재바인딩은 한 번만 한다", async () => {
+    createTargetMock
+      .mockResolvedValueOnce({ ...target, id: "t-1", cidr_address: "203.0.113.5" })
+      .mockResolvedValueOnce({ ...target, id: "t-2", cidr_address: "203.0.113.0/24" });
+
+    await programWithTarget().parseAsync(
+      addArgs("--cidr", "203.0.113.5", "--cidr", "203.0.113.0/24", "--yes"),
+    );
+
+    expect(createTargetMock.mock.calls.map(([input]) => input.cidr_address)).toEqual([
+      "203.0.113.5",
+      "203.0.113.0/24",
+    ]);
+    expect(bindGroupsMock.mock.calls.map(([id]) => id)).toEqual(["lb-a", "lb-b"]);
+    expect(output).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        raw: expect.objectContaining({
+          status: "succeeded",
+          target: { id: "t-1", ipacl_group_id: "group-1" },
+          targets: [
+            expect.objectContaining({ id: "t-1", cidr_address: "203.0.113.5" }),
+            expect.objectContaining({ id: "t-2", cidr_address: "203.0.113.0/24" }),
+          ],
+          skipped_duplicates: [],
+        }),
+        ids: ["t-1", "t-2"],
+      }),
+    );
+  });
+
+  it("이미 있는 CIDR과 입력 안의 반복은 더하지 않고 알린다", async () => {
+    listTargetsMock.mockResolvedValue([
+      { ...target, id: "exist-1", cidr_address: "203.0.113.5/32" },
+    ]);
+    createTargetMock.mockResolvedValue({ ...target, id: "t-new", cidr_address: "203.0.113.9" });
+
+    await programWithTarget().parseAsync(
+      addArgs("--cidr", "203.0.113.5", "--cidr", "203.0.113.9", "--cidr", "203.0.113.9", "--yes"),
+    );
+
+    expect(createTargetMock).toHaveBeenCalledTimes(1);
+    expect(createTargetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ cidr_address: "203.0.113.9" }),
+    );
+    expect(output).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        raw: expect.objectContaining({
+          skipped_duplicates: [
+            { cidr_address: "203.0.113.5", target_id: "exist-1" },
+            { cidr_address: "203.0.113.9", target_id: null },
+          ],
+        }),
+      }),
+    );
+    const notice = stderr.mock.calls.flat().join("");
+    expect(notice).toContain("203.0.113.5 는 이미 그룹에 있어");
+    expect(notice).toContain("203.0.113.9 는 입력에 중복되어");
+  });
+
+  it("모두 중복이면 만들지도 재바인딩하지도 않고 unchanged로 끝낸다", async () => {
+    listTargetsMock.mockResolvedValue([
+      { ...target, id: "exist-1", cidr_address: "203.0.113.5/32" },
+    ]);
+
+    await programWithTarget().parseAsync(addArgs("--cidr", "203.0.113.5/32", "--yes"));
+
+    expect(createTargetMock).not.toHaveBeenCalled();
+    expect(getLoadBalancerMock).not.toHaveBeenCalled();
+    expect(bindGroupsMock).not.toHaveBeenCalled();
+    expect(output).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        raw: expect.objectContaining({
+          status: "unchanged",
+          target: null,
+          targets: [],
+          rebind: { skipped: true, succeeded: [], failed: [] },
+        }),
+        ids: [],
+      }),
+    );
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  it("--dry-run은 --yes 없이도 쓰지 않고 계획만 출력한다", async () => {
+    listTargetsMock.mockResolvedValue([
+      { ...target, id: "exist-1", cidr_address: "203.0.113.5/32" },
+    ]);
+
+    await programWithTarget().parseAsync(
+      addArgs("--cidr", "203.0.113.5", "--cidr", "203.0.113.9", "--description", "alice", "--dry-run"),
+    );
+
+    expect(createTargetMock).not.toHaveBeenCalled();
+    expect(getLoadBalancerMock).not.toHaveBeenCalled();
+    expect(bindGroupsMock).not.toHaveBeenCalled();
+    expect(output).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        raw: {
+          operation: "ipacl-target-add",
+          dry_run: true,
+          ipacl_group_id: "group-1",
+          would_create: [{ cidr_address: "203.0.113.9", description: "alice" }],
+          skipped_duplicates: [{ cidr_address: "203.0.113.5", target_id: "exist-1" }],
+          loadbalancers_to_rebind: ["lb-b", "lb-a"],
+        },
+        ids: [],
+      }),
+    );
+  });
+
+  it("여러 대상을 만드는 중 실패하면 이미 만든 대상을 stderr로 알린다", async () => {
+    createTargetMock
+      .mockResolvedValueOnce({ ...target, id: "t-1", cidr_address: "203.0.113.5" })
+      .mockRejectedValueOnce(new Error("create failed"));
+
+    await expect(
+      programWithTarget().parseAsync(
+        addArgs("--cidr", "203.0.113.5", "--cidr", "203.0.113.9", "--yes"),
+      ),
+    ).rejects.toThrow("create failed");
+
+    expect(bindGroupsMock).not.toHaveBeenCalled();
+    expect(stderr.mock.calls.flat().join("")).toContain("203.0.113.5 (t-1)");
+  });
+
+  it("update는 설명만 바꾸고 재바인딩하지 않으며 --yes도 요구하지 않는다", async () => {
+    await programWithTarget().parseAsync([
+      "node", "nhncloud", "--json", "loadbalancer", "ipacl", "target", "update",
+      "target-1", "--description", " updated ",
+    ]);
+
+    expect(updateTargetMock).toHaveBeenCalledWith("target-1", { description: "updated" });
+    expect(bindGroupsMock).not.toHaveBeenCalled();
+    expect(output).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        raw: {
+          operation: "ipacl-target-update",
+          status: "succeeded",
+          target: {
+            id: "target-1",
+            cidr_address: "10.0.0.0/24",
+            description: "updated",
+            ipacl_group_id: "group-1",
+          },
+        },
+        ids: ["target-1"],
+      }),
+    );
+  });
+
+  it("update는 빈 target ID를 credential 전에 거부한다", async () => {
+    await expect(
+      programWithTarget().parseAsync([
+        "node", "nhncloud", "loadbalancer", "ipacl", "target", "update", " ",
+        "--description", "x",
+      ]),
+    ).rejects.toThrow("이름 또는 UUID");
+    expect(resolveLoadBalancerClient).not.toHaveBeenCalled();
+    expect(updateTargetMock).not.toHaveBeenCalled();
+  });
+
+  it("delete 별칭은 remove와 같이 --yes를 요구하고 대상을 삭제한다", async () => {
+    await expect(
+      programWithTarget().parseAsync([
+        "node", "nhncloud", "loadbalancer", "ipacl", "target", "delete", "target-1",
+      ]),
+    ).rejects.toThrow("--yes");
+
+    await programWithTarget().parseAsync([
+      "node", "nhncloud", "loadbalancer", "ipacl", "target", "delete", "target-1", "--yes",
+    ]);
+    expect(deleteTargetMock).toHaveBeenCalledWith("target-1");
+  });
+
   it("add/remove leaf help가 전역·지역·쓰기 안전 옵션을 노출한다", () => {
     const root = new Command("nhncloud").option("--json").option("--quiet");
     const loadbalancer = new Command("loadbalancer");
@@ -375,8 +562,10 @@ describe("loadbalancer IP ACL 대상 쓰기 명령", () => {
           "--description",
           "--yes",
           "--no-rebind",
+          "--dry-run",
         ],
       ],
+      ["update", ["--json", "--quiet", "--region", "--profile", "--description"]],
       [
         "remove",
         ["--json", "--quiet", "--region", "--profile", "--yes", "--no-rebind"],
