@@ -21,6 +21,7 @@ nhncloud loadbalancer ipacl target list <group> \
 ```
 
 단건 Load Balancer 테이블에는 `id`, `name`, `vip_address`, `provisioning_status`, `operating_status`, `ipacl_group_action`, `ipacl_group_ids`가 행으로 출력된다.
+IP ACL이 연결되지 않은 Load Balancer는 공식 문서와 달리 응답에 `ipacl_group_action` 칸이 없으며(`ipacl_groups`는 빈 배열), 표에서는 빈 값으로 출력하고 `--json`은 응답을 그대로 보존한다.
 단건 IP ACL 그룹 테이블에는 `id`, `name`, `action`, `ipacl_target_count`, `loadbalancer_ids`가 행으로 출력된다.
 
 ## 이름과 UUID 해석
