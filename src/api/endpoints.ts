@@ -12,6 +12,8 @@ const ENDPOINTS: Record<string, string> = {
   skm: "https://api-keymanager.nhncloudservice.com",
 };
 const GOV_ENDPOINTS: Record<string, string> = {
+  logncrash: "https://api-lncs-search.gov-nhncloudservice.com",
+  "logncrash-collector": "https://api-logncrash.gov-nhncloudservice.com",
   deploy: "https://api-tcd.gov-nhncloudservice.com",
   skm: "https://api-keymanager.gov-nhncloudservice.com",
 };
@@ -238,6 +240,7 @@ export function nksHost(region: string, environment: CloudEnvironment = "real"):
 /**
  * region → NCS API host 맵 (ADR-020).
  * 공식 NCS Public API 문서가 제시한 region 은 kr1(판교)·kr3(광주)뿐이다 — kr2·jp1 은 없다.
+ * 공공망 문서는 kr1 하나만 제시한다(ADR-037).
  */
 const NCS_HOST: Record<string, string> = {
   kr1: "kr1-ncs.api.nhncloudservice.com",
@@ -248,7 +251,11 @@ const NCS_HOST: Record<string, string> = {
  * region 에 해당하는 NCS API host 를 반환한다.
  * 미등록 region 은 사용 가능한 region 목록 안내와 함께 EXIT_PARAM_ERROR 를 던진다.
  */
-export function ncsHost(region: string): string {
+export function ncsHost(region: string, environment: CloudEnvironment = "real"): string {
+  if (environment === "gov") {
+    if (region !== "kr1") throw new NhnCloudCliError(`지원하지 않는 공공망 NCS region 입니다: "${region}". 사용 가능한 region: kr1`, EXIT_PARAM_ERROR);
+    return "kr1-ncs.api.gov-nhncloudservice.com";
+  }
   const host = NCS_HOST[region];
   if (!host) {
     throw new NhnCloudCliError(
@@ -264,6 +271,7 @@ export function ncsHost(region: string): string {
 /**
  * region → API Gateway API host 맵 (ADR-027).
  * kr1·kr2·kr3 모두 실제 호출로 확인된 host 만 등록한다.
+ * 공공망 문서는 kr1 하나만 제시한다(ADR-037).
  */
 const APIGATEWAY_HOST: Record<string, string> = {
   kr1: "kr1-apigateway.api.nhncloudservice.com",
@@ -275,7 +283,11 @@ const APIGATEWAY_HOST: Record<string, string> = {
  * region 에 해당하는 API Gateway API host 를 반환한다.
  * 미등록 region 은 사용 가능한 region 목록 안내와 함께 EXIT_PARAM_ERROR 를 던진다.
  */
-export function apigatewayHost(region: string): string {
+export function apigatewayHost(region: string, environment: CloudEnvironment = "real"): string {
+  if (environment === "gov") {
+    if (region !== "kr1") throw new NhnCloudCliError(`지원하지 않는 공공망 API Gateway region 입니다: "${region}". 사용 가능한 region: kr1`, EXIT_PARAM_ERROR);
+    return "kr1-apigateway.api.gov-nhncloudservice.com";
+  }
   const host = APIGATEWAY_HOST[region];
   if (!host) {
     throw new NhnCloudCliError(
