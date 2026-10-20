@@ -68,6 +68,7 @@ describe("configure logncrash Search v3", () => {
     expect(verifyLogncrash).toHaveBeenCalledWith(
       { id: "existing-id", secret: "existing-secret" },
       "appkey",
+      "real",
     );
     expect(setServiceCredential).toHaveBeenCalledWith(
       "profile-a",
@@ -91,20 +92,42 @@ describe("configure logncrash Search v3", () => {
     ]);
 
     expect(getUserAccessKey).not.toHaveBeenCalled();
-    expect(verifyUserAccessKey).toHaveBeenCalledWith(uak);
-    expect(verifyLogncrash).toHaveBeenCalledWith(uak, "appkey");
+    expect(verifyUserAccessKey).toHaveBeenCalledWith(uak, "real");
+    expect(verifyLogncrash).toHaveBeenCalledWith(uak, "appkey", "real");
     expect(setUserAccessKey).toHaveBeenCalledWith("default", uak);
   });
 
-  it("기존 공공망 profile은 일반망 연결 테스트 전에 거부한다", async () => {
+  it("기존 공공망 profile은 모든 연결 테스트를 공공망으로 보낸 뒤 저장한다", async () => {
     vi.mocked(getProfileEnvironment).mockResolvedValue("gov");
+    const uak = { id: "<uak-id>", secret: "<uak-secret>" };
+    const iaas = { tenantId: "tenant", username: "user", password: "pass", region: "kr2" };
+
+    await programWithConfigure().parseAsync([
+      "node", "nhncloud", "configure", "--profile", "public",
+      "--uak-id", uak.id, "--uak-secret", uak.secret,
+      "--logncrash-appkey", "lncs-appkey",
+      "--iaas-tenant-id", iaas.tenantId, "--iaas-username", iaas.username,
+      "--iaas-password", iaas.password, "--iaas-region", iaas.region,
+      "--ncr-appkey", "ncr-appkey", "--ncs-appkey", "ncs-appkey",
+    ]);
+
+    expect(getProfileEnvironment).toHaveBeenCalledWith("public", true);
+    expect(verifyUserAccessKey).toHaveBeenCalledWith(uak, "gov");
+    expect(verifyLogncrash).toHaveBeenCalledWith(uak, "lncs-appkey", "gov");
+    expect(verifyIaas).toHaveBeenCalledWith(iaas, "gov");
+    expect(verifyNcr).toHaveBeenCalledWith(uak, "ncr-appkey", "gov");
+    expect(verifyNcs).toHaveBeenCalledWith(uak, "ncs-appkey", "gov");
+    expect(setUserAccessKey).toHaveBeenCalledWith("public", uak);
+  });
+
+  it("profile의 environment 값이 잘못되면 연결 테스트와 저장 전에 멈춘다", async () => {
+    vi.mocked(getProfileEnvironment).mockRejectedValue(new NhnCloudCliError("environment 오류", EXIT_CONFIG_ERROR));
 
     await expect(programWithConfigure().parseAsync([
-      "node", "nhncloud", "configure", "--profile", "public",
+      "node", "nhncloud", "configure", "--profile", "bad",
       "--uak-id", "<uak-id>", "--uak-secret", "<uak-secret>",
     ])).rejects.toMatchObject({ exitCode: EXIT_CONFIG_ERROR });
 
-    expect(getProfileEnvironment).toHaveBeenCalledWith("public", true);
     expect(verifyUserAccessKey).not.toHaveBeenCalled();
     expect(setUserAccessKey).not.toHaveBeenCalled();
   });
@@ -190,11 +213,11 @@ describe("configure logncrash Search v3", () => {
       "ncs-appkey",
     ]);
 
-    expect(verifyUserAccessKey).toHaveBeenCalledWith(uak);
-    expect(verifyLogncrash).toHaveBeenCalledWith(uak, "lncs-appkey");
-    expect(verifyIaas).toHaveBeenCalledWith(iaas);
-    expect(verifyNcr).toHaveBeenCalledWith(uak, "ncr-appkey");
-    expect(verifyNcs).toHaveBeenCalledWith(uak, "ncs-appkey");
+    expect(verifyUserAccessKey).toHaveBeenCalledWith(uak, "real");
+    expect(verifyLogncrash).toHaveBeenCalledWith(uak, "lncs-appkey", "real");
+    expect(verifyIaas).toHaveBeenCalledWith(iaas, "real");
+    expect(verifyNcr).toHaveBeenCalledWith(uak, "ncr-appkey", "real");
+    expect(verifyNcs).toHaveBeenCalledWith(uak, "ncs-appkey", "real");
     expect(setIaasCredential).toHaveBeenCalledWith("default", iaas);
   });
 

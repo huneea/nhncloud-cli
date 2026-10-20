@@ -13,6 +13,21 @@ function mockKyJsonResponse(body: unknown) {
 describe("verifyNcs", () => {
   beforeEach(() => vi.resetAllMocks());
 
+  it("공공망 profile은 공공망 OAuth와 공공망 NCS 주소로만 검증한다", async () => {
+    vi.mocked(ky.post).mockReturnValue(
+      mockKyJsonResponse({ access_token: "gov-token", expires_in: 3600, token_type: "Bearer" }),
+    );
+    vi.mocked(ky.get).mockReturnValue({
+      json: async () => ({ header: { isSuccessful: true, resultCode: 200, resultMessage: "SUCCESS" }, templates: [] }),
+      headers: { get: () => null },
+    } as never);
+
+    await expect(verifyNcs({ id: "uak-id", secret: "uak-secret" }, "test-appkey", "gov")).resolves.toBe(true);
+
+    expect(ky.post).toHaveBeenCalledWith("https://oauth.api.gov-nhncloudservice.com/oauth2/token/create", expect.anything());
+    expect(ky.get).toHaveBeenCalledWith(expect.stringMatching(/^https:\/\/kr1-ncs\.api\.gov-nhncloudservice\.com\//), expect.anything());
+  });
+
   it("appkey 가 빈 문자열이면 OAuth/NCS 호출 없이 false", async () => {
     const ok = await verifyNcs({ id: "uak-id", secret: "uak-secret" }, "");
     expect(ok).toBe(false);
@@ -71,6 +86,22 @@ describe("verifyNcs", () => {
 
 describe("verifyLogncrash", () => {
   beforeEach(() => vi.resetAllMocks());
+
+  it("공공망 profile은 공공망 OAuth와 공공망 검색 주소로만 검증한다", async () => {
+    vi.mocked(ky.post)
+      .mockReturnValueOnce(mockKyJsonResponse({ access_token: "gov-token", expires_in: 3600, token_type: "Bearer" }))
+      .mockReturnValueOnce(
+        mockKyJsonResponse({
+          header: { isSuccessful: true, resultCode: 0, resultMessage: "SUCCESS" },
+          body: { totalItems: 0, pageNumber: 0, pageSize: 1, data: [] },
+        }),
+      );
+
+    await expect(verifyLogncrash({ id: "uak-id", secret: "uak-secret" }, "appkey", "gov")).resolves.toBe(true);
+
+    expect(ky.post).toHaveBeenNthCalledWith(1, "https://oauth.api.gov-nhncloudservice.com/oauth2/token/create", expect.anything());
+    expect(ky.post).toHaveBeenNthCalledWith(2, "https://api-lncs-search.gov-nhncloudservice.com/v3/appkey/logs/cursor", expect.anything());
+  });
 
   it("빈 appkey는 OAuth와 검색 없이 false", async () => {
     await expect(
