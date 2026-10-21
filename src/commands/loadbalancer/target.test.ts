@@ -438,11 +438,11 @@ describe("loadbalancer IP ACL 대상 쓰기 명령", () => {
       expect.objectContaining({
         raw: expect.objectContaining({
           status: "unchanged",
-          target: null,
+          target: { id: "exist-1", ipacl_group_id: "group-1" },
           targets: [],
-          rebind: { skipped: true, succeeded: [], failed: [] },
+          rebind: { skipped: false, succeeded: [], failed: [] },
         }),
-        ids: [],
+        ids: ["exist-1"],
       }),
     );
     expect(process.exitCode).toBeUndefined();
@@ -454,7 +454,7 @@ describe("loadbalancer IP ACL 대상 쓰기 명령", () => {
     ]);
 
     await programWithTarget().parseAsync(
-      addArgs("--cidr", "203.0.113.5", "--cidr", "203.0.113.9", "--description", "alice", "--dry-run"),
+      addArgs("--cidr", "203.0.113.5", "--cidr", "203.0.113.9", "--description", "office-vpn", "--dry-run"),
     );
 
     expect(createTargetMock).not.toHaveBeenCalled();
@@ -467,28 +467,91 @@ describe("loadbalancer IP ACL 대상 쓰기 명령", () => {
           operation: "ipacl-target-add",
           dry_run: true,
           ipacl_group_id: "group-1",
-          would_create: [{ cidr_address: "203.0.113.9", description: "alice" }],
+          would_create: [{ cidr_address: "203.0.113.9", description: "office-vpn" }],
           skipped_duplicates: [{ cidr_address: "203.0.113.5", target_id: "exist-1" }],
-          loadbalancers_to_rebind: ["lb-b", "lb-a"],
+          loadbalancers_to_rebind: ["lb-a", "lb-b"],
         },
         ids: [],
       }),
     );
   });
 
-  it("여러 대상을 만드는 중 실패하면 이미 만든 대상을 stderr로 알린다", async () => {
+  it("여러 대상을 만드는 중 실패하면 만든 대상으로 재바인딩하고 partial로 끝낸다", async () => {
     createTargetMock
       .mockResolvedValueOnce({ ...target, id: "t-1", cidr_address: "203.0.113.5" })
       .mockRejectedValueOnce(new Error("create failed"));
 
+    await programWithTarget().parseAsync(
+      addArgs("--cidr", "203.0.113.5", "--cidr", "203.0.113.9", "--cidr", "203.0.113.10", "--yes"),
+    );
+
+    expect(createTargetMock).toHaveBeenCalledTimes(2);
+    expect(bindGroupsMock.mock.calls.map(([id]) => id)).toEqual(["lb-a", "lb-b"]);
+    expect(output).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        raw: expect.objectContaining({
+          status: "partial",
+          targets: [expect.objectContaining({ id: "t-1" })],
+          failed_creates: [{ cidr_address: "203.0.113.9", error: "create failed" }],
+          not_attempted: ["203.0.113.10"],
+        }),
+        ids: ["t-1"],
+      }),
+    );
+    expect(stderr.mock.calls.flat().join("")).toContain("같은 명령을 다시 실행하면 이미 만든 대상은 건너뜁니다");
+    expect(process.exitCode).toBe(EXIT_API_ERROR);
+  });
+
+  it("첫 대상부터 만들지 못하면 재바인딩 없이 오류를 던진다", async () => {
+    createTargetMock.mockRejectedValueOnce(new Error("create failed"));
+
     await expect(
-      programWithTarget().parseAsync(
-        addArgs("--cidr", "203.0.113.5", "--cidr", "203.0.113.9", "--yes"),
-      ),
+      programWithTarget().parseAsync(addArgs("--cidr", "203.0.113.5", "--cidr", "203.0.113.9", "--yes")),
     ).rejects.toThrow("create failed");
 
     expect(bindGroupsMock).not.toHaveBeenCalled();
-    expect(stderr.mock.calls.flat().join("")).toContain("203.0.113.5 (t-1)");
+  });
+
+  it("서버 필터가 놓친 다른 그룹의 대상은 중복으로 보지 않는다", async () => {
+    listTargetsMock.mockResolvedValue([
+      { ...target, id: "other-1", cidr_address: "203.0.113.5/32", ipacl_group_id: "group-2" },
+    ]);
+    createTargetMock.mockResolvedValue({ ...target, id: "t-1", cidr_address: "203.0.113.5" });
+
+    await programWithTarget().parseAsync(addArgs("--cidr", "203.0.113.5", "--yes"));
+
+    expect(createTargetMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("--dry-run은 만들 대상이 없으면 재바인딩할 LB도 비운다", async () => {
+    listTargetsMock.mockResolvedValue([
+      { ...target, id: "exist-1", cidr_address: "203.0.113.5/32" },
+    ]);
+
+    await programWithTarget().parseAsync(addArgs("--cidr", "203.0.113.5", "--dry-run"));
+
+    expect(output).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        raw: expect.objectContaining({ loadbalancers_to_rebind: [] }),
+      }),
+    );
+  });
+
+  it("모두 중복이어도 --no-rebind를 쓴 경우에만 rebind.skipped가 true다", async () => {
+    listTargetsMock.mockResolvedValue([
+      { ...target, id: "exist-1", cidr_address: "203.0.113.5/32" },
+    ]);
+
+    await programWithTarget().parseAsync(addArgs("--cidr", "203.0.113.5", "--no-rebind", "--yes"));
+
+    expect(output).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        raw: expect.objectContaining({ rebind: { skipped: true, succeeded: [], failed: [] } }),
+      }),
+    );
   });
 
   it("update는 설명만 바꾸고 재바인딩하지 않으며 --yes도 요구하지 않는다", async () => {

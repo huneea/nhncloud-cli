@@ -58,10 +58,14 @@ interface DuplicateCidr {
 interface TargetAddResult {
   operation: "ipacl-target-add";
   status: "succeeded" | "partial" | "unchanged";
-  /** 이번 호출에서 처음 만든 대상. 만든 것이 없으면 null. 단일 --cidr 출력과 호환하려고 유지한다. */
+  /** 이번 호출에서 처음 만든 대상. 만든 것이 없으면 건너뛴 첫 기존 대상. 단일 --cidr 출력과 호환하려고 유지한다. */
   target: { id: string; ipacl_group_id: string } | null;
   targets: TargetSummary[];
   skipped_duplicates: DuplicateCidr[];
+  /** 만들기에 실패한 CIDR과 오류. 실패가 없으면 생략한다. */
+  failed_creates?: Array<{ cidr_address: string; error: string }>;
+  /** 실패 때문에 시도하지 않은 CIDR. 실패가 없으면 생략한다. */
+  not_attempted?: string[];
   rebind: IpAclRebindResult;
 }
 
@@ -93,11 +97,11 @@ function planTargetAdd(inputs: string[], existing: IpAclTarget[]): TargetAddPlan
   return { create, duplicates };
 }
 
-function outputTargetAddResult(opts: OutputOptions, result: TargetAddResult): void {
+function outputTargetAddResult(opts: OutputOptions, groupId: string, result: TargetAddResult): void {
   const rows: Array<[string, string]> = [
     ["operation", result.operation],
     ["status", result.status],
-    ["ipacl_group_id", result.targets[0]?.ipacl_group_id ?? ""],
+    ["ipacl_group_id", groupId],
     ["created", result.targets.map((item) => `${item.cidr_address} (${item.id})`).join(", ")],
     [
       "skipped_duplicates",
@@ -105,15 +109,29 @@ function outputTargetAddResult(opts: OutputOptions, result: TargetAddResult): vo
         .map((item) => (item.target_id === null ? item.cidr_address : `${item.cidr_address} (${item.target_id})`))
         .join(", "),
     ],
+    ...(result.failed_creates === undefined
+      ? []
+      : [
+          [
+            "failed_creates",
+            result.failed_creates.map((item) => `${item.cidr_address} (${item.error})`).join(", "),
+          ] as [string, string],
+          ["not_attempted", (result.not_attempted ?? []).join(", ")] as [string, string],
+        ]),
     ["rebind_skipped", String(result.rebind.skipped)],
     ["rebind_succeeded", String(result.rebind.succeeded.length)],
     ["rebind_failed", String(result.rebind.failed.length)],
+  ];
+  const duplicateIds = [
+    ...new Set(
+      result.skipped_duplicates.flatMap((item) => (item.target_id === null ? [] : [item.target_id])),
+    ),
   ];
   output(opts, {
     headers: ["field", "value"],
     rows,
     raw: result,
-    ids: result.targets.map((item) => item.id),
+    ids: result.targets.length > 0 ? result.targets.map((item) => item.id) : duplicateIds,
   });
 }
 
@@ -251,14 +269,15 @@ const addCommand = new Command("add")
     let group: IpAclGroup;
     let plan: TargetAddPlan;
     const created: IpAclTarget[] = [];
-    let rebind: IpAclRebindResult = skippedRebindResult();
+    let createFailure: { cidr_address: string; error: unknown } | undefined;
+    let rebind: IpAclRebindResult = { ...skippedRebindResult(), skipped: opts.rebind === false };
     try {
       const groupId = await resolveIpAclGroupId(client, parsedGroup);
       group = await client.getIpAclGroup(groupId);
-      plan = planTargetAdd(
-        parsedCidrs,
-        await client.listIpAclTargets({ ipacl_group_id: group.id }),
+      const existing = (await client.listIpAclTargets({ ipacl_group_id: group.id })).filter(
+        (item) => item.ipacl_group_id === group.id,
       );
+      plan = planTargetAdd(parsedCidrs, existing);
       if (!opts.dryRun && plan.create.length > 0) {
         const snapshots = opts.rebind === false
           ? []
@@ -267,35 +286,37 @@ const addCommand = new Command("add")
               group.loadbalancers.map((item) => item.loadbalancer_id),
             );
         for (const cidr of plan.create) {
-          created.push(
-            await client.createIpAclTarget({
-              ipacl_group_id: group.id,
-              cidr_address: cidr,
-              ...(parsedDescription === undefined ? {} : { description: parsedDescription }),
-            }),
-          );
+          try {
+            created.push(
+              await client.createIpAclTarget({
+                ipacl_group_id: group.id,
+                cidr_address: cidr,
+                ...(parsedDescription === undefined ? {} : { description: parsedDescription }),
+              }),
+            );
+          } catch (error) {
+            if (created.length === 0) throw error;
+            createFailure = { cidr_address: cidr, error };
+            break;
+          }
         }
-        rebind = opts.rebind === false
-          ? skippedRebindResult()
-          : await rebindIpAclSnapshots(client, snapshots, {
-              profile: opts.profile,
-              region: opts.region,
-            });
+        if (opts.rebind !== false) {
+          rebind = await rebindIpAclSnapshots(client, snapshots, {
+            profile: opts.profile,
+            region: opts.region,
+          });
+        }
       }
     } catch (error) {
       stopSpinner(false);
-      if (created.length > 0) {
-        process.stderr.write(
-          `경고: 대상 ${created.length}개를 만든 뒤 실패했습니다. 만든 대상: ${created
-            .map((item) => `${sanitizeForTerminal(item.cidr_address)} (${sanitizeForTerminal(item.id)})`)
-            .join(", ")}\n`,
-        );
-      }
       throw error;
     }
     stopSpinner(true);
 
     if (opts.dryRun) {
+      const lbsToRebind = opts.rebind === false || plan.create.length === 0
+        ? []
+        : [...new Set(group.loadbalancers.map((item) => item.loadbalancer_id))].sort();
       output(opts, {
         headers: ["field", "value"],
         rows: [
@@ -307,7 +328,7 @@ const addCommand = new Command("add")
             "skipped_duplicates",
             plan.duplicates.map((item) => item.cidr_address).join(", "),
           ],
-          ["loadbalancers_to_rebind", String(opts.rebind === false ? 0 : group.loadbalancers.length)],
+          ["loadbalancers_to_rebind", String(lbsToRebind.length)],
         ],
         raw: {
           operation: "ipacl-target-add",
@@ -318,9 +339,7 @@ const addCommand = new Command("add")
             ...(parsedDescription === undefined ? {} : { description: parsedDescription }),
           })),
           skipped_duplicates: plan.duplicates,
-          loadbalancers_to_rebind: opts.rebind === false
-            ? []
-            : group.loadbalancers.map((item) => item.loadbalancer_id),
+          loadbalancers_to_rebind: lbsToRebind,
         },
         ids: [],
       });
@@ -333,18 +352,42 @@ const addCommand = new Command("add")
       cidr_address: item.cidr_address,
       ipacl_group_id: item.ipacl_group_id,
     }));
-    const first = targets[0];
+    const firstDuplicate = plan.duplicates.find((item) => item.target_id !== null);
+    const first = targets[0] ?? (firstDuplicate === undefined
+      ? undefined
+      : { id: firstDuplicate.target_id as string, ipacl_group_id: group.id });
     const result: TargetAddResult = {
       operation: "ipacl-target-add",
-      status: created.length === 0 ? "unchanged" : rebind.failed.length === 0 ? "succeeded" : "partial",
+      status:
+        created.length === 0
+          ? "unchanged"
+          : createFailure !== undefined || rebind.failed.length > 0
+            ? "partial"
+            : "succeeded",
       target: first === undefined ? null : { id: first.id, ipacl_group_id: first.ipacl_group_id },
       targets,
       skipped_duplicates: plan.duplicates,
+      ...(createFailure === undefined
+        ? {}
+        : {
+            failed_creates: [
+              {
+                cidr_address: createFailure.cidr_address,
+                error: createFailure.error instanceof Error ? createFailure.error.message : String(createFailure.error),
+              },
+            ],
+            not_attempted: plan.create.slice(created.length + 1),
+          }),
       rebind,
     };
-    outputTargetAddResult(opts, result);
+    outputTargetAddResult(opts, group.id, result);
     writeDuplicateNotice(plan.duplicates);
     if (created.length === 0) return;
+    if (createFailure !== undefined) {
+      process.stderr.write(
+        `경고: ${sanitizeForTerminal(createFailure.cidr_address)} 를 만들지 못해 중단했습니다. 같은 명령을 다시 실행하면 이미 만든 대상은 건너뜁니다.\n`,
+      );
+    }
     writeTargetWarnings(group, rebind);
     if (result.status === "partial") process.exitCode = EXIT_API_ERROR;
   });
