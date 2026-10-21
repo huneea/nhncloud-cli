@@ -180,6 +180,19 @@ describe("isWrittenStageResource", () => {
 describe("ApiGatewayClient.listServices", () => {
   beforeEach(() => vi.resetAllMocks());
 
+  it("공공망 profile은 공공망 kr1 주소로 조회한다", async () => {
+    vi.mocked(ky.get).mockReturnValue(
+      mockKyResponse({ header: successfulHeader, apigwServiceList: [], paging: { limit: 100, page: 1, totalCount: 0 } }),
+    );
+
+    await new ApiGatewayClient("access-token", "kr1", "test-appkey", "gov").listServices();
+
+    expect(ky.get).toHaveBeenCalledWith(
+      "https://kr1-apigateway.api.gov-nhncloudservice.com/v2.0/appkeys/test-appkey/services",
+      expect.any(Object),
+    );
+  });
+
   it("paging.totalCount까지 전수 수집하고 X-NHN-Authorization을 사용한다", async () => {
     vi.mocked(ky.get)
       .mockReturnValueOnce(

@@ -6,6 +6,7 @@
 기존 `logncrash.secret`은 Search v3 인증에 사용하지 않는다.
 CLI가 UAK를 OAuth 토큰으로 교환해 Bearer 인증을 적용한다.
 `send`는 별도 collector 계약이므로 Search v3 전환의 영향을 받지 않는다.
+공공망 profile(`"environment": "gov"`)은 검색과 `send` 모두 공공망 주소를 사용한다.
 
 ## 검색
 

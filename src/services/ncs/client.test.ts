@@ -18,6 +18,19 @@ function mockKyResponse(body: unknown, headers: Record<string, string> = {}) {
 describe("NcsClient.listTemplates", () => {
   beforeEach(() => vi.resetAllMocks());
 
+  it("공공망 profile은 공공망 kr1 주소로 조회한다", async () => {
+    vi.mocked(ky.get).mockReturnValue(
+      mockKyResponse({ header: { isSuccessful: true, resultCode: 200, resultMessage: "SUCCESS" }, templates: [] }),
+    );
+
+    await new NcsClient("token", "kr1", "test-appkey", "gov").listTemplates();
+
+    expect(ky.get).toHaveBeenCalledWith(
+      "https://kr1-ncs.api.gov-nhncloudservice.com/ncs/v1.0/appkeys/test-appkey/templates",
+      expect.any(Object),
+    );
+  });
+
   it("{ header, templates: [...] } 에서 templates 반환 + X-Total-Count 헤더 파싱", async () => {
     vi.mocked(ky.get).mockReturnValue(
       mockKyResponse(

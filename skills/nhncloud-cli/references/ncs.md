@@ -11,6 +11,7 @@ nhncloud ncs template list
 ```
 
 기본 region은 `kr1`이고, `kr1`, `kr3`만 지원한다(판교·광주).
+공공망 profile(`"environment": "gov"`)의 NCS API는 `kr1`만 지원한다. 다른 region은 API를 호출하기 전에 종료 코드 3이다.
 
 ## Template(설계도) 조회
 

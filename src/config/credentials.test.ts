@@ -124,10 +124,19 @@ describe("getProfileEnvironment", () => {
     await writeCredentials({ version: 1, profiles: { bad: { environment: "other" } } });
     await expect(credentials.getProfileEnvironment("bad")).rejects.toMatchObject({ exitCode: EXIT_CONFIG_ERROR });
   });
+});
 
-  it("지원하지 않는 서비스는 공공망 profile에서 요청 전에 거부한다", async () => {
-    await writeCredentials({ version: 1, profiles: { public: { environment: "gov" } } });
-    await expect(credentials.requireRealEnvironment("public", "NCS")).rejects.toMatchObject({ exitCode: EXIT_CONFIG_ERROR });
+describe("listProfilesWithUak", () => {
+  it("environment 를 주면 같은 망의 UAK profile 만 돌려준다", async () => {
+    const uak = { id: "<uak-id>", secret: "<uak-secret>" };
+    await writeCredentials({
+      version: 1,
+      profiles: { real: { userAccessKey: uak }, public: { environment: "gov", userAccessKey: uak }, empty: {} },
+    });
+
+    await expect(credentials.listProfilesWithUak()).resolves.toEqual(["real", "public"]);
+    await expect(credentials.listProfilesWithUak("real")).resolves.toEqual(["real"]);
+    await expect(credentials.listProfilesWithUak("gov")).resolves.toEqual(["public"]);
   });
 });
 

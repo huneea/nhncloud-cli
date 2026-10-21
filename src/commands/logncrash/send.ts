@@ -3,7 +3,7 @@ import { readFileSync, statSync } from "node:fs";
 import { startSpinner, stopSpinner } from "../../utils/spinner.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_PARAM_ERROR, EXIT_CONFIG_ERROR } from "../../utils/exit-codes.js";
-import { resolveProfileName, getServiceCredential, requireRealEnvironment } from "../../config/credentials.js";
+import { resolveProfileName, getServiceCredential, getProfileEnvironment } from "../../config/credentials.js";
 import { LogncrashClient } from "../../services/logncrash/client.js";
 import type { OutputOptions } from "../../formatters/table.js";
 import type { LogLevel } from "../../services/logncrash/types.js";
@@ -100,7 +100,7 @@ export const sendCommand = new Command("send")
 
     // ── 3. 자격증명 로드 — appkey 만 사용 (secret 불요, ADR-014) ──
     const profileName = await resolveProfileName(opts.profile);
-    await requireRealEnvironment(profileName, "Log & Crash");
+    const environment = await getProfileEnvironment(profileName);
     const cred = await getServiceCredential("logncrash", profileName);
     if (!cred.appkey) {
       throw new NhnCloudCliError(
@@ -109,7 +109,7 @@ export const sendCommand = new Command("send")
       );
     }
     // collector send 는 검색용 access token을 쓰지 않는다(ADR-014). 생성자 두 번째 인자는 생략한다.
-    const client = new LogncrashClient(cred.appkey);
+    const client = new LogncrashClient(cred.appkey, undefined, environment);
 
     // ── 4. 전송 (spinner 내부, try/catch + leak 방지) ──
     startSpinner("로그 전송 중...");

@@ -26,6 +26,17 @@ function respondToGet(body: unknown): void {
 describe("LogncrashClient Search v3", () => {
   beforeEach(() => vi.resetAllMocks());
 
+  it("공공망 profile은 공공망 검색 주소로 조회한다", async () => {
+    respondToGet({ availableToken: 10 });
+
+    await new LogncrashClient("appkey", "access-token", "gov").availableToken();
+
+    expect(ky.get).toHaveBeenCalledWith(
+      "https://api-lncs-search.gov-nhncloudservice.com/v3/appkey/logs/available-token",
+      expect.objectContaining({ headers: { "X-NHN-Authorization": "Bearer access-token" } }),
+    );
+  });
+
   it("available-token을 v3 GET·Bearer로 조회하고 음수 정수를 보존한다", async () => {
     respondToGet({ availableToken: -2_302 });
 
@@ -224,5 +235,15 @@ describe("LogncrashClient collector 회귀", () => {
     );
     const headers = vi.mocked(ky.post).mock.calls[0]?.[1]?.headers;
     expect(headers).not.toHaveProperty("X-NHN-Authorization");
+  });
+
+  it("공공망 profile은 공공망 collector 주소로 보낸다", async () => {
+    vi.mocked(ky.post).mockReturnValue({
+      json: async () => ({ header: successHeader }),
+    } as never);
+
+    await new LogncrashClient("appkey", undefined, "gov").send({ projectVersion: "1.0.0", body: "hello" });
+
+    expect(ky.post).toHaveBeenCalledWith("https://api-logncrash.gov-nhncloudservice.com/v2/log", expect.any(Object));
   });
 });

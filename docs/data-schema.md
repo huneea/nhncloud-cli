@@ -127,7 +127,7 @@ UAK 는 개인/계정 단위라 OAuth 쓰는 서비스가 공유하고, 서비�
   - `password` 는 NHN 콘솔 IAM 에서 별도 발급하는 API 비밀번호 (로그인 비밀번호가 아님)
   - `region`: 일반망은 `kr1` / `kr2` / `kr3` / `jp1`(NKS는 `jp1` 제외), 공공망은 `kr1` / `kr2`. 명령의 `--region` 으로 override
 - 예약 키 `userAccessKey`와 `environment` 외 키는 서비스명 = 서비스별 블록
-- `environment: "gov"`: 공공망 profile에만 명시한다. 생략한 기존 profile은 일반망을 사용한다. 현재 공공망 endpoint 선택 대상은 OAuth, Deploy, NCR, IaaS, NKS, Secure Key Manager, RDS for MySQL이다([[adr-037]], [[adr-039]], [[adr-046]]).
+- `environment: "gov"`: 공공망 profile에만 명시한다. 생략한 기존 profile은 일반망을 사용한다. 현재 공공망 endpoint 선택 대상은 OAuth, Deploy, NCR, IaaS, NKS, Secure Key Manager, RDS for MySQL, Log & Crash, NCS, API Gateway다([[adr-037]], [[adr-039]], [[adr-046]]).
 
 ## config.json
 

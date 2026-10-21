@@ -60,15 +60,10 @@ async function saveAndVerify(
 ): Promise<void> {
   // 연결 테스트
   if (doVerify) {
-    // 기존 공공망 profile의 UAK·IaaS 비밀번호가 일반망 검증 주소로 전송되지 않게 한다.
-    if (await getProfileEnvironment(profileName, true) === "gov") {
-      throw new NhnCloudCliError(
-        "공공망 profile은 configure 연결 테스트를 지원하지 않습니다. --no-verify로 저장한 뒤 조회 명령으로 확인하세요.",
-        EXIT_CONFIG_ERROR,
-      );
-    }
+    // 공공망 profile의 자격증명은 공공망 검증 주소로만 보낸다(ADR-037).
+    const environment = await getProfileEnvironment(profileName, true);
     if (uak) {
-      const ok = await verifyUserAccessKey(uak);
+      const ok = await verifyUserAccessKey(uak, environment);
       if (ok) {
         process.stderr.write(chalk.green("  ✓ UAK 연결 성공\n"));
       } else {
@@ -86,7 +81,7 @@ async function saveAndVerify(
           EXIT_CONFIG_ERROR,
         );
       }
-      const ok = await verifyLogncrash(logncrashUak, logncrash.appkey ?? "");
+      const ok = await verifyLogncrash(logncrashUak, logncrash.appkey ?? "", environment);
       if (ok) {
         process.stderr.write(chalk.green("  ✓ logncrash 연결 성공\n"));
       } else {
@@ -98,7 +93,7 @@ async function saveAndVerify(
     }
 
     if (iaas) {
-      const ok = await verifyIaas(iaas);
+      const ok = await verifyIaas(iaas, environment);
       if (ok) {
         process.stderr.write(chalk.green("  ✓ iaas 연결 성공\n"));
       } else {
@@ -114,7 +109,7 @@ async function saveAndVerify(
       // logncrash/iaas 와 달리 단독 검증이 안 되는 비대칭 — UAK 가 없으면 skip 을 명시 경고.
       if (uak) {
         const appkey = ncr.appkey ?? "";
-        const ok = await verifyNcr(uak, appkey);
+        const ok = await verifyNcr(uak, appkey, environment);
         if (ok) {
           // verify 는 kr1 가정(verifyNcr) — 사용자가 region 을 인지하도록 표기.
           process.stderr.write(chalk.green("  ✓ ncr 연결 성공 (kr1)\n"));
@@ -138,7 +133,7 @@ async function saveAndVerify(
       // ncr 과 동일한 비대칭 — UAK 가 없으면 skip 을 대칭 문구로 경고.
       if (uak) {
         const appkey = ncs.appkey ?? "";
-        const ok = await verifyNcs(uak, appkey);
+        const ok = await verifyNcs(uak, appkey, environment);
         if (ok) {
           // verify 는 kr1 가정(verifyNcs) — 사용자가 region 을 인지하도록 표기.
           process.stderr.write(chalk.green("  ✓ ncs 연결 성공 (kr1)\n"));
@@ -202,7 +197,9 @@ async function runInteractive(opts: ConfigureOptions): Promise<void> {
 
   // 2. UAK — 다른 profile 에 이미 있으면 재사용 여부 확인 (멀티 프로젝트 UAK 중복 완화)
   let uak: UserAccessKey | undefined;
-  const profilesWithUak = (await listProfilesWithUak()).filter((p) => p !== profileName);
+  // 같은 망의 profile 에서만 UAK 를 가져온다(ADR-037).
+  const environment = await getProfileEnvironment(profileName, true);
+  const profilesWithUak = (await listProfilesWithUak(environment)).filter((p) => p !== profileName);
 
   if (profilesWithUak.length > 0) {
     const reuse = await confirm({

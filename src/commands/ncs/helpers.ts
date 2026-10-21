@@ -1,5 +1,6 @@
 import { readFileSync, statSync } from "node:fs";
-import { resolveProfileName, getUserAccessKey, requireRealEnvironment } from "../../config/credentials.js";
+import { resolveProfileName, getUserAccessKey, getProfileEnvironment } from "../../config/credentials.js";
+import { ncsHost } from "../../api/endpoints.js";
 import { getAccessToken } from "../../api/oauth.js";
 import { NcsClient } from "../../services/ncs/client.js";
 import { resolveServiceAppKey } from "../service-appkey.js";
@@ -187,12 +188,14 @@ export async function resolveNcsClient(opts: {
   region?: string;
 }): Promise<{ client: NcsClient; profileName: string }> {
   const profileName = await resolveProfileName(opts.profile);
-  await requireRealEnvironment(profileName, "NCS");
-  const uak = await getUserAccessKey(profileName);
-  const accessToken = await getAccessToken(profileName, uak.id, uak.secret);
-  const appKey = await resolveNcsAppKey(profileName);
+  const environment = await getProfileEnvironment(profileName);
   const region = opts.region ?? "kr1";
-  return { client: new NcsClient(accessToken, region, appKey), profileName };
+  // 토큰을 발급받기 전에 그 망에 없는 region 을 거부한다(ADR-037).
+  ncsHost(region, environment);
+  const uak = await getUserAccessKey(profileName);
+  const accessToken = await getAccessToken(profileName, uak.id, uak.secret, false, environment);
+  const appKey = await resolveNcsAppKey(profileName);
+  return { client: new NcsClient(accessToken, region, appKey, environment), profileName };
 }
 
 /**

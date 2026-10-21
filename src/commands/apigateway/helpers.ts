@@ -1,9 +1,10 @@
 import { readFile, stat } from "node:fs/promises";
+import { apigatewayHost } from "../../api/endpoints.js";
 import { getAccessToken } from "../../api/oauth.js";
 import {
   getUserAccessKey,
   resolveProfileName,
-  requireRealEnvironment,
+  getProfileEnvironment,
 } from "../../config/credentials.js";
 import { ApiGatewayClient } from "../../services/apigateway/client.js";
 import type {
@@ -128,12 +129,15 @@ export async function resolveApiGatewayClient(opts: {
   region?: string;
 }): Promise<{ client: ApiGatewayClient; profileName: string }> {
   const profileName = await resolveProfileName(opts.profile);
-  await requireRealEnvironment(profileName, "API Gateway");
+  const environment = await getProfileEnvironment(profileName);
+  const region = opts.region ?? "kr1";
+  // 토큰을 발급받기 전에 그 망에 없는 region 을 거부한다(ADR-037).
+  apigatewayHost(region, environment);
   const uak = await getUserAccessKey(profileName);
-  const accessToken = await getAccessToken(profileName, uak.id, uak.secret);
+  const accessToken = await getAccessToken(profileName, uak.id, uak.secret, false, environment);
   const appKey = await resolveApiGatewayAppKey(profileName);
   return {
-    client: new ApiGatewayClient(accessToken, opts.region ?? "kr1", appKey),
+    client: new ApiGatewayClient(accessToken, region, appKey, environment),
     profileName,
   };
 }

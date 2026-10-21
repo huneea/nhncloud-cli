@@ -1,5 +1,6 @@
 import ky from "ky";
 import { endpointFor } from "../../api/endpoints.js";
+import type { CloudEnvironment } from "../../config/types.js";
 import { unwrap, unwrapHeader, type NhnEnvelope } from "../../api/envelope.js";
 import { toNhnCloudCliError } from "../../api/httpError.js";
 import { DEFAULT_TIMEOUT_MS } from "../../api/timeout.js";
@@ -20,15 +21,17 @@ export class LogncrashClient {
   private readonly appkey: string;
   /** Search v3 읽기 요청에만 필요하다. collector send 는 인증 헤더를 쓰지 않는다(ADR-014). */
   private readonly accessToken: string | undefined;
+  private readonly environment: CloudEnvironment;
 
-  constructor(appkey: string, accessToken?: string) {
+  constructor(appkey: string, accessToken?: string, environment: CloudEnvironment = "real") {
     this.appkey = appkey;
     this.accessToken = accessToken;
+    this.environment = environment;
   }
 
   async availableToken(): Promise<AvailableTokenResult> {
     const headers = this.readHeaders();
-    const endpoint = endpointFor("logncrash");
+    const endpoint = endpointFor("logncrash", this.environment);
     const url = `${endpoint}/v3/${encodeURIComponent(this.appkey)}/logs/available-token`;
 
     try {
@@ -54,7 +57,7 @@ export class LogncrashClient {
 
   async cursorSearch(params: CursorSearchParams): Promise<CursorSearchResult> {
     const headers = this.readHeaders();
-    const endpoint = endpointFor("logncrash");
+    const endpoint = endpointFor("logncrash", this.environment);
     const url = `${endpoint}/v3/${encodeURIComponent(this.appkey)}/logs/cursor`;
 
     try {
@@ -85,7 +88,7 @@ export class LogncrashClient {
    */
   async scrollStart(params: ScrollStartParams): Promise<ScrollResult> {
     const headers = this.readHeaders();
-    const endpoint = endpointFor("logncrash");
+    const endpoint = endpointFor("logncrash", this.environment);
     const url = `${endpoint}/v3/${encodeURIComponent(this.appkey)}/logs/scroll`;
 
     try {
@@ -113,7 +116,7 @@ export class LogncrashClient {
    */
   async scrollNext(scrollKey: string): Promise<ScrollResult> {
     const headers = this.readHeaders();
-    const endpoint = endpointFor("logncrash");
+    const endpoint = endpointFor("logncrash", this.environment);
     const url = `${endpoint}/v3/${encodeURIComponent(this.appkey)}/logs/scroll/${encodeURIComponent(scrollKey)}`;
 
     try {
@@ -148,7 +151,7 @@ export class LogncrashClient {
    * - logVersion 은 "v2" 고정. logSource/logType 미지정 시 collector 기본값("http"/"log") 적용.
    */
   async send(params: LogSendParams): Promise<void> {
-    const endpoint = endpointFor("logncrash-collector");
+    const endpoint = endpointFor("logncrash-collector", this.environment);
     const url = `${endpoint}/v2/log`;
 
     const payload: Record<string, unknown> = {

@@ -1,5 +1,6 @@
 import ky from "ky";
 import { apigatewayHost } from "../../api/endpoints.js";
+import type { CloudEnvironment } from "../../config/types.js";
 import { unwrapHeader, type NhnEnvelope } from "../../api/envelope.js";
 import { toNhnCloudCliError } from "../../api/httpError.js";
 import { DEFAULT_TIMEOUT_MS } from "../../api/timeout.js";
@@ -101,9 +102,9 @@ export class ApiGatewayClient {
   private readonly accessToken: string;
   private readonly baseUrl: string;
 
-  constructor(accessToken: string, region: string, appKey: string) {
+  constructor(accessToken: string, region: string, appKey: string, environment: CloudEnvironment = "real") {
     this.accessToken = accessToken;
-    this.baseUrl = `https://${apigatewayHost(region)}/v2.0/appkeys/${encodeURIComponent(appKey)}`;
+    this.baseUrl = `https://${apigatewayHost(region, environment)}/v2.0/appkeys/${encodeURIComponent(appKey)}`;
   }
 
   private authHeaders(): Record<string, string> {
