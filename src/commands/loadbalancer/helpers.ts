@@ -68,6 +68,13 @@ export function parseIpOrCidr(value: string): string {
   return normalized;
 }
 
+/** 단독 IP는 /32(IPv6는 /128)로 맞추고 소문자로 바꿔 같은 대상을 같은 문자열로 비교한다. */
+export function normalizeCidrForCompare(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (normalized.includes("/")) return normalized;
+  return `${normalized}/${isIP(normalized) === 4 ? 32 : 128}`;
+}
+
 export async function resolveLoadBalancerId(
   client: Pick<LoadBalancerResolverClient, "listLoadBalancers">,
   value: string,
