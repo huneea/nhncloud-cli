@@ -131,9 +131,13 @@ nhncloud loadbalancer ipacl target remove <target-id> \
 단독 IP 는 `/32`(IPv6 는 `/128`)와 같은 대상으로 본다.
 건너뛴 항목은 `skipped_duplicates`, 만든 항목은 `targets` 에 담긴다.
 모두 중복이면 `status` 는 `unchanged` 이고 대상 생성도 재바인딩도 하지 않으며 종료 코드는 0 이다.
+이때 `target` 과 `--quiet` 출력에는 건너뛴 기존 대상 id 를 내고, `rebind.skipped` 는 `--no-rebind` 를 쓴 경우에만 `true` 다.
 `--description` 은 이번 호출에서 만드는 모든 대상에 같은 값을 쓴다.
 `--dry-run` 은 `--yes` 없이 쓰기 없이 `would_create`, `skipped_duplicates`, `loadbalancers_to_rebind` 만 출력한다.
-여러 대상을 만드는 중간에 실패하면 이미 만든 대상은 되돌리지 않고 stderr 로 알린다.
+`loadbalancers_to_rebind` 는 만들 대상이 없거나 `--no-rebind` 이면 빈 배열이고, 아니면 실제 실행과 같게 중복을 없애 ID 순으로 정렬한다.
+여러 대상을 만드는 중간에 실패하면 이미 만든 대상은 되돌리지 않고 그 대상으로 재바인딩을 계속한다.
+이때 `status` 는 `partial` 이고 `failed_creates` 와 `not_attempted` 를 stdout 에 내며 종료 코드는 API 오류다.
+같은 명령을 다시 실행하면 이미 만든 대상은 건너뛴다.
 `target update` 는 설명만 바꾸므로 `--yes` 와 재바인딩이 없다.
 
 `set-ipacl`은 기존 연결에 그룹을 추가하는 명령이 아니다.
