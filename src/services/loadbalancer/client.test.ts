@@ -116,6 +116,22 @@ describe("LoadBalancerClient", () => {
     expect(result[0].ipacl_group_action).toBeNull();
   });
 
+  it("IP ACL이 연결되지 않아 ipacl_group_action 칸이 없는 응답도 목록과 단건에서 통과한다", async () => {
+    const { ipacl_group_action: _omitted, ...withoutAction } = {
+      ...loadBalancer,
+      ipacl_groups: [],
+    };
+    const client = new LoadBalancerClient("token-id", "https://example.com/v2.0");
+
+    mockJsonResponse({ loadbalancers: [withoutAction] });
+    const list = await client.listLoadBalancers();
+    expect(list).toEqual([withoutAction]);
+    expect(list[0].ipacl_group_action).toBeUndefined();
+
+    mockJsonResponse({ loadbalancer: withoutAction });
+    await expect(client.getLoadBalancer("lb-1")).resolves.toEqual(withoutAction);
+  });
+
   it("IP ACL 그룹 목록을 반환하고 문자열 target count를 보존한다", async () => {
     mockJsonResponse({ ipacl_groups: [ipAclGroup] });
 
@@ -362,6 +378,33 @@ describe("LoadBalancerClient", () => {
         timeout: 30_000,
       },
     );
+  });
+
+  it("IP ACL 대상 설명 변경은 description만 PUT하고 식별자를 인코딩한다", async () => {
+    const client = new LoadBalancerClient("token-id", "https://example.com/v2.0");
+    const updated = { ...ipAclTarget, description: "new" };
+    vi.mocked(ky.put).mockReturnValue({ json: async () => ({ ipacl_target: updated }) } as never);
+
+    await expect(
+      client.updateIpAclTarget("target/id", { description: "new" }),
+    ).resolves.toEqual(updated);
+    expect(ky.put).toHaveBeenCalledWith(
+      "https://example.com/v2.0/lbaas/ipacl-targets/target%2Fid",
+      {
+        headers: { "X-Auth-Token": "token-id" },
+        json: { ipacl_target: { description: "new" } },
+        retry: 0,
+        timeout: 30_000,
+      },
+    );
+
+    vi.mocked(ky.put).mockReturnValue({ json: async () => ({ ipacl_target: null }) } as never);
+    await expect(
+      client.updateIpAclTarget("target-1", { description: "x" }),
+    ).rejects.toMatchObject({ exitCode: EXIT_API_ERROR });
+    await expect(
+      client.updateIpAclTarget(" ", { description: "x" }),
+    ).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
   });
 
   it("IP ACL 대상 삭제는 빈 본문을 JSON 파싱하지 않는다", async () => {

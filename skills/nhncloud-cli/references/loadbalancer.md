@@ -21,6 +21,7 @@ nhncloud loadbalancer ipacl target list <group> \
 ```
 
 단건 Load Balancer 테이블에는 `id`, `name`, `vip_address`, `provisioning_status`, `operating_status`, `ipacl_group_action`, `ipacl_group_ids`가 행으로 출력된다.
+IP ACL이 연결되지 않은 Load Balancer는 공식 문서와 달리 응답에 `ipacl_group_action` 칸이 없으며(`ipacl_groups`는 빈 배열), 표에서는 빈 값으로 출력하고 `--json`은 응답을 그대로 보존한다.
 단건 IP ACL 그룹 테이블에는 `id`, `name`, `action`, `ipacl_target_count`, `loadbalancer_ids`가 행으로 출력된다.
 
 ## 이름과 UUID 해석
@@ -94,7 +95,15 @@ nhncloud loadbalancer clear-ipacl <loadbalancer> \
   --yes \
   --json
 
-# 대상 추가와 삭제
+# 대상 추가: --cidr 는 여러 번 줄 수 있다. 먼저 --dry-run 으로 확인한다
+nhncloud loadbalancer ipacl target add <group> \
+  --cidr <ip-or-cidr> \
+  --cidr <ip-or-cidr> \
+  --description <description> \
+  --profile <profile> \
+  --region <region> \
+  --dry-run \
+  --json
 nhncloud loadbalancer ipacl target add <group> \
   --cidr <ip-or-cidr> \
   --description <description> \
@@ -102,12 +111,34 @@ nhncloud loadbalancer ipacl target add <group> \
   --region <region> \
   --yes \
   --json
+
+# 대상 설명 변경: CIDR 은 바꿀 수 없으니 바꾸려면 삭제 후 다시 추가한다
+nhncloud loadbalancer ipacl target update <target-id> \
+  --description <description> \
+  --profile <profile> \
+  --region <region> \
+  --json
+
+# 대상 삭제: delete 는 remove 의 별칭이다
 nhncloud loadbalancer ipacl target remove <target-id> \
   --profile <profile> \
   --region <region> \
   --yes \
   --json
 ```
+
+`target add`는 그룹의 기존 대상과 입력 안의 반복을 비교해 이미 있는 CIDR은 만들지 않고 stderr 로 알린다.
+단독 IP 는 `/32`(IPv6 는 `/128`)와 같은 대상으로 본다.
+건너뛴 항목은 `skipped_duplicates`, 만든 항목은 `targets` 에 담긴다.
+모두 중복이면 `status` 는 `unchanged` 이고 대상 생성도 재바인딩도 하지 않으며 종료 코드는 0 이다.
+이때 `target` 과 `--quiet` 출력에는 건너뛴 기존 대상 id 를 내고, `rebind.skipped` 는 `--no-rebind` 를 쓴 경우에만 `true` 다.
+`--description` 은 이번 호출에서 만드는 모든 대상에 같은 값을 쓴다.
+`--dry-run` 은 `--yes` 없이 쓰기 없이 `would_create`, `skipped_duplicates`, `loadbalancers_to_rebind` 만 출력한다.
+`loadbalancers_to_rebind` 는 만들 대상이 없거나 `--no-rebind` 이면 빈 배열이고, 아니면 실제 실행과 같게 중복을 없애 ID 순으로 정렬한다.
+여러 대상을 만드는 중간에 실패하면 이미 만든 대상은 되돌리지 않고 그 대상으로 재바인딩을 계속한다.
+이때 `status` 는 `partial` 이고 `failed_creates` 와 `not_attempted` 를 stdout 에 내며 종료 코드는 API 오류다.
+같은 명령을 다시 실행하면 이미 만든 대상은 건너뛴다.
+`target update` 는 설명만 바꾸므로 `--yes` 와 재바인딩이 없다.
 
 `set-ipacl`은 기존 연결에 그룹을 추가하는 명령이 아니다.
 전달한 그룹 목록으로 기존 연결 전체를 교체한다.
@@ -133,7 +164,8 @@ nhncloud loadbalancer ipacl target remove <target-id> \
 | `loadbalancer ipacl get` | 단일 IP ACL 그룹 객체 | 선택한 IP ACL 그룹 UUID 한 줄 |
 | `loadbalancer ipacl target list` | IP ACL 대상 배열 | IP ACL 대상 UUID를 한 줄에 하나씩 출력 |
 | `loadbalancer ipacl create/delete` | 작업 상태와 IP ACL 그룹 UUID 객체 | IP ACL 그룹 UUID 한 줄 |
-| `loadbalancer ipacl target add/remove` | 대상과 재바인딩 결과 객체 | IP ACL 대상 UUID 한 줄 |
+| `loadbalancer ipacl target add` | 만든 대상 `targets`, 건너뛴 `skipped_duplicates`, 재바인딩 결과 객체 | 만든 IP ACL 대상 UUID 를 한 줄에 하나씩 출력 |
+| `loadbalancer ipacl target update/remove` | 대상(update 는 CIDR·설명 포함)과 작업 상태 객체 | IP ACL 대상 UUID 한 줄 |
 | `loadbalancer set-ipacl/clear-ipacl` | 작업 상태와 Load Balancer·그룹 UUID 객체 | Load Balancer UUID 한 줄 |
 
 옵션을 생략하면 사람이 읽기 좋은 테이블을 출력한다.
@@ -160,6 +192,14 @@ stdout JSON의 `status`는 `partial`이며, 실패마다 기계 실행용 `retry
     "id": "<target-id>",
     "ipacl_group_id": "<group-id>"
   },
+  "targets": [
+    {
+      "id": "<target-id>",
+      "cidr_address": "203.0.113.5",
+      "ipacl_group_id": "<group-id>"
+    }
+  ],
+  "skipped_duplicates": [],
   "rebind": {
     "skipped": false,
     "succeeded": [],

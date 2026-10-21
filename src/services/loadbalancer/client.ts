@@ -17,6 +17,8 @@ import {
   type IpAclGroup,
   type IpAclTarget,
   type LoadBalancer,
+  type UpdateIpAclTargetInput,
+  type UpdateIpAclTargetRequest,
 } from "./types.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -173,6 +175,25 @@ export class LoadBalancerClient {
       isIpAclTarget,
       "loadbalancer ipacl target add 응답 형식이 올바르지 않습니다 — ipacl_target 객체가 없습니다.",
       "loadbalancer ipacl target add 응답의 IP ACL 대상 항목 형식이 예상과 다릅니다 — API 응답 필드를 확인하세요.",
+    );
+  }
+
+  async updateIpAclTarget(
+    id: string,
+    input: UpdateIpAclTargetInput,
+  ): Promise<IpAclTarget> {
+    const normalizedId = requireNonEmptyId(id, "IP ACL 대상 ID");
+    const request: UpdateIpAclTargetRequest = { ipacl_target: input };
+    const raw = await this.putJson(
+      `/ipacl-targets/${encodeURIComponent(normalizedId)}`,
+      request,
+    );
+    return readObjectField(
+      raw,
+      "ipacl_target",
+      isIpAclTarget,
+      "loadbalancer ipacl target update 응답 형식이 올바르지 않습니다 — ipacl_target 객체가 없습니다.",
+      "loadbalancer ipacl target update 응답의 IP ACL 대상 항목 형식이 예상과 다릅니다 — API 응답 필드를 확인하세요.",
     );
   }
 

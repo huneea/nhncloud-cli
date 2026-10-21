@@ -4,6 +4,7 @@ import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
 import {
   collectOption,
+  normalizeCidrForCompare,
   optionalTrimmed,
   parseIpAclAction,
   requireResourceInput,
@@ -143,5 +144,12 @@ describe("resolveIpAclGroupId", () => {
       ipAclGroup("group-1", "office"),
     ]);
     expect(listIpAclGroups).toHaveBeenCalledTimes(1);
+  });
+
+  it("CIDR 비교용 정규화는 단독 IP를 /32·/128로 맞추고 대소문자를 합친다", () => {
+    expect(normalizeCidrForCompare("203.0.113.5")).toBe("203.0.113.5/32");
+    expect(normalizeCidrForCompare(" 203.0.113.5/32 ")).toBe("203.0.113.5/32");
+    expect(normalizeCidrForCompare("2001:DB8::1")).toBe("2001:db8::1/128");
+    expect(normalizeCidrForCompare("203.0.113.0/24")).toBe("203.0.113.0/24");
   });
 });
