@@ -24,13 +24,13 @@
 | floatingip, loadbalancer | network 주소를 쓴다 | Keystone 발급 주소만 공공망 | kr1, kr2 | network 행과 같다 | 미확인(profile 에 iaas 없음) | 지원 |
 | skm | `api-keymanager.gov-nhncloudservice.com` ([SKM API v1.3](https://docs.gov-nhncloud.com/ko/Security/Secure%20Key%20Manager/ko/api-guide-v1.3-gov/)) | OAuth 발급 주소만 공공망 | 없음(전역) | `resultCode 20002` | `skm keystore list` 성공 | 지원 |
 | rds-mysql | `kr1-rds-mysql.api.gov-nhncloudservice.com` ([RDS for MySQL API v3.0](https://docs.gov-nhncloud.com/ko/Database/RDS%20for%20MySQL/ko/api-guide-v3.0-gov/)) | 없음 | kr1 | kr1 은 본문 봉투 응답, kr2 는 HTTP 503 | `rds-mysql instance list` 성공 | 지원 |
-| logncrash 검색 | `api-lncs-search.gov-nhncloudservice.com` ([Log & Crash Search API](https://docs.gov-nhncloud.com/ko/Data%20%26%20Analytics/Log%20%26%20Crash%20Search/ko/gov-api-guide/)) | OAuth 발급 주소만 공공망 | 없음(전역) | `available-token` 이 `resultCode -401` | 미확인(profile 에 logncrash appkey 없음) | 지원 |
+| logncrash 검색 | `api-lncs-search.gov-nhncloudservice.com` ([Log & Crash Search API](https://docs.gov-nhncloud.com/ko/Data%20%26%20Analytics/Log%20%26%20Crash%20Search/ko/gov-api-guide/)) | OAuth 발급 주소만 공공망 | 없음(전역) | `available-token` 이 `resultCode -401` | `available-token`, `search` 성공 | 지원 |
 | logncrash 수집(`send`) | `api-logncrash.gov-nhncloudservice.com` (같은 문서) | 없음(본문의 appkey 로 식별) | 없음(전역) | `GET /v2/log` 가 HTTP 405 `Only support POST method` | 쓰기라 실행하지 않음 | 지원 |
 | ncs | `kr1-ncs.api.gov-nhncloudservice.com` ([NCS API](https://docs.gov-nhncloud.com/ko/Container/NCS/ko/public-api-gov/)) | OAuth 발급 주소만 공공망 | kr1 | kr1 은 `resultCode 10001`, kr2 는 DNS 없음 | 미확인(profile 에 ncs appkey 없음) | 지원 |
 | apigateway | `kr1-apigateway.api.gov-nhncloudservice.com` ([API Gateway API v2.0](https://docs.gov-nhncloud.com/ko/Application%20Service/API%20Gateway/ko/api-guide-v2.0-gov/)) | OAuth 발급 주소만 공공망 | kr1 | kr1, kr2 모두 `resultCode 403100000` | 미확인(profile 에 apigateway appkey 없음) | 지원(kr1) |
 | apigateway kr2, kr3 | 문서에 없음 | | | kr2 는 응답이 오지만 문서에 없다 | | 거부 유지 |
 
-`configure`, `doctor`, `commands`, `skills`는 서비스 API를 부르지 않거나 위 서비스의 검증 경로를 재사용한다.
+`configure`, `doctor`, `commands`, `skills`는 서비스 API를 부르지 않거나 위 서비스의 검증 경로를 재사용한다. `doctor`는 공공망 profile의 연결 확인을 건너뛰며, 이 점은 위 「제한」 절에 있다.
 
 ### 문서와 실제 응답의 차이
 
@@ -49,6 +49,7 @@
 | `ncs template list` | 공공망 OAuth 토큰 발급까지 성공, profile 에 ncs appkey 가 없어 종료 코드 4 |
 | `ncs template list --region kr3` | 토큰 발급 전에 종료 코드 3 |
 | `apigateway service list --region kr2` | 토큰 발급 전에 종료 코드 3 |
-| `logncrash available-token` | profile 에 logncrash appkey 가 없어 미확인 |
+| `logncrash available-token` | 성공, 응답 정상 |
+| `logncrash search` (최근 1시간, 7일 범위) | 성공, 응답에 `totalItems`, `data`, `nextCursor` |
 
-ncr, IaaS 계열, apigateway(kr1), logncrash 는 profile 에 해당 자격증명이 없어 실호출로 확인하지 못했다.
+`logncrash send` 는 쓰기라 실호출하지 않았다. ncr, IaaS 계열, apigateway(kr1) 는 profile 에 해당 자격증명이 없어 실호출로 확인하지 못했다.
