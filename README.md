@@ -102,7 +102,7 @@ CLI 를 새 버전으로 올린 뒤에는 `nhncloud skills update` 를 한 번 �
 | 네트워크, 보안그룹 | `nhncloud network` | [IaaS](skills/nhncloud-cli/references/iaas.md) |
 | Block Storage | `nhncloud volume` | [IaaS](skills/nhncloud-cli/references/iaas.md) |
 | Floating IP | `nhncloud floatingip` | [IaaS](skills/nhncloud-cli/references/iaas.md) |
-| Load Balancer, IP ACL | `nhncloud loadbalancer` | [Load Balancer](skills/nhncloud-cli/references/loadbalancer.md) |
+| Load Balancer, 리스너, 풀, L7, 인증서, IP ACL | `nhncloud loadbalancer` | [Load Balancer](skills/nhncloud-cli/references/loadbalancer.md) |
 | Log & Crash | `nhncloud logncrash` | [Log & Crash](skills/nhncloud-cli/references/logncrash.md) |
 | Deploy | `nhncloud deploy` | [Deploy](skills/nhncloud-cli/references/deploy.md) |
 | Container Registry | `nhncloud ncr` | [NCR](skills/nhncloud-cli/references/ncr.md) |
@@ -112,6 +112,9 @@ CLI 를 새 버전으로 올린 뒤에는 `nhncloud skills update` 를 한 번 �
 | Secure Key Manager | `nhncloud skm` | [SKM](skills/nhncloud-cli/references/skm.md) |
 | RDS for MySQL | `nhncloud rds-mysql` | [RDS for MySQL](skills/nhncloud-cli/references/rds-mysql.md) |
 | 설정과 진단 | `nhncloud configure`, `nhncloud doctor`, `nhncloud skills` | [공통](skills/nhncloud-cli/references/common.md) |
+
+Load Balancer TLS 인증서는 공용망과 공공망 모두 key-manager 에 저장해요.
+`loadbalancer certificate` 명령은 두 망에서 같은 방식으로 동작하고, IAM 계정에 key-manager 권한이 있어야 해요.
 
 명령과 옵션 전체는 카탈로그로 확인할 수 있어요.
 외부 API 를 호출하지 않고 명령 트리 정보만 출력해요.
@@ -133,6 +136,8 @@ nhncloud instance security-group add <instance-id> <group> --yes  # 인스턴스
 nhncloud volume list                                          # 블록 스토리지 볼륨
 nhncloud floatingip list                                      # Floating IP
 nhncloud loadbalancer list                                    # 로드밸런서
+nhncloud loadbalancer listener list --loadbalancer <lb>       # 로드밸런서 리스너
+nhncloud loadbalancer certificate upload --name <name> --certificate-file cert.pem --private-key-file key.pem --dry-run  # TLS 인증서 업로드 미리보기
 nhncloud ncr list                                             # 컨테이너 레지스트리
 nhncloud nks cluster list                                     # Kubernetes 클러스터
 nhncloud deploy artifacts                                     # 배포 아티팩트

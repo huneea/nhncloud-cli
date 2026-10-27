@@ -21,7 +21,8 @@
 | deploy | `api-tcd.gov-nhncloudservice.com` ([Deploy API v2.1](https://docs.gov-nhncloud.com/ko/Dev%20Tools/Deploy/ko/api-guide-v2.1-gov/)) | OAuth 발급 주소만 공공망 | 없음(전역) | `/` 가 HTTP 404 | `deploy artifacts` 성공 | 지원 |
 | ncr | `{region}-ncr.api.gov-nhncloudservice.com` ([NCR API](https://docs.gov-nhncloud.com/ko/Container/NCR/ko/public-api-gov/)) | 없음 | kr1 | kr1 은 `resultCode 4041007`, kr2 는 연결 실패 | 미확인(profile 에 ncr appkey 없음) | 지원 |
 | instance, network, volume, nks | `{region}-api-{instance,image,network,block-storage,kubernetes}-infrastructure.gov-nhncloudservice.com` ([서비스 게이트웨이](https://docs.gov-nhncloud.com/ko/Network/Service%20Gateway/ko/service-endpoint-gov/)) | Keystone 발급 주소만 공공망 | kr1, kr2 | API 버전 목록 응답 | 미확인(profile 에 iaas 없음) | 지원 |
-| floatingip, loadbalancer | network 주소를 쓴다 | Keystone 발급 주소만 공공망 | kr1, kr2 | network 행과 같다 | 미확인(profile 에 iaas 없음) | 지원 |
+| floatingip, loadbalancer | network 주소를 쓴다 | Keystone 발급 주소만 공공망 | kr1, kr2 | network 행과 같다 | `loadbalancer list`, `get`, `listener`·`pool`·`healthmonitor`·`l7policy` 조회 성공(2026-10-27) | 지원 |
+| loadbalancer certificate | `{region}-api-key-manager-infrastructure.gov-nhncloudservice.com` ([Load Balancer API v2](https://docs.gov-nhncloud.com/ko/Network/Load%20Balancer/ko/public-api-gov/)) | Keystone 발급 주소만 공공망 | kr1, kr2 | 확인하지 않음 | `GET /v1/containers` 가 HTTP 403(IAM 계정의 key-manager 권한 없음) | 지원([[adr-048]]) |
 | skm | `api-keymanager.gov-nhncloudservice.com` ([SKM API v1.3](https://docs.gov-nhncloud.com/ko/Security/Secure%20Key%20Manager/ko/api-guide-v1.3-gov/)) | OAuth 발급 주소만 공공망 | 없음(전역) | `resultCode 20002` | `skm keystore list` 성공 | 지원 |
 | rds-mysql | `kr1-rds-mysql.api.gov-nhncloudservice.com` ([RDS for MySQL API v3.0](https://docs.gov-nhncloud.com/ko/Database/RDS%20for%20MySQL/ko/api-guide-v3.0-gov/)) | 없음 | kr1 | kr1 은 본문 봉투 응답, kr2 는 HTTP 503 | `rds-mysql instance list` 성공 | 지원 |
 | logncrash 검색 | `api-lncs-search.gov-nhncloudservice.com` ([Log & Crash Search API](https://docs.gov-nhncloud.com/ko/Data%20%26%20Analytics/Log%20%26%20Crash%20Search/ko/gov-api-guide/)) | OAuth 발급 주소만 공공망 | 없음(전역) | `available-token` 이 `resultCode -401` | `available-token`, `search` 성공 | 지원 |
@@ -53,3 +54,13 @@
 | `logncrash search` (최근 1시간, 7일 범위) | 성공, 응답에 `totalItems`, `data`, `nextCursor` |
 
 `logncrash send` 는 쓰기라 실호출하지 않았다. ncr, IaaS 계열, apigateway(kr1) 는 profile 에 해당 자격증명이 없어 실호출로 확인하지 못했다.
+
+2026-10-27, IaaS 자격증명이 있는 다른 공공망 profile 로 Load Balancer 읽기 명령을 실행했다.
+
+| 명령 | 결과 |
+|---|---|
+| `loadbalancer list`, `get` | 종료 코드 0. 응답에 문서에 없는 필드(`loadbalancer_type`, `workflow_status` 등)가 있고 IP ACL 이 없으면 `ipacl_group_action` 필드가 없다 |
+| `loadbalancer listener list`, `get` | 종료 코드 0. `TERMINATED_HTTPS` 리스너에 `cert_expire_date` 가 붙는다 |
+| `loadbalancer pool list`, `get`, `pool member list`, `get` | 종료 코드 0. 멤버의 `subnet_id` 가 `null` 일 수 있다 |
+| `loadbalancer healthmonitor list`, `get`, `l7policy list`, `get`, `l7policy rule list`, `get` | 종료 코드 0 |
+| `loadbalancer certificate list` | key-manager 가 HTTP 403, 종료 코드 2 |

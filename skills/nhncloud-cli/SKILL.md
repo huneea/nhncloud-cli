@@ -32,7 +32,7 @@ description: >-
 | Log & Crash Search v3 커서 검색·scroll 대량 추출·collector 전송<br>반복 조회 자동화의 호출 비용 설계 | [logncrash.md](references/logncrash.md) |
 | Deploy 실행·조회·바이너리 전송 | [deploy.md](references/deploy.md) |
 | Compute, VPC, Block Storage, Floating IP | [iaas.md](references/iaas.md) |
-| Load Balancer와 IP ACL | [loadbalancer.md](references/loadbalancer.md) |
+| Load Balancer, 리스너, 풀, L7, 인증서, IP ACL | [loadbalancer.md](references/loadbalancer.md) |
 | Container Registry | [ncr.md](references/ncr.md) |
 | Kubernetes Service | [nks.md](references/nks.md) |
 | Container Service | [ncs.md](references/ncs.md) |

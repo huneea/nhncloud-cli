@@ -55,6 +55,8 @@ AWS CLI 같은 통합 명령줄 도구가 없어 매번 토큰·엔드포인트�
   - `template`(컨테이너 실행 설계도)·`workload`(런타임 실행)·`malware`(악성코드 검사) 3개 리소스를 조회·생성·삭제·실행제어한다.
   - workload 는 비동기라 `create --wait` 로 Running 을 대기하고, 복잡한 생성·변경은 `--file <json>` 입력을 기본으로 한다.
 - `nhncloud loadbalancer`: Load Balancer와 IP ACL 그룹·대상을 조회하고 안전하게 변경한다([[adr-022]], [사용 흐름](flow.md#iaas-흐름)).
+  - 리스너, 풀과 멤버, 헬스 모니터, L7 정책과 규칙을 조회하고 만들고 지운다. TLS 인증서는 key-manager 에 올리고 조회한다([[adr-048]]).
+  - 수정(update) 명령, 기본 인증서 변경, 쓰기 뒤 `ACTIVE` 대기는 범위 밖이다.
 - `nhncloud apigateway`: API Gateway 서비스·리소스·스테이지·배포를 조회하고
   스테이지 Swagger 를 내보낸다.
   - 결정은 [[adr-027]]과 [[adr-028]], [사용 흐름](flow.md#api-gateway-배포)을 따른다.

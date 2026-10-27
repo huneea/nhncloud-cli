@@ -140,7 +140,7 @@ nhncloud instance create --help
 | Log & Crash | 조회 토큰 확인, 검색, 대량 export, 로그 전송 | [logncrash.md](../skills/nhncloud-cli/references/logncrash.md) |
 | Deploy | 좌표 탐색, 배포 실행, 바이너리 전송 | [deploy.md](../skills/nhncloud-cli/references/deploy.md) |
 | Instance·Network·Volume·Floating IP | 리소스 탐색 뒤 조회·생성·변경 | [iaas.md](../skills/nhncloud-cli/references/iaas.md) |
-| Load Balancer | 대상 탐색, IP ACL 변경과 부분 실패 복구 | [loadbalancer.md](../skills/nhncloud-cli/references/loadbalancer.md) |
+| Load Balancer | 대상 탐색, IP ACL 변경과 부분 실패 복구, 인증서 업로드부터 HTTPS 리스너와 Host 규칙까지 | [loadbalancer.md](../skills/nhncloud-cli/references/loadbalancer.md) |
 | NCR | registry 조회 뒤 image와 tag 탐색 | [ncr.md](../skills/nhncloud-cli/references/ncr.md) |
 | NKS | 지원 버전과 리소스를 조회한 뒤 변경 | [nks.md](../skills/nhncloud-cli/references/nks.md) |
 | NCS | template을 기준으로 workload를 만들고 관찰 | [ncs.md](../skills/nhncloud-cli/references/ncs.md) |
@@ -185,6 +185,12 @@ IaaS 서비스는 profile의 Keystone 자격증명과 region을 해석하고 토
 - delete, 전원 제어와 resize는 대상 확인을 먼저 수행한다.
 - Network, Floating IP, Volume과 Load Balancer는 같은 Keystone 토큰을 재사용하되 서로 다른 endpoint 경계를 쓴다.
 - Load Balancer IP ACL 대상 변경은 기존 binding을 보존해 재바인딩하고, 부분 실패를 숨기지 않는다.
+- Load Balancer 리스너, 풀, 멤버, 헬스 모니터, L7 정책과 규칙의 생성과 삭제는 `--yes` 나 `--dry-run` 이 없으면 API 요청 전에 종료 코드 3으로 끝난다(ADR-048).
+  `--dry-run` 은 이름 해석 조회만 하고 보낼 method, 경로, 본문을 출력한다.
+  쓰기 사이에 Load Balancer 가 `PENDING_UPDATE` 면 API 가 거절하므로, 연속 쓰기는 `loadbalancer get` 으로 `ACTIVE` 를 확인하며 진행한다.
+- Load Balancer 인증서 업로드는 PEM 파일로 key-manager 시크릿을 만들고 certificate 컨테이너로 묶는다.
+  서버가 거절해 실패하면 이번 실행이 만든 시크릿을 지운다. 시간 초과처럼 결과를 모르는 실패는 남았을 수 있는 시크릿과 컨테이너를 알린다.
+  시크릿 payload 는 어떤 출력에도 내지 않는다(ADR-048).
 - 보안그룹은 이름이나 UUID로 지정한다. UUID가 일치하면 그 그룹을 쓰고, 이름이 없거나 중복되면 후보 UUID와 함께 입력 오류로 끝난다.
 - 보안그룹 연결 포트 조회는 연결 API 결과에 Compute 인스턴스 목록의 이름을 붙인다.
   `device_owner`가 `compute:`로 시작하는 포트만 대상이다.
