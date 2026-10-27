@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   endpointFor, keystoneIdentityUrl, ncrHost, instanceHost, imageHost,
-  networkHost, blockStorageHost, nksHost, rdsMysqlHost, ncsHost, apigatewayHost,
+  networkHost, blockStorageHost, nksHost, rdsMysqlHost, ncsHost, apigatewayHost, keyManagerHost,
 } from "./endpoints.js";
 import { EXIT_PARAM_ERROR } from "../utils/exit-codes.js";
 
@@ -17,6 +17,7 @@ describe("공공망 endpoint 선택", () => {
     expect(endpointFor("logncrash-collector")).toBe("https://api-logncrash.nhncloudservice.com");
     expect(ncsHost("kr3")).toBe("kr3-ncs.api.nhncloudservice.com");
     expect(apigatewayHost("kr2")).toBe("kr2-apigateway.api.nhncloudservice.com");
+    expect(keyManagerHost("jp1")).toBe("jp1-api-key-manager-infrastructure.nhncloudservice.com");
   });
 
   it("gov profile은 공식 공공망 주소를 사용한다", () => {
@@ -34,6 +35,7 @@ describe("공공망 endpoint 선택", () => {
     expect(endpointFor("logncrash-collector", "gov")).toBe("https://api-logncrash.gov-nhncloudservice.com");
     expect(ncsHost("kr1", "gov")).toBe("kr1-ncs.api.gov-nhncloudservice.com");
     expect(apigatewayHost("kr1", "gov")).toBe("kr1-apigateway.api.gov-nhncloudservice.com");
+    expect(keyManagerHost("kr2", "gov")).toBe("kr2-api-key-manager-infrastructure.gov-nhncloudservice.com");
   });
 
   it("공식 문서에 없는 공공망 region과 서비스는 요청 전에 거부한다", () => {
@@ -43,6 +45,8 @@ describe("공공망 endpoint 선택", () => {
     expect(() => ncsHost("kr3", "gov")).toThrow(expect.objectContaining({ exitCode: EXIT_PARAM_ERROR }));
     expect(() => apigatewayHost("kr2", "gov")).toThrow(expect.objectContaining({ exitCode: EXIT_PARAM_ERROR }));
     expect(() => apigatewayHost("kr3", "gov")).toThrow(expect.objectContaining({ exitCode: EXIT_PARAM_ERROR }));
+    expect(() => keyManagerHost("kr3", "gov")).toThrow(expect.objectContaining({ exitCode: EXIT_PARAM_ERROR }));
+    expect(() => keyManagerHost("us1")).toThrow(expect.objectContaining({ exitCode: EXIT_PARAM_ERROR }));
     expect(() => endpointFor("unknown", "gov")).toThrow();
   });
 });

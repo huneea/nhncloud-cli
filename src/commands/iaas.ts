@@ -1,5 +1,6 @@
 import { getIaasToken, type IaasTokenEndpoints } from "../api/keystone.js";
 import { getIaasCredential, getProfileEnvironment, resolveProfileName } from "../config/credentials.js";
+import type { CloudEnvironment } from "../config/types.js";
 
 export interface IaasResolverOpts {
   profile?: string;
@@ -8,6 +9,8 @@ export interface IaasResolverOpts {
 
 export type IaasTokenContext = {
   profileName: string;
+  region: string;
+  environment: CloudEnvironment;
 } & IaasTokenEndpoints;
 
 export async function resolveIaasTokenContext(
@@ -19,5 +22,5 @@ export async function resolveIaasTokenContext(
   const environment = await getProfileEnvironment(profileName);
 
   const tokenContext = await getIaasToken(profileName, effectiveIaas, false, environment);
-  return { profileName, ...tokenContext };
+  return { profileName, region: effectiveIaas.region, environment, ...tokenContext };
 }

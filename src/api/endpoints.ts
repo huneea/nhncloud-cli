@@ -108,6 +108,18 @@ const BLOCKSTORAGE_HOST: Record<string, string> = {
   jp1: "jp1-api-block-storage-infrastructure.nhncloudservice.com",
 };
 
+/**
+ * region → key-manager(OpenStack Barbican) API host 맵 (ADR-048).
+ * Load Balancer TLS 인증서의 시크릿과 시크릿 컨테이너를 저장한다. 같은 Keystone 토큰을 쓴다.
+ * 공식 Load Balancer API v2 가이드의 「시크릿」 절이 kr1·kr2·kr3·jp1 을 제시한다.
+ */
+const KEY_MANAGER_HOST: Record<string, string> = {
+  kr1: "kr1-api-key-manager-infrastructure.nhncloudservice.com",
+  kr2: "kr2-api-key-manager-infrastructure.nhncloudservice.com",
+  kr3: "kr3-api-key-manager-infrastructure.nhncloudservice.com",
+  jp1: "jp1-api-key-manager-infrastructure.nhncloudservice.com",
+};
+
 /** IaaS region 목록 — compute·image·network·blockstorage 공통. region 추가 시 네 host 맵을 함께 갱신한다. */
 const IAAS_REGIONS = Object.keys(INSTANCE_HOST).join(", ");
 
@@ -197,6 +209,22 @@ export function networkHost(region: string, environment: CloudEnvironment = "rea
   if (!host) {
     throw new NhnCloudCliError(
       `지원하지 않는 region 입니다: "${region}". 사용 가능한 region: ${IAAS_REGIONS}`,
+      EXIT_PARAM_ERROR,
+    );
+  }
+  return host;
+}
+
+/**
+ * region 에 해당하는 key-manager API host 를 반환한다.
+ * 미등록 region 은 EXIT_PARAM_ERROR.
+ */
+export function keyManagerHost(region: string, environment: CloudEnvironment = "real"): string {
+  if (environment === "gov") return govIaasHost(region, "key-manager");
+  const host = KEY_MANAGER_HOST[region];
+  if (!host) {
+    throw new NhnCloudCliError(
+      `지원하지 않는 key-manager region 입니다: "${region}". 사용 가능한 region: ${Object.keys(KEY_MANAGER_HOST).join(", ")}`,
       EXIT_PARAM_ERROR,
     );
   }
