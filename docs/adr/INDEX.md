@@ -55,3 +55,4 @@ ADR-NNN 내용은 `docs/adr/NNN-*.md` 로 찾는다(번호 glob: slug 몰라도 
 - [ADR-045](045-skm-secret-field-patch.md): SKM 기밀 데이터의 필드 하나만 바꾸는 patch 는 미리보기가 기본이고 반영 뒤 다시 조회해 대조한다
 - [ADR-046](046-rds-mysql-v3-static-auth.md): RDS for MySQL 은 API v3 와 UAK 정적 헤더로 호출하고 region 은 명령 옵션으로 받는다
 - [ADR-047](047-rds-mysql-write-preview-and-job-wait.md): RDS for MySQL 쓰기는 미리보기가 기본이고, `--wait` 는 작업 상태를 성공·실패·불확정으로 나눈다
+- [ADR-048](048-loadbalancer-listener-write-and-certificate.md): Load Balancer 리스너·L7·풀·헬스 모니터 쓰기는 `--yes` 나 `--dry-run` 을 요구하고, 인증서 업로드는 실패하면 만든 시크릿을 지운다
