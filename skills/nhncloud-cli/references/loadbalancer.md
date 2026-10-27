@@ -1,6 +1,6 @@
 # Load Balancer Reference
 
-`loadbalancer` 명령군은 Load Balancer와 IP ACL 그룹·대상을 조회하고 관리한다.
+`loadbalancer` 명령군은 Load Balancer, 리스너, 풀과 멤버, 헬스 모니터, L7 정책과 규칙, TLS 인증서, IP ACL 그룹·대상을 조회하고 관리한다.
 `network`와 같은 IaaS 자격증명, Keystone 토큰, network endpoint를 공유한다.
 region이 중요하면 `--region <region>`을 명시한다.
 
@@ -154,6 +154,80 @@ nhncloud loadbalancer ipacl target remove <target-id> \
 대상 변경의 반영에는 약 10–20초가 걸릴 수 있다.
 `ALLOW` 그룹 대상에는 Load Balancer가 속한 VPC의 private CIDR을 사용한다.
 
+## 리스너, 풀, 헬스 모니터, L7, 인증서
+
+새 도메인을 HTTPS 로 Load Balancer 에 붙이는 순서다.
+쓰기 명령은 모두 `--yes` 나 `--dry-run` 이 있어야 실행한다.
+`--dry-run` 은 이름을 UUID 로 바꾸는 조회만 하고 보낼 method, 경로, 본문을 출력한다.
+먼저 `--dry-run` 으로 본문을 확인한 뒤 같은 명령을 `--yes` 로 다시 실행한다.
+
+```bash
+# 1. 인증서 업로드: PEM 파일 경로만 받는다. 개인 키는 비밀번호를 제거한 것이어야 한다
+nhncloud loadbalancer certificate upload \
+  --name <cert-name> \
+  --certificate-file <cert.pem> \
+  --private-key-file <key.pem> \
+  --intermediates-file <chain.pem> \
+  --profile <profile> --region <region> --yes --json
+
+# 2. 풀과 멤버, 헬스 모니터
+nhncloud loadbalancer pool create --loadbalancer <loadbalancer> \
+  --protocol HTTP --lb-algorithm ROUND_ROBIN --name <pool-name> \
+  --profile <profile> --region <region> --yes --json
+nhncloud loadbalancer pool member create <pool> \
+  --address <member-ip> --port <member-port> --subnet <subnet-id> \
+  --profile <profile> --region <region> --yes --json
+nhncloud loadbalancer healthmonitor create --pool <pool> \
+  --type HTTP --delay 30 --timeout 5 --max-retries 3 --url-path /health \
+  --profile <profile> --region <region> --yes --json
+
+# 3. HTTPS 리스너: TERMINATED_HTTPS 는 --certificate 필수
+nhncloud loadbalancer listener create --loadbalancer <loadbalancer> \
+  --protocol TERMINATED_HTTPS --port 443 \
+  --certificate <cert-name> --default-pool <pool> \
+  --profile <profile> --region <region> --yes --json
+
+# 4. 기존 리스너에 Host 헤더 라우팅을 더할 때: 정책을 만들고 HOST_NAME 규칙을 붙인다
+nhncloud loadbalancer l7policy create --listener <listener> \
+  --action REDIRECT_TO_POOL --pool <pool> --name <policy-name> \
+  --profile <profile> --region <region> --yes --json
+nhncloud loadbalancer l7policy rule create <policy> \
+  --type HOST_NAME --compare-type EQUAL_TO --value <domain> \
+  --profile <profile> --region <region> --yes --json
+```
+
+- 리스너, 풀, L7 정책과 인증서는 이름이나 UUID 로 지정한다. 멤버, 헬스 모니터, L7 규칙은 이름이 없어 UUID 만 받는다.
+- `listener list --loadbalancer`, `pool list --loadbalancer`, `l7policy list --listener` 는 받은 전체 목록을 CLI 가 필터링한다.
+- `--certificate` 와 `--sni-certificate` 는 인증서 컨테이너 이름, UUID, `container_ref` 주소를 받는다. 주소를 주면 key-manager 를 조회하지 않는다.
+- L7 규칙의 `invert` 는 `--invert` 가 없으면 `false` 로 명시해 보낸다. API 문서는 생략하면 `true` 라고 적는다.
+- `HEADER`, `COOKIE` 규칙은 `--key` 가 필요하다. `REDIRECT_TO_POOL` 정책은 `--pool`, `REDIRECT_TO_URL` 정책은 `--redirect-url` 이 필요하다.
+- 쓰기 뒤 Load Balancer 는 잠시 `PENDING_UPDATE` 가 되고, 그동안의 다른 쓰기는 HTTP 409 로 거절된다. `loadbalancer get` 으로 `provisioning_status` 가 `ACTIVE` 인지 보고 다음 쓰기를 실행한다.
+- 인증서 추가는 Load Balancer 를 재기동한다. 새 세션이 1초 미만 처리되지 않을 수 있다.
+- 수정(update) 명령과 기본 인증서 변경은 없다. 콘솔에서 한다.
+- 빈 값을 준 선택 옵션(`--default-pool " "` 등)은 자격증명을 읽기 전에 종료 코드 3으로 막는다.
+
+| 명령 | 선택 옵션 |
+|------|-----------|
+| `listener create` | `--name`, `--description`, `--default-pool`, `--certificate`, `--sni-certificate`(반복), `--tls-version`(TERMINATED_HTTPS 만, 예: `TLSv1.2`), `--connection-limit`, `--keepalive-timeout`(초) |
+| `pool create` | `--loadbalancer` 또는 `--listener`(하나만), `--member-port`, `--name`, `--description` |
+| `pool member create` | `--weight` |
+| `healthmonitor create` | `--url-path`, `--http-method`, `--expected-codes`(예: `200`, `200-204`), `--health-check-port`(0 이면 멤버 포트), `--host-header` |
+| `l7policy create` | `--pool`(REDIRECT_TO_POOL), `--redirect-url`, `--redirect-http-code`(301 또는 302), `--position`(1 이상, 생략하면 마지막), `--name`, `--description` |
+| `l7policy rule create` | `--key`(HEADER, COOKIE), `--invert` |
+| `certificate upload` | `--intermediates-file` |
+
+### 인증서
+
+- 인증서는 공용망과 공공망 모두 key-manager(OpenStack Barbican) 의 시크릿과 `certificate` 컨테이너로 저장한다. host 만 다르다.
+- `certificate upload` 는 인증서, 개인 키, 체인 인증서 시크릿(`<name>-certificate`, `<name>-private-key`, `<name>-intermediates`)을 만들고 컨테이너로 묶는다.
+  - 같은 이름의 인증서 컨테이너가 이미 있으면 올리기 전에 종료 코드 3으로 막는다.
+  - 서버가 거절한 응답(HTTP 4xx, 5xx)으로 실패하면 이번에 만든 시크릿을 지우고 실패로 끝난다. 지우지 못한 시크릿은 오류 메시지에 `secret_ref` 로 남는다.
+  - 시간 초과나 연결 오류처럼 결과를 모르는 실패는 그 시크릿이나 컨테이너가 만들어졌을 수 있다고 알린다. 컨테이너 단계에서 결과를 모르면 컨테이너가 시크릿을 참조할 수 있어 시크릿을 지우지 않고 `secret_ref` 를 알린다. `certificate list` 로 확인한다.
+- 시크릿 payload 는 어떤 출력에도 나오지 않는다. `--dry-run` 은 payload 자리에 파일 경로와 바이트 수만 쓴다.
+- 암호화된 개인 키(`ENCRYPTED PRIVATE KEY`), OpenSSH 형식 개인 키, 개인 키를 함께 넣은 인증서나 체인 인증서 파일은 요청 전에 종료 코드 3으로 막는다.
+- `certificate list` 는 `certificate` 타입 컨테이너만 보여 준다. `certificate get` 은 컨테이너 정보만 조회하고 시크릿 내용은 읽지 않는다.
+- key-manager 가 HTTP 403 이면 IAM 계정에 key-manager 권한이 없는 것이다. 종료 코드 2와 함께 안내 문구를 낸다.
+
 ## 출력 모드
 
 | 명령 | `--json` 출력 | `--quiet` 출력 |
@@ -167,6 +241,11 @@ nhncloud loadbalancer ipacl target remove <target-id> \
 | `loadbalancer ipacl target add` | 만든 대상 `targets`, 건너뛴 `skipped_duplicates`, 재바인딩 결과 객체 | 만든 IP ACL 대상 UUID 를 한 줄에 하나씩 출력 |
 | `loadbalancer ipacl target update/remove` | 대상(update 는 CIDR·설명 포함)과 작업 상태 객체 | IP ACL 대상 UUID 한 줄 |
 | `loadbalancer set-ipacl/clear-ipacl` | 작업 상태와 Load Balancer·그룹 UUID 객체 | Load Balancer UUID 한 줄 |
+| `loadbalancer listener/pool/healthmonitor/l7policy list`, `pool member list`, `l7policy rule list`, `certificate list` | 리소스 배열 | 리소스 UUID 를 한 줄에 하나씩 출력 |
+| 위 리소스의 `get`, `create` | 단일 리소스 객체 | 리소스 UUID 한 줄 |
+| 위 리소스의 `delete` | 작업 상태와 지운 UUID 객체 | 지운 리소스 UUID 한 줄 |
+| 쓰기 명령의 `--dry-run` | `operation`, `dry_run`, `requests`(method, path, body) 객체 | 출력하지 않는다 |
+| `loadbalancer certificate upload` | 작업 상태, `container_ref`, 시크릿 이름과 `secret_ref` 객체 | 컨테이너 UUID 한 줄 |
 
 옵션을 생략하면 사람이 읽기 좋은 테이블을 출력한다.
 목록이 비어 있으면 기본 모드는 `결과 없음`을 stdout에 출력하고, `--json`은 빈 배열을 출력하며, `--quiet`는 출력하지 않는다.

@@ -63,7 +63,7 @@ skill ──> config와 독립된 사용자 데이터 경계
 | 서비스군 | 인증 경계 | endpoint 경계 |
 |---|---|---|
 | 토큰 캐시를 공유하는 OAuth 서비스([data-schema.md](data-schema.md)의 「토큰 캐시」) | `api/oauth.ts`, `cache/token-store.ts` | `api/endpoints.ts`와 서비스 client |
-| instance, network, blockstorage, loadbalancer, nks | `api/keystone.ts`, `cache/token-store.ts` | region별 IaaS endpoint |
+| instance, network, blockstorage, loadbalancer, nks | `api/keystone.ts`, `cache/token-store.ts` | region별 IaaS endpoint. loadbalancer 인증서의 key-manager 주소는 캐시하지 않고 region 과 망으로 만든다 |
 | NCR Management API, RDS for MySQL | profile 공통 UAK 정적 헤더 | region별 NCR host, region별 RDS for MySQL host |
 | NCR Harbor data plane | UAK Basic Auth | registry 응답에서 검증한 host |
 | Log & Crash collector | 서비스 규약에 맞춘 body | collector endpoint |

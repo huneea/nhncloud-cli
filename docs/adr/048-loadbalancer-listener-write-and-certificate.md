@@ -1,0 +1,33 @@
+# ADR-048: Load Balancer 리스너·L7·풀·헬스 모니터 쓰기는 `--yes` 나 `--dry-run` 을 요구하고, 인증서 업로드는 실패하면 만든 시크릿을 지운다
+
+- **status**: `accepted`
+- **결정**:
+  - `loadbalancer listener`, `l7policy`, `l7policy rule`, `pool`, `pool member`, `healthmonitor` 의 `create` 와 `delete`, `certificate upload` 는 `--yes` 나 `--dry-run` 중 하나가 있어야 실행한다. 둘 다 없으면 API 호출 전에 종료 코드 3으로 끝난다.
+  - `--dry-run` 은 이름 해석을 위한 조회만 하고, 보낼 요청의 method, 경로, 본문을 출력한 뒤 종료 코드 0으로 끝난다. `--yes` 와 함께 주면 `--dry-run` 이 이긴다.
+  - L7 규칙 생성은 `invert` 를 항상 본문에 넣는다. `--invert` 가 없으면 `false` 다.
+  - TLS 인증서는 key-manager(OpenStack Barbican) 의 시크릿과 `certificate` 타입 시크릿 컨테이너로 다룬다. 공용망과 공공망이 같은 API 를 쓰고 host 만 다르다(`{region}-api-key-manager-infrastructure.nhncloudservice.com`, 공공망은 `gov-nhncloudservice.com`). key-manager 주소는 Keystone 토큰 캐시에 넣지 않고 region 과 망에서 바로 만든다.
+  - `certificate upload` 는 PEM 파일 경로만 받는다. 같은 이름의 컨테이너가 있으면 올리지 않는다. 인증서, 개인 키, 체인 인증서 시크릿을 차례로 만든 뒤 컨테이너를 만든다.
+    - 서버가 거절한 응답으로 실패하면 이번 실행에서 만든 시크릿을 지우고 실패로 끝난다. 지우기까지 실패하면 남은 `secret_ref` 를 오류 메시지에 적는다.
+    - 시간 초과, 연결 오류, 응답 해석 실패처럼 결과를 모르면 그 시크릿이나 컨테이너가 만들어졌을 수 있다고 알린다. 컨테이너 단계에서 결과를 모르면 시크릿을 지우지 않고 `secret_ref` 를 알린다.
+  - 시크릿 payload 는 어떤 출력에도 내지 않는다. `--dry-run` 은 payload 자리에 파일 경로와 바이트 수만 적는다.
+  - 개인 키 파일이 암호화돼 있거나(`ENCRYPTED PRIVATE KEY`, `Proc-Type: 4,ENCRYPTED`) OpenSSH 형식이면, 또는 인증서나 체인 인증서 파일에 개인 키가 들어 있으면 업로드 전에 종료 코드 3으로 끝난다.
+  - 리스너의 `--certificate` 는 컨테이너 이름, UUID, `container_ref` 주소를 받는다. 주소가 오면 key-manager 를 조회하지 않고 그대로 쓴다.
+- **맥락**:
+  - 리스너 프로토콜이 `TERMINATED_HTTPS` 면 `default_tls_container_ref` 와 `sni_container_refs` 에 key-manager 컨테이너 주소를 넣는다. 콘솔에서 「Certificate Manager 사용 안 함」 으로 올린 인증서도 같은 경로로 저장된다.
+  - L7 규칙 생성 API 문서는 `invert` 를 생략하면 `true` 로 설정된다고 적는다. Host 헤더 규칙을 만들면서 이 값을 빼면 그 호스트를 뺀 모든 요청이 정책에 걸린다.
+  - 리스너, 풀, 멤버, 헬스 모니터를 만들거나 지우면 Load Balancer 가 `PENDING_UPDATE` 로 바뀌고, 그동안의 다른 쓰기는 API 가 거절한다. 인증서 추가와 기본 인증서 변경은 Load Balancer 를 재기동한다(콘솔 가이드, 새 세션 1초 미만 처리 불가).
+  - key-manager 시크릿 컨테이너는 시크릿을 먼저 만들고 그 주소를 묶는 두 단계 생성이다. 컨테이너가 없는 시크릿은 Load Balancer 가 쓰지 못하고 개인 키만 남는다.
+  - 2026-10-27 실측: 공용망과 공공망 profile 모두 `GET /v1/secrets` 와 `GET /v1/containers` 가 HTTP 403(`retrieval attempt not allowed`)이었다. key-manager 조회와 쓰기는 IAM 계정에 별도 권한이 필요하다. 인증서 명령은 단위 테스트로만 검증했다.
+  - 공식 문서: [Load Balancer API v2 가이드](https://docs.nhncloud.com/ko/Network/Load%20Balancer/ko/public-api/), [공공망 API v2 가이드](https://docs.gov-nhncloud.com/ko/Network/Load%20Balancer/ko/public-api-gov/), [콘솔 가이드](https://docs.nhncloud.com/ko/Network/Load%20Balancer/ko/console-guide/).
+- **대안 기각**:
+  - `--yes` 없이 미리보기([[adr-047]] 의 방식): 이 저장소의 Load Balancer 쓰기([[adr-022]])가 이미 `--yes` 를 요구하고 `ipacl target add` 가 `--dry-run` 을 쓴다. 같은 명령군 안에서 두 방식을 섞지 않는다.
+  - `invert` 를 API 기본값에 맡기기: 문서의 기본값이 일반적인 기대(`false`)와 반대라 Host 규칙이 뒤집힌다.
+  - Certificate Manager 서비스 API 로 인증서 등록: 리스너가 받는 값은 key-manager 컨테이너 주소다. Certificate Manager 는 별도 서비스와 appkey 가 필요하고 이번 범위의 리스너 생성과 바로 이어지지 않는다.
+  - 업로드 실패 때 시크릿을 남기고 안내만 하기: 개인 키가 컨테이너 없이 남는다. 서버가 거절한 단계 뒤에는 이번 실행이 만든 시크릿을 아무도 참조하지 않으므로 지워도 다른 리소스에 영향이 없다([[adr-022]] 의 자동 원복 기각과 다르다).
+  - 결과를 모르는 컨테이너 생성 실패 뒤에도 시크릿 지우기: 컨테이너가 실제로 만들어졌다면 깨진 참조를 가진 컨테이너가 남는다. 이때만 시크릿을 남긴다.
+  - 인증서 내용을 인수나 표준 입력으로 받기: 인수는 셸 이력에 남는다. 파일 경로 하나로 받으면 체인 인증서 순서도 콘솔 가이드와 같게 유지된다.
+  - key-manager 주소를 Keystone 토큰 캐시에 추가: 캐시 스키마가 바뀌고 기존 캐시에 그 칸이 없다. 주소는 region 과 망만으로 정해진다.
+- **결과**:
+  - 얻는 것: 새 도메인을 Load Balancer 에 붙이는 작업(인증서 업로드, HTTPS 리스너, 풀과 멤버, 헬스 모니터, Host 규칙)을 CLI 로 하고, 보내기 전에 요청 본문을 확인할 수 있다.
+  - 감당할 것: 쓰기 사이에 Load Balancer 가 `ACTIVE` 로 돌아올 때까지 기다리는 기능은 없다. 연속 쓰기에서 HTTP 409 가 나면 `loadbalancer get` 으로 상태를 보고 다시 실행한다. 수정(update) 명령과 기본 인증서 변경은 없다. 인증서 명령은 실호출로 확인되지 않았다.
+- **적용 범위**: `loadbalancer` 의 리스너, L7, 풀, 멤버, 헬스 모니터, 인증서 명령. IP ACL 은 [[adr-022]], 공공망 endpoint 는 [[adr-037]] 을 따른다.

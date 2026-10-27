@@ -77,11 +77,13 @@ describe("resolveIaasTokenContext", () => {
     expect(getIaasTokenMock).toHaveBeenCalledWith("default", iaasCredential, false, "real");
   });
 
-  it("profileName, tokenId, 모든 endpoint를 반환한다", async () => {
-    const result = await resolveIaasTokenContext({});
+  it("profileName, 실제로 쓴 region 과 망, tokenId, 모든 endpoint를 반환한다", async () => {
+    const result = await resolveIaasTokenContext({ region: "kr2" });
 
     expect(result).toEqual({
       profileName: "default",
+      region: "kr2",
+      environment: "real",
       ...tokenContext,
     });
   });
