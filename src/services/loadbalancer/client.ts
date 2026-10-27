@@ -20,6 +20,26 @@ import {
   type UpdateIpAclTargetInput,
   type UpdateIpAclTargetRequest,
 } from "./types.js";
+import {
+  isHealthMonitor,
+  isL7Policy,
+  isL7Rule,
+  isListener,
+  isMember,
+  isPool,
+  type CreateHealthMonitorInput,
+  type CreateL7PolicyInput,
+  type CreateL7RuleInput,
+  type CreateListenerInput,
+  type CreateMemberInput,
+  type CreatePoolInput,
+  type HealthMonitor,
+  type L7Policy,
+  type L7Rule,
+  type Listener,
+  type Member,
+  type Pool,
+} from "./lbaas-types.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -67,6 +87,26 @@ function readObjectField<T>(
     throw new NhnCloudCliError(invalidItemMessage, EXIT_API_ERROR);
   }
   return item;
+}
+
+function encodeId(id: string, label: string): string {
+  return encodeURIComponent(requireNonEmptyId(id, label));
+}
+
+function readResource<T>(
+  raw: unknown,
+  key: string,
+  guard: (item: unknown) => item is T,
+  command: string,
+  label: string,
+): T {
+  return readObjectField(
+    raw,
+    key,
+    guard,
+    `${command} 응답 형식이 올바르지 않습니다 — ${key} 객체가 없습니다.`,
+    `${command} 응답의 ${label} 항목 형식이 예상과 다릅니다 — API 응답 필드를 확인하세요.`,
+  );
 }
 
 export class LoadBalancerClient {
@@ -232,6 +272,156 @@ export class LoadBalancerClient {
       );
     }
     return raw;
+  }
+
+  async listListeners(): Promise<Listener[]> {
+    return this.listResource("/listeners", "listeners", isListener, "loadbalancer listener list", "리스너");
+  }
+
+  async getListener(id: string): Promise<Listener> {
+    return this.getResource(`/listeners/${encodeId(id, "리스너 ID")}`, "listener", isListener, "loadbalancer listener get", "리스너");
+  }
+
+  async createListener(input: CreateListenerInput): Promise<Listener> {
+    const raw = await this.postJson("/listeners", { listener: input });
+    return readResource(raw, "listener", isListener, "loadbalancer listener create", "리스너");
+  }
+
+  async deleteListener(id: string): Promise<void> {
+    await this.deleteNoContent(`/listeners/${encodeId(id, "리스너 ID")}`);
+  }
+
+  async listPools(): Promise<Pool[]> {
+    return this.listResource("/pools", "pools", isPool, "loadbalancer pool list", "풀");
+  }
+
+  async getPool(id: string): Promise<Pool> {
+    return this.getResource(`/pools/${encodeId(id, "풀 ID")}`, "pool", isPool, "loadbalancer pool get", "풀");
+  }
+
+  async createPool(input: CreatePoolInput): Promise<Pool> {
+    const raw = await this.postJson("/pools", { pool: input });
+    return readResource(raw, "pool", isPool, "loadbalancer pool create", "풀");
+  }
+
+  async deletePool(id: string): Promise<void> {
+    await this.deleteNoContent(`/pools/${encodeId(id, "풀 ID")}`);
+  }
+
+  async listMembers(poolId: string): Promise<Member[]> {
+    return this.listResource(`/pools/${encodeId(poolId, "풀 ID")}/members`, "members", isMember, "loadbalancer pool member list", "멤버");
+  }
+
+  async getMember(poolId: string, memberId: string): Promise<Member> {
+    return this.getResource(
+      `/pools/${encodeId(poolId, "풀 ID")}/members/${encodeId(memberId, "멤버 ID")}`,
+      "member",
+      isMember,
+      "loadbalancer pool member get",
+      "멤버",
+    );
+  }
+
+  async createMember(poolId: string, input: CreateMemberInput): Promise<Member> {
+    const raw = await this.postJson(`/pools/${encodeId(poolId, "풀 ID")}/members`, { member: input });
+    return readResource(raw, "member", isMember, "loadbalancer pool member create", "멤버");
+  }
+
+  async deleteMember(poolId: string, memberId: string): Promise<void> {
+    await this.deleteNoContent(`/pools/${encodeId(poolId, "풀 ID")}/members/${encodeId(memberId, "멤버 ID")}`);
+  }
+
+  async listHealthMonitors(): Promise<HealthMonitor[]> {
+    return this.listResource("/healthmonitors", "healthmonitors", isHealthMonitor, "loadbalancer healthmonitor list", "헬스 모니터");
+  }
+
+  async getHealthMonitor(id: string): Promise<HealthMonitor> {
+    return this.getResource(
+      `/healthmonitors/${encodeId(id, "헬스 모니터 ID")}`,
+      "healthmonitor",
+      isHealthMonitor,
+      "loadbalancer healthmonitor get",
+      "헬스 모니터",
+    );
+  }
+
+  async createHealthMonitor(input: CreateHealthMonitorInput): Promise<HealthMonitor> {
+    const raw = await this.postJson("/healthmonitors", { healthmonitor: input });
+    return readResource(raw, "healthmonitor", isHealthMonitor, "loadbalancer healthmonitor create", "헬스 모니터");
+  }
+
+  async deleteHealthMonitor(id: string): Promise<void> {
+    await this.deleteNoContent(`/healthmonitors/${encodeId(id, "헬스 모니터 ID")}`);
+  }
+
+  async listL7Policies(): Promise<L7Policy[]> {
+    return this.listResource("/l7policies", "l7policies", isL7Policy, "loadbalancer l7policy list", "L7 정책");
+  }
+
+  async getL7Policy(id: string): Promise<L7Policy> {
+    return this.getResource(`/l7policies/${encodeId(id, "L7 정책 ID")}`, "l7policy", isL7Policy, "loadbalancer l7policy get", "L7 정책");
+  }
+
+  async createL7Policy(input: CreateL7PolicyInput): Promise<L7Policy> {
+    const raw = await this.postJson("/l7policies", { l7policy: input });
+    return readResource(raw, "l7policy", isL7Policy, "loadbalancer l7policy create", "L7 정책");
+  }
+
+  async deleteL7Policy(id: string): Promise<void> {
+    await this.deleteNoContent(`/l7policies/${encodeId(id, "L7 정책 ID")}`);
+  }
+
+  async listL7Rules(policyId: string): Promise<L7Rule[]> {
+    return this.listResource(`/l7policies/${encodeId(policyId, "L7 정책 ID")}/rules`, "rules", isL7Rule, "loadbalancer l7policy rule list", "L7 규칙");
+  }
+
+  async getL7Rule(policyId: string, ruleId: string): Promise<L7Rule> {
+    return this.getResource(
+      `/l7policies/${encodeId(policyId, "L7 정책 ID")}/rules/${encodeId(ruleId, "L7 규칙 ID")}`,
+      "rule",
+      isL7Rule,
+      "loadbalancer l7policy rule get",
+      "L7 규칙",
+    );
+  }
+
+  async createL7Rule(policyId: string, input: CreateL7RuleInput): Promise<L7Rule> {
+    const raw = await this.postJson(`/l7policies/${encodeId(policyId, "L7 정책 ID")}/rules`, { rule: input });
+    return readResource(raw, "rule", isL7Rule, "loadbalancer l7policy rule create", "L7 규칙");
+  }
+
+  async deleteL7Rule(policyId: string, ruleId: string): Promise<void> {
+    await this.deleteNoContent(
+      `/l7policies/${encodeId(policyId, "L7 정책 ID")}/rules/${encodeId(ruleId, "L7 규칙 ID")}`,
+    );
+  }
+
+  private async listResource<T>(
+    path: string,
+    key: string,
+    guard: (item: unknown) => item is T,
+    command: string,
+    label: string,
+  ): Promise<T[]> {
+    const raw = await this.getJson(path);
+    return readArrayField(
+      raw,
+      key,
+      guard,
+      `${command} 응답 형식이 올바르지 않습니다 — ${key} 배열이 없습니다.`,
+      `${command} 응답의 ${label} 항목 형식이 예상과 다릅니다 — API 응답 필드를 확인하세요.`,
+    );
+  }
+
+  private async getResource<T>(
+    path: string,
+    key: string,
+    guard: (item: unknown) => item is T,
+    command: string,
+    label: string,
+  ): Promise<T> {
+    const raw = await this.getJson(path);
+    return readResource(raw, key, guard, command, label);
   }
 
   private async getJson(path: string, searchParams?: Record<string, string>): Promise<unknown> {
