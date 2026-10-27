@@ -81,6 +81,11 @@ import {
   clearIpAclCommand as loadBalancerClearIpAclCommand,
   setIpAclCommand as loadBalancerSetIpAclCommand,
 } from "./commands/loadbalancer/binding.js";
+import { listenerCommand as loadBalancerListenerCommand } from "./commands/loadbalancer/listener.js";
+import { poolCommand as loadBalancerPoolCommand } from "./commands/loadbalancer/pool.js";
+import { healthMonitorCommand as loadBalancerHealthMonitorCommand } from "./commands/loadbalancer/healthmonitor.js";
+import { l7PolicyCommand as loadBalancerL7PolicyCommand } from "./commands/loadbalancer/l7policy.js";
+import { certificateCommand as loadBalancerCertificateCommand } from "./commands/loadbalancer/certificate.js";
 
 const rootAgentHints = `
 Agent hints:
@@ -139,6 +144,8 @@ Agent workflow:
   3. nhncloud loadbalancer ipacl target list <group> --json
   4. 쓰기 전에는 --profile, --region, --yes, --json을 명시한다.
   5. 대상 변경은 기본으로 재바인딩한다. exit code 1이면 rebind.failed[].retry_argv를 읽는다.
+  6. listener·pool·healthmonitor·l7policy·certificate 쓰기는 먼저 --dry-run 으로 요청 본문을 확인하고 --yes 로 보낸다.
+  7. 쓰기 뒤 HTTP 409 면 loadbalancer get 으로 provisioning_status 가 ACTIVE 인지 보고 다시 실행한다.
 `;
 
 const ncrAgentWorkflow = `
@@ -305,13 +312,18 @@ program.addCommand(floatingipCommand);
 
 // loadbalancer 커맨드 그룹
 const loadbalancerCommand = new Command("loadbalancer")
-  .description("Load Balancer·IP ACL 조회·관리")
+  .description("Load Balancer·리스너·풀·L7·인증서·IP ACL 조회·관리")
   .addHelpText("after", loadbalancerAgentWorkflow);
 loadbalancerCommand.addCommand(loadBalancerListCommand);
 loadbalancerCommand.addCommand(loadBalancerGetCommand);
 loadbalancerCommand.addCommand(loadBalancerIpAclCommand);
 loadbalancerCommand.addCommand(loadBalancerSetIpAclCommand);
 loadbalancerCommand.addCommand(loadBalancerClearIpAclCommand);
+loadbalancerCommand.addCommand(loadBalancerListenerCommand);
+loadbalancerCommand.addCommand(loadBalancerPoolCommand);
+loadbalancerCommand.addCommand(loadBalancerHealthMonitorCommand);
+loadbalancerCommand.addCommand(loadBalancerL7PolicyCommand);
+loadbalancerCommand.addCommand(loadBalancerCertificateCommand);
 
 program.addCommand(loadbalancerCommand);
 
