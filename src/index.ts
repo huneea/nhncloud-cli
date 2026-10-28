@@ -86,6 +86,7 @@ import { poolCommand as loadBalancerPoolCommand } from "./commands/loadbalancer/
 import { healthMonitorCommand as loadBalancerHealthMonitorCommand } from "./commands/loadbalancer/healthmonitor.js";
 import { l7PolicyCommand as loadBalancerL7PolicyCommand } from "./commands/loadbalancer/l7policy.js";
 import { certificateCommand as loadBalancerCertificateCommand } from "./commands/loadbalancer/certificate.js";
+import { zoneCommand as privateDnsZoneCommand } from "./commands/privatedns/zone.js";
 
 const rootAgentHints = `
 Agent hints:
@@ -146,6 +147,13 @@ Agent workflow:
   5. 대상 변경은 기본으로 재바인딩한다. exit code 1이면 rebind.failed[].retry_argv를 읽는다.
   6. listener·pool·healthmonitor·l7policy·certificate 쓰기는 먼저 --dry-run 으로 요청 본문을 확인하고 --yes 로 보낸다.
   7. 쓰기 뒤 HTTP 409 면 loadbalancer get 으로 provisioning_status 가 ACTIVE 인지 보고 다시 실행한다.
+`;
+
+const privatednsAgentWorkflow = `
+Agent workflow:
+  1. nhncloud privatedns zone list --json
+  2. nhncloud privatedns zone get <zone> --json
+  3. 쓰기는 먼저 --dry-run 으로 요청 본문을 확인하고 --yes 로 보낸다. zone 생성 직후 상태는 BUILD 다.
 `;
 
 const ncrAgentWorkflow = `
@@ -326,6 +334,14 @@ loadbalancerCommand.addCommand(loadBalancerL7PolicyCommand);
 loadbalancerCommand.addCommand(loadBalancerCertificateCommand);
 
 program.addCommand(loadbalancerCommand);
+
+// privatedns 커맨드 그룹
+const privatednsCommand = new Command("privatedns")
+  .description("Private DNS zone·레코드 세트 조회·관리")
+  .addHelpText("after", privatednsAgentWorkflow);
+privatednsCommand.addCommand(privateDnsZoneCommand);
+
+program.addCommand(privatednsCommand);
 
 // ncr 커맨드 그룹
 const ncrCommand = new Command("ncr")
