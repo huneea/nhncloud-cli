@@ -11,6 +11,9 @@ import { EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
 import { startSpinner, stopSpinner } from "../../utils/spinner.js";
 import { resolveIaasTokenContext, type IaasResolverOpts } from "../iaas.js";
 import { requireResourceInput, resolveFromList } from "../resource-resolver.js";
+import type { WriteModeOpts } from "../write-mode.js";
+
+export { requireWriteMode, outputDryRun, type PlannedRequest } from "../write-mode.js";
 
 // 리스너, 풀, 멤버, 헬스 모니터, L7, 인증서 명령이 함께 쓰는 해석·출력 도우미 (ADR-048).
 
@@ -19,16 +22,7 @@ export interface LbaasGlobalOpts extends OutputOptions {
   profile?: string;
 }
 
-export interface WriteGlobalOpts extends LbaasGlobalOpts {
-  yes?: boolean;
-  dryRun?: boolean;
-}
-
-export interface PlannedRequest {
-  method: "POST" | "DELETE";
-  path: string;
-  body?: unknown;
-}
+export interface WriteGlobalOpts extends LbaasGlobalOpts, WriteModeOpts {}
 
 export function parseEnumOption<T extends string>(
   value: string,
@@ -44,18 +38,6 @@ export function parseEnumOption<T extends string>(
     );
   }
   return matched;
-}
-
-/** `--dry-run` 이면 true, 아니면 `--yes` 를 API 호출 전에 요구한다. */
-export function requireWriteMode(opts: WriteGlobalOpts, operation: string): boolean {
-  if (opts.dryRun) return true;
-  if (!opts.yes) {
-    throw new NhnCloudCliError(
-      `${operation}에는 --yes 플래그가 필요합니다. 보낼 요청만 보려면 --dry-run 을 쓰세요.`,
-      EXIT_PARAM_ERROR,
-    );
-  }
-  return false;
 }
 
 /** 선택 옵션의 값이 비었으면 자격증명을 읽기 전에 입력 오류로 끝낸다. */
@@ -78,23 +60,6 @@ export async function withSpinner<T>(text: string, run: () => Promise<T>): Promi
     stopSpinner(false);
     throw error;
   }
-}
-
-export function outputDryRun(
-  opts: OutputOptions,
-  operation: string,
-  requests: PlannedRequest[],
-): void {
-  output(opts, {
-    headers: ["method", "path", "body"],
-    rows: requests.map((request) => [
-      request.method,
-      request.path,
-      request.body === undefined ? "" : JSON.stringify(request.body, null, 2),
-    ]),
-    raw: { operation, dry_run: true, requests },
-    ids: [],
-  });
 }
 
 export function outputFields(
