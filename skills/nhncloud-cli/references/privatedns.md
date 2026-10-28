@@ -136,6 +136,7 @@ nhncloud privatedns zone delete example.net. \
 
 - `update`는 `--description`, `--network`, `--add-network`, `--remove-network` 중 준 항목만 바꾼다.
 - 이미 연결된 VPC를 `--add-network`로 주면 무시한다. 연결되지 않은 VPC를 `--remove-network`로 주면 종료 코드 3으로 끝난다.
+- 이미 삭제된 VPC가 zone에 남아 있으면 `--remove-network`에 이름 대신 `zone get`에 나오는 UUID를 준다. 현재 연결 목록의 UUID는 VPC 조회 없이 뺀다.
 - zone 삭제 전에 남은 사용자 레코드 수를 확인하고, `--force` 없이 남아 있으면 개수를 알린 뒤 쓰지 않고 종료 코드 3으로 끝난다.
 
 ## 출력 모드
