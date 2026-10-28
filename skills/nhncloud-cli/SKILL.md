@@ -6,7 +6,7 @@ description: >-
   Claude Code·Codex 공개 스킬의 상태를 확인하거나
   `skills status|install|update|uninstall`로 관리하고 상태별 복구 방법을 안내할 때도 사용한다.
   Log & Crash, Deploy, Compute, Network, Block Storage, Floating IP,
-  Load Balancer, NCR, NKS, NCS, API Gateway, Secure Key Manager, RDS for MySQL 작업을 서비스별 참조와 명령 카탈로그로 안내한다.
+  Load Balancer, Private DNS, NCR, NKS, NCS, API Gateway, Secure Key Manager, RDS for MySQL 작업을 서비스별 참조와 명령 카탈로그로 안내한다.
 ---
 
 # nhncloud-cli
@@ -33,6 +33,7 @@ description: >-
 | Deploy 실행·조회·바이너리 전송 | [deploy.md](references/deploy.md) |
 | Compute, VPC, Block Storage, Floating IP | [iaas.md](references/iaas.md) |
 | Load Balancer, 리스너, 풀, L7, 인증서, IP ACL | [loadbalancer.md](references/loadbalancer.md) |
+| Private DNS zone, 레코드 세트 조회·생성·수정·삭제 | [privatedns.md](references/privatedns.md) |
 | Container Registry | [ncr.md](references/ncr.md) |
 | Kubernetes Service | [nks.md](references/nks.md) |
 | Container Service | [ncs.md](references/ncs.md) |

@@ -103,6 +103,7 @@ CLI 를 새 버전으로 올린 뒤에는 `nhncloud skills update` 를 한 번 �
 | Block Storage | `nhncloud volume` | [IaaS](skills/nhncloud-cli/references/iaas.md) |
 | Floating IP | `nhncloud floatingip` | [IaaS](skills/nhncloud-cli/references/iaas.md) |
 | Load Balancer, 리스너, 풀, L7, 인증서, IP ACL | `nhncloud loadbalancer` | [Load Balancer](skills/nhncloud-cli/references/loadbalancer.md) |
+| Private DNS zone, 레코드 세트 | `nhncloud privatedns` | [Private DNS](skills/nhncloud-cli/references/privatedns.md) |
 | Log & Crash | `nhncloud logncrash` | [Log & Crash](skills/nhncloud-cli/references/logncrash.md) |
 | Deploy | `nhncloud deploy` | [Deploy](skills/nhncloud-cli/references/deploy.md) |
 | Container Registry | `nhncloud ncr` | [NCR](skills/nhncloud-cli/references/ncr.md) |
@@ -138,6 +139,8 @@ nhncloud floatingip list                                      # Floating IP
 nhncloud loadbalancer list                                    # 로드밸런서
 nhncloud loadbalancer listener list --loadbalancer <lb>       # 로드밸런서 리스너
 nhncloud loadbalancer certificate upload --name <name> --certificate-file cert.pem --private-key-file key.pem --dry-run  # TLS 인증서 업로드 미리보기
+nhncloud privatedns zone list                                 # Private DNS zone 목록
+nhncloud privatedns record create <zone> --name www --type A --record 10.0.0.1 --dry-run  # 레코드 세트 생성 미리보기
 nhncloud ncr list                                             # 컨테이너 레지스트리
 nhncloud nks cluster list                                     # Kubernetes 클러스터
 nhncloud deploy artifacts                                     # 배포 아티팩트
