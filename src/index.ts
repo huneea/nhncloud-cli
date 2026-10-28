@@ -86,6 +86,7 @@ import { poolCommand as loadBalancerPoolCommand } from "./commands/loadbalancer/
 import { healthMonitorCommand as loadBalancerHealthMonitorCommand } from "./commands/loadbalancer/healthmonitor.js";
 import { l7PolicyCommand as loadBalancerL7PolicyCommand } from "./commands/loadbalancer/l7policy.js";
 import { certificateCommand as loadBalancerCertificateCommand } from "./commands/loadbalancer/certificate.js";
+import { recordCommand as privateDnsRecordCommand } from "./commands/privatedns/record.js";
 import { zoneCommand as privateDnsZoneCommand } from "./commands/privatedns/zone.js";
 
 const rootAgentHints = `
@@ -152,8 +153,11 @@ Agent workflow:
 const privatednsAgentWorkflow = `
 Agent workflow:
   1. nhncloud privatedns zone list --json
-  2. nhncloud privatedns zone get <zone> --json
-  3. 쓰기는 먼저 --dry-run 으로 요청 본문을 확인하고 --yes 로 보낸다. zone 생성 직후 상태는 BUILD 다.
+  2. nhncloud privatedns record list <zone> --json
+  3. nhncloud privatedns record create <zone> --name <name> --type A --record <ip> --dry-run --json
+  4. 같은 명령을 --yes 로 보낸다. 수정은 record update 로 바꿀 옵션만 준다(나머지는 현재 값 유지).
+  5. 이름이 같은 레코드 세트가 여럿이면 --type 을 붙인다. SOA 와 zone apex NS 는 바꿀 수 없다.
+  6. zone 생성 직후 상태는 BUILD 다. zone get 으로 ACTIVE 를 확인한 뒤 레코드를 만든다.
 `;
 
 const ncrAgentWorkflow = `
@@ -340,6 +344,7 @@ const privatednsCommand = new Command("privatedns")
   .description("Private DNS zone·레코드 세트 조회·관리")
   .addHelpText("after", privatednsAgentWorkflow);
 privatednsCommand.addCommand(privateDnsZoneCommand);
+privatednsCommand.addCommand(privateDnsRecordCommand);
 
 program.addCommand(privatednsCommand);
 
