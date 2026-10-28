@@ -57,6 +57,10 @@ AWS CLI 같은 통합 명령줄 도구가 없어 매번 토큰·엔드포인트�
 - `nhncloud loadbalancer`: Load Balancer와 IP ACL 그룹·대상을 조회하고 안전하게 변경한다([[adr-022]], [사용 흐름](flow.md#iaas-흐름)).
   - 리스너, 풀과 멤버, 헬스 모니터, L7 정책과 규칙을 조회하고 만들고 지운다. TLS 인증서는 key-manager 에 올리고 조회한다([[adr-048]]).
   - 수정(update) 명령, 기본 인증서 변경, 쓰기 뒤 `ACTIVE` 대기는 범위 밖이다.
+- `nhncloud privatedns`: Private DNS zone 과 레코드 세트를 조회하고 만들고 고치고 지운다([[adr-049]]).
+  - VPC 안에서 쓰는 내부 도메인의 레코드를 콘솔 대신 스크립트와 에이전트가 바꾸는 것이 목적이다. 일반망(kr1, kr2, kr3)과 공공망(kr1) profile 을 지원한다.
+  - 수정은 현재 값을 읽어 사용자가 준 옵션만 바꿔 보낸다. 쓰기는 `--yes` 나 `--dry-run` 이 필요하다.
+  - SOA 와 zone apex NS 레코드 세트의 수정·삭제, 레코드가 남은 zone 의 `--force` 없는 삭제는 거부한다. zone 생성 뒤 `ACTIVE` 대기는 범위 밖이다.
 - `nhncloud apigateway`: API Gateway 서비스·리소스·스테이지·배포를 조회하고
   스테이지 Swagger 를 내보낸다.
   - 결정은 [[adr-027]]과 [[adr-028]], [사용 흐름](flow.md#api-gateway-배포)을 따른다.
@@ -81,7 +85,7 @@ AWS CLI 같은 통합 명령줄 도구가 없어 매번 토큰·엔드포인트�
   Claude Code 와 Codex 의 스킬 경로를 같은 관리 저장소에 함께 연결하고 함께 바꾼다([[adr-043]]).
 - `nhncloud commands`와 `doctor`: 기계 판독 가능한 명령 탐색과 로컬 설정 진단. `doctor`는 `--json` 보고서를 내고, `--check-connection`을 줄 때만 대상 profile 의 연결을 확인한다([[adr-042]]).
 - profile 기반 자격증명 (`~/.nhncloud/credentials.json` 과 `~/.nhncloud/config.json`)
-- 공공망 profile(`environment: gov`)은 OAuth, Deploy, NCR, IaaS, NKS, Secure Key Manager, RDS for MySQL, Log & Crash, NCS, API Gateway를 지원한다. 공공망 문서에 주소가 없는 region은 호출 전에 거부한다 ([[adr-037]])
+- 공공망 profile(`environment: gov`)은 OAuth, Deploy, NCR, IaaS(Private DNS 포함), NKS, Secure Key Manager, RDS for MySQL, Log & Crash, NCS, API Gateway를 지원한다. 공공망 문서에 주소가 없는 region은 호출 전에 거부한다 ([[adr-037]])
 - 출력 3모드: 테이블 / `--json` / `--quiet`
 - `--profile` 로 profile 전환
 - `--proxy` 와 `HTTPS_PROXY`·`HTTP_PROXY`·`NO_PROXY` 로 토큰 발급을 포함한 모든 HTTP 요청을 프록시로 보낸다 ([[adr-044]])
@@ -91,6 +95,7 @@ AWS CLI 같은 통합 명령줄 도구가 없어 매번 토큰·엔드포인트�
 - `nhncloud logncrash search --query ... --from ... --to ... --json` 이 v3 API에서 실제 로그를 반환하고, 다음 페이지가 있으면 `nextCursor`를 포함한다.
 - `nhncloud logncrash export`가 조회를 마친 결과를 최종 파일 교체 실패 때문에 삭제하지 않는다.
 - Log & Crash 검색과 export는 조회 토큰이 0 이하면 검색 요청을 보내지 않고 추정 대기 시간을 안내한다.
+- `nhncloud privatedns record update <zone> <record> --ttl <n> --yes` 가 레코드 목록과 설명을 보존한 채 TTL 만 바꾼다.
 - 필수 옵션을 빠뜨리면 검증 방식과 관계없이 입력 오류인 종료 코드 3으로 끝난다([[adr-035]]).
 - 위치 인수를 옵션 이름으로 넘기면 오류 출력이 그 위치 인수와 명령 사용법을 함께 안내하고, 종료 코드는 1을 유지한다.
 - profile 미설정 시 친절한 설정 안내로 종료한다 (exit code 명확).

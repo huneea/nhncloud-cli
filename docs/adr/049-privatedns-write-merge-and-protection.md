@@ -1,0 +1,27 @@
+# ADR-049: Private DNS 쓰기는 현재 값을 읽어 병합해 보내고, 시스템 레코드와 레코드가 남은 zone 은 지우지 않는다
+
+- **status**: `accepted`
+- **결정**:
+  - `privatedns` 명령은 IaaS Keystone 토큰과 network endpoint(`{region}-api-network-infrastructure.(gov-)nhncloudservice.com/v2.0`)의 `/privatedns/zones` 경로를 쓴다. 지원 region 은 Private DNS API 가이드가 주소를 둔 곳만이다. 일반망은 kr1, kr2, kr3, 공공망은 kr1 이고, 그 밖의 region 은 토큰 발급 전에 종료 코드 3으로 끝난다.
+  - zone 과 레코드 세트의 수정(PUT)은 먼저 현재 값을 조회하고, 사용자가 준 옵션만 바꾼 전체 본문을 보낸다. 레코드 세트 PUT 본문은 `records`, `type`, `ttl`, `description` 을 늘 담고, zone PUT 본문은 `description`, `networks` 를 늘 담는다. 현재 `description` 이 `null` 이면 빈 문자열을 보낸다.
+  - 레코드 세트의 `--record` 는 레코드 목록 전체를 바꾼다. zone 의 VPC 는 `--add-network`, `--remove-network` 로 현재 목록에서 더하고 빼며, 전체 교체가 필요할 때만 `--network` 를 쓴다. 결과 목록이 비면 요청하지 않는다.
+  - 쓰기(zone 과 레코드 세트의 `create`, `update`, `delete`)는 `--yes` 나 `--dry-run` 중 하나가 있어야 실행한다. 규칙은 [[adr-048]] 과 같다.
+  - 타입이 `SOA` 인 레코드 세트와 zone apex(이름이 zone 이름과 같은)의 `NS` 레코드 세트는 수정하거나 지우지 않는다. `SOA` 레코드 세트는 만들지 않는다. 모두 API 호출 전에 종료 코드 3으로 끝난다.
+  - zone 삭제는 그 zone 에 SOA 와 apex NS 말고 다른 레코드 세트가 있으면 개수를 알리고 종료 코드 3으로 끝난다. `--force` 를 함께 주면 지운다.
+  - 레코드 세트 이름은 `.` 으로 끝나면 FQDN 으로, 아니면 zone 이름을 붙인 상대 이름으로 읽는다. `@` 는 zone apex 다. zone 이름 입력은 끝의 `.` 를 생략할 수 있다.
+- **맥락**:
+  - 레코드 세트 PUT 은 `records` 를 통째로 바꾸고 `type` 과 `description` 을 필수로 받는다. zone PUT 은 `networks` 를 필수로 받아 통째로 바꾼다. TTL 하나만 바꾸려는 호출이 나머지 필드를 비우거나 VPC 연결을 끊지 않으려면 현재 값을 알아야 한다.
+  - zone 을 만들면 서버가 apex 에 SOA 와 NS 레코드 세트를 자동으로 만든다(2026-10-28 공공망 실측, `description` 이 `null`). zone 의 이름 해석은 이 두 레코드에 기대므로 사용자가 고칠 대상이 아니다.
+  - Private DNS API 가이드는 zone 을 지울 때 남은 레코드 세트가 어떻게 되는지 적지 않는다. 연결된 VPC 의 이름 해석이 한 번에 사라지는 작업이라 레코드가 남은 zone 은 한 번 더 확인한다.
+  - 2026-10-28 공공망 kr1 읽기 실측에서 문서와 다른 점을 확인했다. 단건 zone 응답은 `zones` 배열이 아니라 `zone` 객체이고, 단건 레코드 세트 응답은 `rrset` 객체다. 시각은 `2026-10-07T06:52:06Z` 형식이다. 목록에 `limit` 을 주면 `zones_links`, `rrsets_links` 에 `rel: next` 주소(`marker` 쿼리)가 붙는다. 없는 zone 은 HTTP 404 와 `NeutronError`(`ZoneNotFound`)다. 응답에는 문서에 없는 `tenant_id`, `project_id` 가 있다.
+  - 공식 문서: [Private DNS API v2 가이드](https://docs.nhncloud.com/ko/Network/Private%20DNS/ko/public-api/), [공공망 API v2 가이드](https://docs.gov-nhncloud.com/ko/Network/Private%20DNS/ko/public-api/).
+- **대안 기각**:
+  - 사용자가 준 값만 그대로 PUT: 필수 필드를 매번 모두 적어야 하고, 빠뜨리면 서버 기본값이나 오류로 바뀐다. `--network` 하나만 적으면 다른 VPC 연결이 끊긴다.
+  - 수정에 확인 플래그를 두지 않기(보안그룹 `update` 방식): 레코드 목록과 VPC 목록 전체 교체는 이름 해석을 바로 바꾼다. 같은 IaaS 쓰기인 Load Balancer 와 같은 `--yes`/`--dry-run` 규칙을 쓴다.
+  - SOA·NS 보호를 서버에 맡기기: 서버가 거절하는지 문서로 알 수 없고, 받아들이면 zone 이 깨진다.
+  - zone 삭제를 `--yes` 만으로 진행하고 레코드 개수는 경고만 하기: 자동화 스크립트에서는 경고를 아무도 읽지 않는다.
+  - FQDN 만 받기: 같은 zone 안의 레코드를 다룰 때마다 zone 이름을 반복해야 한다. 끝의 `.` 로 두 형식을 구분할 수 있다.
+- **결과**:
+  - 얻는 것: TTL, 설명, 레코드 값 하나만 바꾸는 호출이 나머지 필드와 VPC 연결을 보존한다. `--dry-run` 으로 병합된 본문을 보내기 전에 볼 수 있다.
+  - 감당할 것: 조회와 PUT 사이에 다른 사용자가 같은 대상을 바꾸면 그 변경을 덮어쓴다. 서버에 조건부 수정이 없어 막을 수 없다. zone 생성 직후 상태는 `BUILD` 이고 `ACTIVE` 를 기다리는 기능은 없다. 쓰기 동작은 공공망 kr1 실호출로 확인하며 일반망 쓰기는 단위 테스트로만 검증한다.
+- **적용 범위**: `privatedns zone`, `privatedns record` 명령. 공공망 주소 판정은 [[adr-037]], 쓰기 확인 규칙의 원형은 [[adr-048]] 을 따른다.

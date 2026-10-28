@@ -173,5 +173,5 @@ NCR, NCS, API Gateway, Secure Key Manager, RDS for MySQL, Deploy와 Log & Crash�
 
 - logncrash search·export, deploy, ncs, apigateway와 skm: 공통 OAuth access_token만 캐시한다. SKM 비밀값과 키 원문은 파일에 쓰지 않는다. 검색 결과와 서비스 응답은 캐시하지 않는다.
 - ncr과 rds-mysql: 정적 헤더 인증이라 토큰을 캐시하지 않는다. 서비스 응답과 DB 사용자 비밀번호도 파일에 쓰지 않는다.
-- instance, network, volume, floatingip, loadbalancer와 nks: Keystone token과 compute·image·network·blockStorage·nks endpoint를 region별로 캐시한다. loadbalancer 인증서가 쓰는 key-manager 주소와 시크릿 내용은 캐시하지 않는다.
+- instance, network, volume, floatingip, loadbalancer, privatedns와 nks: Keystone token과 compute·image·network·blockStorage·nks endpoint를 region별로 캐시한다. loadbalancer 인증서가 쓰는 key-manager 주소와 시크릿 내용은 캐시하지 않는다.
 - 목록성 데이터 캐시는 필요 시 후속 도입

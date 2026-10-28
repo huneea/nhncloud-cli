@@ -141,6 +141,7 @@ nhncloud instance create --help
 | Deploy | 좌표 탐색, 배포 실행, 바이너리 전송 | [deploy.md](../skills/nhncloud-cli/references/deploy.md) |
 | Instance·Network·Volume·Floating IP | 리소스 탐색 뒤 조회·생성·변경 | [iaas.md](../skills/nhncloud-cli/references/iaas.md) |
 | Load Balancer | 대상 탐색, IP ACL 변경과 부분 실패 복구, 인증서 업로드부터 HTTPS 리스너와 Host 규칙까지 | [loadbalancer.md](../skills/nhncloud-cli/references/loadbalancer.md) |
+| Private DNS | zone 탐색 뒤 레코드 세트 조회·생성·수정·삭제, zone 생성·VPC 연결 변경·삭제 | [privatedns.md](../skills/nhncloud-cli/references/privatedns.md) |
 | NCR | registry 조회 뒤 image와 tag 탐색 | [ncr.md](../skills/nhncloud-cli/references/ncr.md) |
 | NKS | 지원 버전과 리소스를 조회한 뒤 변경 | [nks.md](../skills/nhncloud-cli/references/nks.md) |
 | NCS | template을 기준으로 workload를 만들고 관찰 | [ncs.md](../skills/nhncloud-cli/references/ncs.md) |
@@ -337,6 +338,46 @@ flowchart TD
 - 권한(`read`, `crud`, `ddl`, `all`)은 인스턴스의 모든 스키마에 적용된다. 스키마 하나로 좁히려면 DB에 접속해 `GRANT ... ON <schema>.*`를 직접 실행해야 하고, 그 권한은 콘솔에 `CUSTOM`으로 보일 수 있다.
 - `--quiet`은 요청했을 때 `jobId`만 출력한다. 미리보기와 `unchanged`는 stdout에 아무것도 내지 않는다.
 - `--wait` 없이 요청한 작업은 `rds-mysql job get <job-id>`로 상태를 확인한다. `--timeout`은 `--wait`와 함께만 쓴다.
+
+### Private DNS
+
+IaaS Keystone 토큰과 network endpoint 를 쓰고, 경로는 `/v2.0/privatedns/zones` 아래다([[adr-049]]).
+일반망은 `kr1`, `kr2`, `kr3`, 공공망은 `kr1` 만 받는다. 다른 region 은 profile 과 region 을 해석한 뒤 토큰 발급 전에 종료 코드 3으로 끝난다.
+`privatedns zone list` 로 zone 을 찾고, zone 이름이나 UUID 를 `record` 명령의 첫 인수로 넘긴다.
+zone 이름은 끝의 `.` 를 생략해도 된다. 레코드 세트는 UUID, FQDN(끝이 `.`), zone 기준 상대 이름, zone apex 를 뜻하는 `@` 로 고른다.
+같은 이름에 타입이 다른 레코드 세트가 여럿이면 `--type` 을 요구하고, 없으면 후보 `타입:UUID` 와 함께 종료 코드 3으로 끝난다.
+목록 응답에 `zones_links`, `rrsets_links` 의 `rel: next` 가 있으면 그 `marker` 로 끝까지 이어 받는다. 빈 목록은 성공이다.
+
+#### Private DNS 쓰기
+
+zone 과 레코드 세트의 `create`, `update`, `delete` 는 같은 흐름을 따른다.
+
+```mermaid
+flowchart TD
+  A[인수와 옵션 검증] -->|형식 오류, --yes 와 --dry-run 모두 없음, 바꿀 옵션 없음| E3[종료 코드 3, 요청 없음]
+  A --> B[profile, iaas 자격증명, region 해석]
+  B -->|설정 없음| E4[종료 코드 4]
+  B -->|지원하지 않는 region| E3r[종료 코드 3, 토큰 발급 없음]
+  B --> C[Keystone 토큰, zone 이름 해석]
+  C -->|zone 없음, 이름 중복| E3z[종료 코드 3, 쓰기 없음]
+  C --> D[대상 조회: 레코드 세트 해석, 현재 값, VPC 이름 해석, 남은 레코드 수]
+  D -->|레코드 없음, 이름과 타입 중복, SOA 나 apex NS 대상, VPC 목록이 빔, VPC 없음| E3b[종료 코드 3, 쓰기 없음]
+  D -->|zone delete 에 사용자 레코드가 남음, --force 없음| E3f[개수 안내, 종료 코드 3, 쓰기 없음]
+  D --> F{--dry-run 인가}
+  F -->|그렇다| P[method, 경로, 병합된 본문 출력, 종료 코드 0]
+  F -->|아니다, --yes 있음| G[쓰기 요청]
+  G -->|HTTP 400, 409| K[서버 NeutronError.message 덧붙여 종료]
+  G -->|HTTP 404| N[대상 없음 API 오류]
+  G -->|시간 초과, 연결 오류| X[반영 여부 불명, list 로 확인 안내]
+  G -->|성공| OK[결과 출력, 종료 코드 0]
+```
+
+- `--dry-run` 과 `--yes` 를 함께 주면 `--dry-run` 이 이긴다. `--dry-run` 도 대상 조회와 사전 검사를 똑같이 하고 쓰기만 하지 않는다.
+- `update` 는 현재 값을 읽은 뒤 사용자가 준 옵션만 바꿔 전체 본문을 보낸다. 레코드 세트의 `--record` 는 목록 전체를 바꾸고, `--type` 은 대상을 고르는 데만 쓴다. zone 의 VPC 는 `--add-network`, `--remove-network` 로 더하고 뺀다. `--network` 는 전체 교체이며 다른 두 옵션과 함께 쓸 수 없다. 이미 연결된 VPC 추가는 무시하고, 연결되지 않은 VPC 제거는 종료 코드 3이다.
+- 조회와 PUT 사이에 다른 사용자가 같은 대상을 바꾸면 그 변경을 덮어쓴다. CLI 는 이를 막지 않는다.
+- zone 생성 응답의 상태는 `BUILD` 이고 CLI 는 `ACTIVE` 를 기다리지 않는다. 레코드를 만들기 전에 `privatedns zone get` 으로 상태를 확인한다.
+- 결과를 모르는 실패 뒤에는 `privatedns record list` 나 `zone list` 로 반영 여부를 확인한 뒤 다시 실행한다.
+- `--quiet` 은 `create`, `update` 에서 대상 UUID 를, `delete` 에서 지운 UUID 를 출력한다. `--dry-run` 은 stdout 에 아무것도 내지 않는다.
 
 ## 공개 스킬 수명주기
 
