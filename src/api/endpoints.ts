@@ -361,3 +361,28 @@ export function rdsMysqlHost(region: string, environment: CloudEnvironment = "re
   }
   return host;
 }
+
+const PRIVATE_DNS_REGIONS = ["kr1", "kr2", "kr3"];
+const GOV_PRIVATE_DNS_REGIONS = ["kr1"];
+
+/**
+ * Private DNS 를 지원하는 region 인지 확인한다.
+ * 미지원 region 은 사용 가능한 region 목록 안내와 함께 EXIT_PARAM_ERROR 를 던진다.
+ */
+export function assertPrivateDnsRegion(region: string, environment: CloudEnvironment = "real"): void {
+  if (environment === "gov") {
+    if (!GOV_PRIVATE_DNS_REGIONS.includes(region)) {
+      throw new NhnCloudCliError(
+        `지원하지 않는 공공망 Private DNS region 입니다: "${region}". 사용 가능한 region: ${GOV_PRIVATE_DNS_REGIONS.join(", ")}`,
+        EXIT_PARAM_ERROR,
+      );
+    }
+    return;
+  }
+  if (!PRIVATE_DNS_REGIONS.includes(region)) {
+    throw new NhnCloudCliError(
+      `지원하지 않는 Private DNS region 입니다: "${region}". 사용 가능한 region: ${PRIVATE_DNS_REGIONS.join(", ")}`,
+      EXIT_PARAM_ERROR,
+    );
+  }
+}

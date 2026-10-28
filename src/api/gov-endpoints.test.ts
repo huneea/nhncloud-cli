@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   endpointFor, keystoneIdentityUrl, ncrHost, instanceHost, imageHost,
-  networkHost, blockStorageHost, nksHost, rdsMysqlHost, ncsHost, apigatewayHost, keyManagerHost,
+  networkHost, blockStorageHost, nksHost, rdsMysqlHost, ncsHost, apigatewayHost, keyManagerHost, assertPrivateDnsRegion,
 } from "./endpoints.js";
 import { EXIT_PARAM_ERROR } from "../utils/exit-codes.js";
 
@@ -48,5 +48,25 @@ describe("공공망 endpoint 선택", () => {
     expect(() => keyManagerHost("kr3", "gov")).toThrow(expect.objectContaining({ exitCode: EXIT_PARAM_ERROR }));
     expect(() => keyManagerHost("us1")).toThrow(expect.objectContaining({ exitCode: EXIT_PARAM_ERROR }));
     expect(() => endpointFor("unknown", "gov")).toThrow();
+  });
+});
+
+describe("Private DNS region 판정", () => {
+  it("일반망은 kr1·kr2·kr3 만 통과시킨다", () => {
+    for (const region of ["kr1", "kr2", "kr3"]) {
+      expect(() => assertPrivateDnsRegion(region)).not.toThrow();
+    }
+    expect(() => assertPrivateDnsRegion("jp1")).toThrow(expect.objectContaining({
+      exitCode: EXIT_PARAM_ERROR,
+      message: expect.stringContaining("사용 가능한 region: kr1, kr2, kr3"),
+    }));
+  });
+
+  it("공공망은 kr1 만 통과시킨다", () => {
+    expect(() => assertPrivateDnsRegion("kr1", "gov")).not.toThrow();
+    expect(() => assertPrivateDnsRegion("kr2", "gov")).toThrow(expect.objectContaining({
+      exitCode: EXIT_PARAM_ERROR,
+      message: expect.stringContaining("사용 가능한 region: kr1"),
+    }));
   });
 });
