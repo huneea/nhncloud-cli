@@ -2,7 +2,7 @@ import { output, type OutputOptions } from "../formatters/table.js";
 import { NhnCloudCliError } from "../utils/errors.js";
 import { EXIT_PARAM_ERROR } from "../utils/exit-codes.js";
 
-// Load Balancer 와 Private DNS 쓰기 명령이 함께 쓰는 확인·미리보기 도우미 (ADR-048, ADR-049).
+// Load Balancer 와 Private DNS 쓰기 명령이 함께 쓰는 확인·미리보기 도우미 (ADR-048, ADR-050).
 
 export interface WriteModeOpts {
   yes?: boolean;

@@ -341,7 +341,7 @@ flowchart TD
 
 ### Private DNS
 
-IaaS Keystone 토큰과 network endpoint 를 쓰고, 경로는 `/v2.0/privatedns/zones` 아래다([[adr-049]]).
+IaaS Keystone 토큰과 network endpoint 를 쓰고, 경로는 `/v2.0/privatedns/zones` 아래다([[adr-050]]).
 일반망은 `kr1`, `kr2`, `kr3`, 공공망은 `kr1` 만 받는다. 다른 region 은 profile 과 region 을 해석한 뒤 토큰 발급 전에 종료 코드 3으로 끝난다.
 `privatedns zone list` 로 zone 을 찾고, zone 이름이나 UUID 를 `record` 명령의 첫 인수로 넘긴다.
 zone 이름은 끝의 `.` 를 생략해도 된다. 레코드 세트는 UUID, FQDN(끝이 `.`), zone 기준 상대 이름, zone apex 를 뜻하는 `@` 로 고른다.

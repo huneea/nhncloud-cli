@@ -57,7 +57,7 @@ AWS CLI 같은 통합 명령줄 도구가 없어 매번 토큰·엔드포인트�
 - `nhncloud loadbalancer`: Load Balancer와 IP ACL 그룹·대상을 조회하고 안전하게 변경한다([[adr-022]], [사용 흐름](flow.md#iaas-흐름)).
   - 리스너, 풀과 멤버, 헬스 모니터, L7 정책과 규칙을 조회하고 만들고 지운다. TLS 인증서는 key-manager 에 올리고 조회한다([[adr-048]]).
   - 수정(update) 명령, 기본 인증서 변경, 쓰기 뒤 `ACTIVE` 대기는 범위 밖이다.
-- `nhncloud privatedns`: Private DNS zone 과 레코드 세트를 조회하고 만들고 고치고 지운다([[adr-049]]).
+- `nhncloud privatedns`: Private DNS zone 과 레코드 세트를 조회하고 만들고 고치고 지운다([[adr-050]]).
   - VPC 안에서 쓰는 내부 도메인의 레코드를 콘솔 대신 스크립트와 에이전트가 바꾸는 것이 목적이다. 일반망(kr1, kr2, kr3)과 공공망(kr1) profile 을 지원한다.
   - 수정은 현재 값을 읽어 사용자가 준 옵션만 바꿔 보낸다. 쓰기는 `--yes` 나 `--dry-run` 이 필요하다.
   - SOA 와 zone apex NS 레코드 세트의 수정·삭제, 레코드가 남은 zone 의 `--force` 없는 삭제는 거부한다. zone 생성 뒤 `ACTIVE` 대기는 범위 밖이다.

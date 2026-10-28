@@ -61,7 +61,7 @@ skill ──> config와 독립된 사용자 데이터 경계
 | 서비스군 | 인증 경계 | endpoint 경계 |
 |---|---|---|
 | 토큰 캐시를 공유하는 OAuth 서비스([data-schema.md](data-schema.md)의 「토큰 캐시」) | `api/oauth.ts`, `cache/token-store.ts` | `api/endpoints.ts`와 서비스 client |
-| Keystone 토큰을 쓰는 IaaS 서비스 | `api/keystone.ts`, `cache/token-store.ts` | region별 IaaS endpoint. loadbalancer 인증서의 key-manager 주소는 캐시하지 않고 region 과 망으로 만든다. privatedns 는 network endpoint 를 쓰고 지원 region 은 [[adr-049]] 를 따른다 |
+| Keystone 토큰을 쓰는 IaaS 서비스 | `api/keystone.ts`, `cache/token-store.ts` | region별 IaaS endpoint. loadbalancer 인증서의 key-manager 주소는 캐시하지 않고 region 과 망으로 만든다. privatedns 는 network endpoint 를 쓰고 지원 region 은 [[adr-050]] 를 따른다 |
 | NCR Management API, RDS for MySQL | profile 공통 UAK 정적 헤더 | region별 NCR host, region별 RDS for MySQL host |
 | NCR Harbor data plane | UAK Basic Auth | registry 응답에서 검증한 host |
 | Log & Crash collector | 서비스 규약에 맞춘 body | collector endpoint |
@@ -86,8 +86,8 @@ skill ──> config와 독립된 사용자 데이터 경계
 자동화 가능한 명령은 대화형 입력을 기다리지 않는다.
 여러 서비스가 공유하는 appkey 필수값 검증은 `commands`의 공통 경계에서 처리한다.
 이름 또는 UUID로 리소스를 고르는 규칙은 `src/commands/resource-resolver.ts`가 소유하고 Load Balancer, 보안그룹, Private DNS 명령이 함께 쓴다.
-`--yes` 나 `--dry-run` 을 요구하는 쓰기 확인과 미리보기 출력(`requireWriteMode`, `outputDryRun`)은 `src/commands/write-mode.ts` 가 소유하고 Load Balancer 와 Private DNS 명령이 함께 쓴다([[adr-048]], [[adr-049]]).
-Private DNS 의 zone·레코드 세트 이름 해석, SOA·apex NS 보호, 수정 본문 병합은 `src/commands/privatedns/helpers.ts` 가 소유한다([[adr-049]]).
+`--yes` 나 `--dry-run` 을 요구하는 쓰기 확인과 미리보기 출력(`requireWriteMode`, `outputDryRun`)은 `src/commands/write-mode.ts` 가 소유하고 Load Balancer 와 Private DNS 명령이 함께 쓴다([[adr-048]], [[adr-050]]).
+Private DNS 의 zone·레코드 세트 이름 해석, SOA·apex NS 보호, 수정 본문 병합은 `src/commands/privatedns/helpers.ts` 가 소유한다([[adr-050]]).
 HTTP 오류 응답의 본문은 `src/api/httpError.ts`의 `readHttpErrorBody`로 읽고, 본문 해석은 각 서비스가 맡는다.
 Network 와 Private DNS 쓰기 요청의 400·409 응답은 `src/services/network/errors.ts`가 `NeutronError.message`를 덧붙이고, Log & Crash 500 응답은 `src/services/logncrash/errors.ts`가 `requestId`를 보존하며, Secure Key Manager 응답은 `src/services/skm/client.ts`가 `header.resultMessage`로 메시지를 바꾼다.
 `config`는 파일과 profile 오류를 보존하면서 서비스 블록 부재를 구분해 반환하고,

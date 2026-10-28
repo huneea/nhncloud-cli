@@ -17,7 +17,7 @@ import { resolveIaasTokenContext, type IaasResolverOpts } from "../iaas.js";
 import { requireResourceInput, resolveFromList } from "../resource-resolver.js";
 import type { WriteModeOpts } from "../write-mode.js";
 
-// Private DNS zone·레코드 세트 명령이 함께 쓰는 이름 해석·보호·병합 도우미 (ADR-049).
+// Private DNS zone·레코드 세트 명령이 함께 쓰는 이름 해석·보호·병합 도우미 (ADR-050).
 
 export interface PrivateDnsGlobalOpts extends OutputOptions {
   region?: string;
@@ -131,7 +131,7 @@ export async function resolveRecordSet(
   );
 }
 
-/** SOA 와 zone apex 의 NS 는 서버가 관리하는 레코드 세트다 (ADR-049). */
+/** SOA 와 zone apex 의 NS 는 서버가 관리하는 레코드 세트다 (ADR-050). */
 export function isProtectedRecordSet(
   rrset: Pick<PrivateDnsRecordSet, "name" | "type">,
   zoneName: string,
@@ -158,7 +158,7 @@ export function countUserRecordSets(
   return rrsets.filter((rrset) => !isProtectedRecordSet(rrset, zoneName)).length;
 }
 
-/** PUT 은 전체 교체라서, 바꾸지 않는 필드는 현재 값으로 채운다 (ADR-049). */
+/** PUT 은 전체 교체라서, 바꾸지 않는 필드는 현재 값으로 채운다 (ADR-050). */
 export function mergeRecordSetUpdate(
   current: PrivateDnsRecordSet,
   change: { records?: string[]; ttl?: number; description?: string },
