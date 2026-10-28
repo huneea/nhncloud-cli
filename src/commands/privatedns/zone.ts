@@ -56,7 +56,7 @@ function outputZone(opts: PrivateDnsGlobalOpts, zone: PrivateDnsZone): void {
       ["networks", zone.networks.join(", ")],
       ["rrset_count", zone.rrset_count === undefined ? "" : String(zone.rrset_count)],
       ["created_at", zone.created_at],
-      ["updated_at", zone.updated_at],
+      ["updated_at", zone.updated_at ?? ""],
     ],
     raw: zone,
     ids: [zone.id],

@@ -131,6 +131,19 @@ describe("PrivateDnsClient pagination", () => {
     expect(calls[1]?.[1]).toMatchObject({ searchParams: { type: "A", marker: "r2", limit: "1" } });
   });
 
+  it("상대 경로 next 링크도 생성자 endpoint 를 기준으로 해석한다", async () => {
+    const client = new PrivateDnsClient("token", endpoint);
+    vi.mocked(ky.get)
+      .mockReturnValueOnce({ json: async () => ({
+        zones: [zone],
+        zones_links: [{ href: "/v2.0/privatedns/zones?marker=z2", rel: "next" }],
+      }) } as never)
+      .mockReturnValueOnce({ json: async () => ({ zones: [{ ...zone, id: "z2" }] }) } as never);
+    const result = await client.listZones();
+    expect(result.map((z) => z.id)).toEqual(["zone-1", "z2"]);
+    expect(vi.mocked(ky.get).mock.calls[1]?.[1]).toMatchObject({ searchParams: { marker: "z2" } });
+  });
+
   it("같은 marker 가 반복되면 API 오류로 끝낸다", async () => {
     const client = new PrivateDnsClient("token", endpoint);
     vi.mocked(ky.get).mockReturnValue({ json: async () => ({
@@ -178,11 +191,28 @@ describe("PrivateDnsClient 쓰기 오류", () => {
     expect(err.message).not.toContain("요청이 반영됐는지 알 수 없습니다");
   });
 
-  it("응답 가드 실패에는 반영 여부 안내를 붙이지 않는다", async () => {
+  it("2xx 응답의 형식 오류에는 반영 여부 안내를 덧붙이고 API 오류 코드를 유지한다", async () => {
     const client = new PrivateDnsClient("token", endpoint);
-    reply("post", { zone });
+    reply("post", {});
     const err = await failure(client.createRecordSet(...recordArgs));
     expect(err).toMatchObject({ exitCode: EXIT_API_ERROR });
+    expect(err.message).toMatch(/요청이 반영됐는지 알 수 없습니다[\s\S]*privatedns record list/);
+    reply("put", { bad: true });
+    await expect(client.updateZone("zone-1", { description: "x", networks: ["network-1"] })).rejects.toThrow(/요청이 반영됐는지 알 수 없습니다[\s\S]*privatedns zone list/);
+  });
+
+  it("조회 응답의 형식 오류에는 반영 여부 안내를 붙이지 않는다", async () => {
+    const client = new PrivateDnsClient("token", endpoint);
+    reply("get", {});
+    const err = await failure(client.getZone("zone-1"));
     expect(err.message).not.toContain("요청이 반영됐는지 알 수 없습니다");
+  });
+
+  it("생성 응답의 updated_at 이 null 이어도 가드를 통과한다", async () => {
+    const client = new PrivateDnsClient("token", endpoint);
+    reply("post", { zone: { ...zone, updated_at: null } });
+    await expect(client.createZone({ name: "example.internal.", networks: ["network-1"] })).resolves.toMatchObject({ updated_at: null });
+    reply("post", { rrset: rrset("r1", { updated_at: null }) });
+    await expect(client.createRecordSet(...recordArgs)).resolves.toMatchObject({ updated_at: null });
   });
 });

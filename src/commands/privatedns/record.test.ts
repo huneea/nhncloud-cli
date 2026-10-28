@@ -113,6 +113,12 @@ describe("privatedns record", () => {
     expect(resolvePrivateDnsClients).not.toHaveBeenCalled();
   });
 
+  it("update 응답의 updated_at 이 null 이면 빈 문자열로 출력한다", async () => {
+    dns.updateRecordSet.mockResolvedValue({ ...www, updated_at: null });
+    await run(["update", "example.net", "www", "--ttl", "600", "--yes"]);
+    expect(lastCall().rows).toContainEqual(["updated_at", ""]);
+  });
+
   it("update --ttl 은 현재 records 와 설명을 보존한다", async () => {
     await run(["update", "example.net", "www", "--ttl", "600", "--yes"]);
     expect(dns.updateRecordSet).toHaveBeenCalledWith("zone-1", "r-www", {

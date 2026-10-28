@@ -8,7 +8,7 @@ export interface PrivateDnsZone {
   status: string;
   networks: string[];
   created_at: string;
-  updated_at: string;
+  updated_at: string | null;
   rrset_count?: number;
 }
 
@@ -26,7 +26,7 @@ export interface PrivateDnsRecordSet {
   type: string;
   records: PrivateDnsRecord[];
   created_at: string;
-  updated_at: string;
+  updated_at: string | null;
 }
 
 export interface CreatePrivateDnsZoneParams {

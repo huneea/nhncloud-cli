@@ -74,7 +74,7 @@ function outputRecordSet(opts: PrivateDnsGlobalOpts, rrset: PrivateDnsRecordSet)
       ["description", rrset.description ?? ""],
       ["zone_id", rrset.zone_id],
       ["created_at", rrset.created_at],
-      ["updated_at", rrset.updated_at],
+      ["updated_at", rrset.updated_at ?? ""],
     ],
     raw: rrset,
     ids: [rrset.id],

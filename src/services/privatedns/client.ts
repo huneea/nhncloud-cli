@@ -25,7 +25,7 @@ function isZone(val: unknown): val is PrivateDnsZone {
     typeof obj["status"] === "string" &&
     Array.isArray(obj["networks"]) && obj["networks"].every((n) => typeof n === "string") &&
     typeof obj["created_at"] === "string" &&
-    typeof obj["updated_at"] === "string" &&
+    isNullableString(obj["updated_at"]) &&
     (obj["rrset_count"] === undefined || typeof obj["rrset_count"] === "number")
   );
 }
@@ -44,7 +44,7 @@ function isRecordSet(val: unknown): val is PrivateDnsRecordSet {
     obj["records"].every((r: unknown) =>
       typeof r === "object" && r !== null && typeof (r as Record<string, unknown>)["content"] === "string") &&
     typeof obj["created_at"] === "string" &&
-    typeof obj["updated_at"] === "string"
+    isNullableString(obj["updated_at"])
   );
 }
 
@@ -58,7 +58,7 @@ function field(raw: unknown, key: string): unknown {
 }
 
 /** 응답의 rel: "next" 링크에서 marker(와 limit)를 꺼낸다. 다음 페이지가 없으면 null. */
-function nextMarker(raw: unknown, linksKey: string): { marker: string; limit?: string } | null {
+function nextMarker(raw: unknown, linksKey: string, base: string): { marker: string; limit?: string } | null {
   const links = field(raw, linksKey);
   if (!Array.isArray(links)) return null;
   const next = links.find((l: unknown) => field(l, "rel") === "next");
@@ -66,7 +66,7 @@ function nextMarker(raw: unknown, linksKey: string): { marker: string; limit?: s
   const href = field(next, "href");
   let params: URLSearchParams | null = null;
   if (typeof href === "string") {
-    try { params = new URL(href).searchParams; } catch { params = null; }
+    try { params = new URL(href, base).searchParams; } catch { params = null; }
   }
   const marker = params?.get("marker");
   if (!marker) {
@@ -86,7 +86,7 @@ const WRITE_UNKNOWN_HINT: Record<"zone" | "record", string> = {
 
 /**
  * 쓰기 요청의 오류를 변환한다. 시간 초과·연결 오류는 서버 반영 여부를 알 수 없으므로 확인 안내를 덧붙인다.
- * HTTP 오류 응답과 응답 형식 오류에는 덧붙이지 않는다.
+ * HTTP 오류 응답에는 덧붙이지 않는다. 2xx 응답의 형식 오류는 zoneOf·rrsetOf 가 안내를 직접 붙인다.
  */
 async function toPrivateDnsWriteError(err: unknown, target: "zone" | "record"): Promise<NhnCloudCliError> {
   const base = await toNetworkWriteError(err);
@@ -121,7 +121,7 @@ export class PrivateDnsClient {
       const list = field(raw, key);
       if (!Array.isArray(list)) throw new NhnCloudCliError(shapeMessage, EXIT_API_ERROR);
       items.push(...list);
-      page = nextMarker(raw, `${key}_links`);
+      page = nextMarker(raw, `${key}_links`, this.networkEndpoint);
       if (page !== null) {
         if (seen.has(page.marker)) {
           throw new NhnCloudCliError(`privatedns 응답 형식이 올바르지 않습니다 — ${key}_links 의 marker 가 반복됩니다.`, EXIT_API_ERROR);
@@ -157,7 +157,7 @@ export class PrivateDnsClient {
       const raw: unknown = await ky.post(`${this.networkEndpoint}/privatedns/zones`, {
         headers: this.authHeaders(), json: { zone: omitUndefined(params) }, retry: 0, timeout: DEFAULT_TIMEOUT_MS,
       }).json();
-      return zoneOf(raw, "create");
+      return zoneOf(raw, "create", WRITE_UNKNOWN_HINT.zone);
     } catch (err) { throw await toPrivateDnsWriteError(err, "zone"); }
   }
 
@@ -167,7 +167,7 @@ export class PrivateDnsClient {
       const raw: unknown = await ky.put(`${this.networkEndpoint}/privatedns/zones/${encodeURIComponent(zoneId)}`, {
         headers: this.authHeaders(), json: { zone: params }, retry: 0, timeout: DEFAULT_TIMEOUT_MS,
       }).json();
-      return zoneOf(raw, "update");
+      return zoneOf(raw, "update", WRITE_UNKNOWN_HINT.zone);
     } catch (err) { throw await toPrivateDnsWriteError(err, "zone"); }
   }
 
@@ -207,7 +207,7 @@ export class PrivateDnsClient {
       const raw: unknown = await ky.post(`${this.networkEndpoint}/privatedns/zones/${encodeURIComponent(zoneId)}/rrsets`, {
         headers: this.authHeaders(), json: { rrset: omitUndefined(params) }, retry: 0, timeout: DEFAULT_TIMEOUT_MS,
       }).json();
-      return rrsetOf(raw, "create");
+      return rrsetOf(raw, "create", WRITE_UNKNOWN_HINT.record);
     } catch (err) { throw await toPrivateDnsWriteError(err, "record"); }
   }
 
@@ -217,7 +217,7 @@ export class PrivateDnsClient {
       const raw: unknown = await ky.put(this.rrsetUrl(zoneId, rrsetId), {
         headers: this.authHeaders(), json: { rrset: params }, retry: 0, timeout: DEFAULT_TIMEOUT_MS,
       }).json();
-      return rrsetOf(raw, "update");
+      return rrsetOf(raw, "update", WRITE_UNKNOWN_HINT.record);
     } catch (err) { throw await toPrivateDnsWriteError(err, "record"); }
   }
 
@@ -234,18 +234,22 @@ export class PrivateDnsClient {
   }
 }
 
-function zoneOf(raw: unknown, action: string): PrivateDnsZone {
+function withHint(message: string, hint?: string): string {
+  return hint === undefined ? message : `${message}\n${hint}`;
+}
+
+function zoneOf(raw: unknown, action: string, hint?: string): PrivateDnsZone {
   const zone = field(raw, "zone");
   if (!isZone(zone)) {
-    throw new NhnCloudCliError(`privatedns zone ${action} 응답 형식이 올바르지 않습니다 — zone 객체가 없습니다.`, EXIT_API_ERROR);
+    throw new NhnCloudCliError(withHint(`privatedns zone ${action} 응답 형식이 올바르지 않습니다 — zone 객체가 없습니다.`, hint), EXIT_API_ERROR);
   }
   return zone;
 }
 
-function rrsetOf(raw: unknown, action: string): PrivateDnsRecordSet {
+function rrsetOf(raw: unknown, action: string, hint?: string): PrivateDnsRecordSet {
   const rrset = field(raw, "rrset");
   if (!isRecordSet(rrset)) {
-    throw new NhnCloudCliError(`privatedns record ${action} 응답 형식이 올바르지 않습니다 — rrset 객체가 없습니다.`, EXIT_API_ERROR);
+    throw new NhnCloudCliError(withHint(`privatedns record ${action} 응답 형식이 올바르지 않습니다 — rrset 객체가 없습니다.`, hint), EXIT_API_ERROR);
   }
   return rrset;
 }

@@ -76,6 +76,12 @@ describe("privatedns zone", () => {
     expect(dns.listZones).toHaveBeenCalledWith({ name: "example.net." });
   });
 
+  it("update 응답의 updated_at 이 null 이면 빈 문자열로 출력한다", async () => {
+    dns.updateZone.mockResolvedValue({ ...zone, updated_at: null });
+    await run(["update", "example.net", "--description", "", "--yes"]);
+    expect(lastCall().rows).toContainEqual(["updated_at", ""]);
+  });
+
   it("create --dry-run 은 쓰지 않고 요청 본문을 출력한다", async () => {
     dns.listZones.mockResolvedValue([]);
     await run(["create", "--name", "example.net", "--network", "vpc-a", "--dry-run"]);
