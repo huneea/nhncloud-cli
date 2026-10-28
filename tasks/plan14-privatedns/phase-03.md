@@ -23,7 +23,7 @@
 
 ## 의도 메모
 
-- `zone create` 는 같은 이름의 zone 이 이미 있으면(`listZones({ name })` 결과에 대소문자 무시 일치) 요청하지 않고 종료 코드 3으로 끝난다. 결과를 모르는 실패 뒤 재실행이 같은 zone 을 또 만들지 않게 하기 위해서다.
+- `zone create` 는 같은 이름의 zone 이 이미 있으면(`listZones({ name })` 결과에 대소문자 무시 일치) 요청하지 않고 `이미 같은 이름의 zone 이 있습니다: <name> (<uuid>). 설정을 바꾸려면 zone update 를 쓰세요.`(종료 코드 3)로 끝난다. 결과를 모르는 실패 뒤 재실행이 같은 zone 을 또 만들지 않게 하기 위해서다.
 - `zone update` 는 `getZone` 으로 현재 값을 읽고 사용자가 준 것만 바꾼다. `--description` 이 없으면 현재 `description ?? ""` 를 보낸다(ADR-049).
 - `zone delete` 는 `--dry-run` 에서도 남은 레코드 검사를 한다(`docs/flow.md`: dry-run 도 사전 검사를 똑같이 한다).
 - 생성 직후 상태는 `BUILD` 이고 기다리지 않는다. help 설명에 이를 적는다.
@@ -43,7 +43,10 @@
 | `update <zone>` | `--description <text>`, `--network <vpc>`(반복, 연결 VPC 목록을 이 값들로 바꾼다), `--add-network <vpc>`(반복), `--remove-network <vpc>`(반복), `--yes`, `--dry-run` | 바꿀 옵션이 하나도 없으면 `--description, --network, --add-network, --remove-network 중 하나는 필요합니다.`(종료 코드 3). `--network` 와 add/remove 동시 지정도 자격증명 전에 거부. `requireWriteMode(opts, "Private DNS zone 수정")` → client 해석 → `resolveZone` → `getZone` → VPC 이름 해석 → `mergeZoneNetworks` → 본문 `{ description, networks }` → dry-run 이면 `PUT /v2.0/privatedns/zones/{id}` 출력, 아니면 `updateZone` |
 | `delete <zone>` | `--yes`, `--dry-run`, `--force` | `requireWriteMode(opts, "Private DNS zone 삭제")` → client 해석 → `resolveZone` → `listRecordSets(id)` → `countUserRecordSets` 가 0 보다 크고 `--force` 가 없으면 `zone 에 레코드 세트 N개가 남아 있습니다(SOA, apex NS 제외). 지우려면 --force 를 함께 주세요.`(종료 코드 3) → dry-run 이면 `DELETE /v2.0/privatedns/zones/{id}` 출력, 아니면 `deleteZone`. 결과 raw `{ operation: "privatedns-zone-delete", status: "succeeded", zone_id }`, field/value 출력, `ids: [zoneId]` |
 
-- `--description` 과 `--name` 의 빈 값은 `optionalInput` 으로 거부한다. 단 `--description ""` 처럼 설명을 비우려는 입력은 허용해야 하므로 `--description` 에는 `optionalInput` 을 쓰지 않고 값을 그대로 쓴다.
+- 빈 값 거부는 `--name` 만 대상이다. `zone create --name` 은 `normalizeZoneName` 이 빈 값을 거부하고, `zone list --name` 은 `optionalInput(value, "--name")` 으로 거부한 뒤 정규화한다. `--description` 은 `--description ""` 로 설명을 비울 수 있어야 하므로 `optionalInput` 을 쓰지 않고 값을 그대로 쓴다.
+- `update` 의 「바꿀 옵션이 하나도 없으면」 판정은 `opts.description === undefined` 와 세 VPC 옵션 배열이 비었는지로 한다. `!opts.description` 으로 판정하면 `--description ""` 가 거부된다.
+- `--remove-network` 값이 현재 zone `networks` 의 UUID 와 정확히 같으면 VPC 목록 조회 없이 그 UUID 를 쓴다. 이미 지워진 VPC 의 UUID 가 zone 에 남아 있어도 뺄 수 있게 하기 위해서다. 나머지 입력(`--remove-network` 의 이름, `--network`, `--add-network`)은 `resolveVpcIds` 로 해석한다.
+- list 의 headers 배열은 `["id", "name", "status", "records", "vpcs", "description"]` 처럼 한 줄로 쓴다(문서 대조 grep 이 한 줄을 본다).
 - 쓰기 결과의 zone 출력은 `get` 과 같은 지역 함수 `outputZone(opts, zone)` 로 한다. `rrset_count` 가 없으면 빈 칸이다.
 
 ### 2. `src/index.ts` 등록
@@ -67,7 +70,9 @@ Agent workflow:
 - `zone list` 가 `rrset_count`·`networks.length` 를 rows 에 넣는다.
 - `zone create --name example.net --network vpc-a --dry-run` 이 `createZone` 을 부르지 않고, `output` 의 `raw.requests[0]` 이 `{ method: "POST", path: "/v2.0/privatedns/zones", body: { zone: { name: "example.net.", networks: ["<vpc-a uuid>"] } } }` 다.
 - `zone create` 에 `--yes`·`--dry-run` 둘 다 없으면 `resolvePrivateDnsClients` 가 불리지 않고 `EXIT_PARAM_ERROR`.
-- 같은 이름의 zone 이 있으면 `zone create --yes` 가 `createZone` 을 부르지 않고 `EXIT_PARAM_ERROR`.
+- 같은 이름의 zone 이 있으면 `zone create --yes` 가 `createZone` 을 부르지 않고 `EXIT_PARAM_ERROR` 이며 메시지에 기존 zone UUID 와 `zone update` 가 있다.
+- `zone update example.net --description "" --yes` 가 `updateZone(id, { description: "", networks: <현재> })` 로 부른다.
+- `zone update example.net --remove-network <현재 networks 의 UUID> --yes` 는 `listVpcs` 결과에 그 VPC 가 없어도 그 UUID 를 뺀 목록으로 `updateZone` 을 부른다.
 - `zone update example.net --add-network vpc-b --yes` 가 `updateZone(id, { description: <현재 값 또는 "">, networks: [기존..., vpc-b uuid] })` 로 부른다.
 - `zone update example.net --network vpc-a --add-network vpc-b --yes` 는 자격증명 해석 전에 `EXIT_PARAM_ERROR`.
 - `zone delete` 는 사용자 레코드가 1개 남으면 `--force` 없이 `EXIT_PARAM_ERROR` 이고 `deleteZone` 을 부르지 않으며, `--force --yes` 면 부른다. SOA·apex NS 만 있으면 `--force` 없이 지운다.

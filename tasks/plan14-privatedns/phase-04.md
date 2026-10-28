@@ -24,6 +24,8 @@
 - `record create` 는 같은 이름·타입 레코드 세트가 이미 있으면 요청하지 않고 `이미 같은 이름과 타입의 레코드 세트가 있습니다: <FQDN> <TYPE> (<uuid>). 값을 바꾸려면 record update 를 쓰세요.`(종료 코드 3). 재실행 중복을 막는다.
 - `record create --type SOA` 는 자격증명 전에 `SOA 레코드 세트는 만들 수 없습니다.`(종료 코드 3).
 - `record update` 의 `--type` 은 대상을 고르는 데만 쓴다. 타입 변경은 지원하지 않으며 PUT 본문의 `type` 은 늘 현재 값이다(`mergeRecordSetUpdate`).
+- `record update` 의 「바꿀 옵션이 없으면」 판정은 `--record` 배열이 비었고 `opts.ttl === undefined`, `opts.description === undefined` 인지로 한다. `--description ""` 는 설명을 비우는 정상 입력이다.
+- list 의 headers 배열은 `["id", "name", "type", "ttl", "records", "description"]` 처럼 한 줄로 쓴다(문서 대조 grep 이 한 줄을 본다).
 - `--record` 값은 앞뒤 공백만 지우고 형식(IPv4 등)은 검사하지 않는다. 타입별 형식 판정은 서버가 하고, 거절 사유는 `toNetworkWriteError` 가 `서버 응답:` 으로 붙인다. 빈 값은 `--record 값이 비어 있습니다.`(종료 코드 3).
 
 ## 작업 항목
@@ -66,6 +68,7 @@ phase 03 의 `zone.test.ts` 와 같은 mock 구성을 쓴다(`./helpers.js` 의 
 - `record create --type SOA` 는 `resolvePrivateDnsClients` 전에 `EXIT_PARAM_ERROR`.
 - `record update example.net www --ttl 600 --yes` 가 `updateRecordSet(zoneId, id, { type: "A", records: <현재>, ttl: 600, description: <현재 또는 ""> })` 로 부른다(prd 성공 지표).
 - `record update` 에 바꿀 옵션이 없으면 자격증명 전에 `EXIT_PARAM_ERROR`.
+- `record update example.net www --description "" --yes` 가 `description: ""` 와 현재 records·ttl 로 `updateRecordSet` 을 부른다.
 - `record delete example.net @ --type NS --yes` 는 `deleteRecordSet` 을 부르지 않고 `EXIT_PARAM_ERROR`.
 - `record list` 가 records 를 `", "` 로 이어 rows 에 넣는다.
 - `record update` 에서 서버가 400 을 돌려주는 경우는 phase 01 client 테스트가 다루므로 여기서는 반복하지 않는다.

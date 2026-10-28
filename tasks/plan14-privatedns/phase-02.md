@@ -92,7 +92,7 @@ export async function resolveVpcIds(network: Pick<NetworkClient, "listVpcs">, in
   - `isProtectedRecordSet`: SOA 는 보호, apex NS 보호, `sub.example.net.` 의 NS 는 보호 아님.
   - `mergeRecordSetUpdate`: `ttl` 만 주면 records·type·description 보존, `description: null` 이면 `""`.
   - `mergeZoneNetworks`: add 중복 무시, 없는 VPC remove 오류, 결과 빈 목록 오류, replace 와 add 동시 오류.
-  - `resolvePrivateDnsClients`: `../../config/credentials.js` 와 `../iaas.js` 를 mock 해 공공망 `kr2` 면 `EXIT_PARAM_ERROR` 이고 `resolveIaasTokenContext` 가 불리지 않는다.
+  - `resolvePrivateDnsClients`: `../../config/credentials.js` 와 `../iaas.js` 를 mock 해 공공망 `kr2` 면 `EXIT_PARAM_ERROR` 이고 `resolveIaasTokenContext` 가 불리지 않는다. 일반망 `kr1` 이면 `resolveIaasTokenContext` 가 불리고, 돌려준 `dns`·`network` 가 그 `networkEndpoint` 로 요청한다(`ky.get` mock 의 URL 이 `networkEndpoint` 로 시작).
 - 기존 `src/commands/loadbalancer/lbaas-commands.test.ts` 가 바꾸지 않고 통과한다.
 
 ## 검증

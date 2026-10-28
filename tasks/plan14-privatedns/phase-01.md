@@ -37,8 +37,9 @@ Private DNS API(`/v2.0/privatedns/zones` 아래 zone 과 레코드 세트)를 �
 
 ## 의도 메모
 
-- pagination: 첫 요청에는 `limit` 을 넣지 않는다(실측: 이때 전체가 오고 `*_links` 가 없다). 그래도 응답에 `rel: "next"` 가 있으면 그 href 의 `marker`(그리고 있으면 `limit`)만 꺼내 같은 경로에 쿼리로 다시 보낸다. href 주소 자체로 요청하지 않는다. 토큰을 응답이 준 다른 host 로 보내지 않기 위해서다.
+- pagination: 첫 요청에는 `limit` 을 넣지 않는다(실측: 이때 전체가 오고 `*_links` 가 없다). 그래도 응답에 `rel: "next"` 가 있으면 첫 요청의 필터 쿼리(`name`, `type`)를 그대로 유지하고, 그 href 에서 꺼낸 `marker`(그리고 있으면 `limit`)만 더해 같은 경로로 다시 보낸다. 필터를 빼면 둘째 페이지부터 거르지 않은 결과가 섞인다. href 주소 자체로 요청하지 않는다. 토큰을 응답이 준 다른 host 로 보내지 않기 위해서다.
 - 같은 marker 가 반복되면 무한 반복을 막기 위해 `EXIT_API_ERROR` 로 끝낸다. `next` href 에 `marker` 가 없어도 `EXIT_API_ERROR` 다.
+- 쓰기(POST·PUT·DELETE)가 시간 초과(`ky` 의 `TimeoutError`)나 연결 오류(`HTTPError`·`NhnCloudCliError` 가 아닌 `Error`)로 실패하면 서버 반영 여부를 알 수 없다(`docs/flow.md` 「Private DNS 쓰기」 의 「반영 여부 불명, list 로 확인 안내」). 이때는 `toNetworkWriteError` 결과 메시지 뒤에 줄을 바꿔 zone 쓰기면 `요청이 반영됐는지 알 수 없습니다. nhncloud privatedns zone list 로 확인한 뒤 다시 실행하세요.`, 레코드 세트 쓰기면 `요청이 반영됐는지 알 수 없습니다. nhncloud privatedns record list <zone> 으로 확인한 뒤 다시 실행하세요.` 를 덧붙인다. 종료 코드는 그대로 둔다. HTTP 오류 응답(4xx·5xx)에는 덧붙이지 않는다.
 - 생성 요청에서 선택 필드는 `undefined` 면 본문에서 뺀다(`NetworkClient` 의 `omitUndefined` 와 같은 처리, 같은 이름의 지역 함수를 새 파일에 둔다). 단 레코드 세트의 `description` 은 공식 문서가 필수로 적으므로 명령 계층이 늘 문자열을 넘긴다.
 - 기각: `NetworkClient` 에 메서드를 더하기. 이미 434줄이고 Private DNS 는 독립 리소스라 별도 서비스 디렉터리(`src/services/privatedns/`)에 둔다.
 
@@ -100,7 +101,7 @@ export interface UpdatePrivateDnsRecordSetParams {
 
 - 응답 가드 `isZone`, `isRecordSet`: 위 타입의 필수 필드를 모두 검사한다(`description` 은 `string | null`, `networks` 는 문자열 배열, `records` 는 `content` 가 문자열인 객체 배열, `rrset_count` 는 있으면 number).
 - 가드 실패 문구 형식: `privatedns zone list 응답 형식이 올바르지 않습니다 — zones 배열이 없습니다.` / `privatedns zone get 응답 형식이 올바르지 않습니다 — zone 객체가 없습니다.` / record 쪽은 `privatedns record ...`, `rrsets 배열`, `rrset 객체`. 종료 코드 `EXIT_API_ERROR`.
-- 조회 메서드의 catch 는 `throw toNhnCloudCliError(err)`, 쓰기(POST·PUT·DELETE)의 catch 는 `throw await toNetworkWriteError(err)`.
+- 조회 메서드의 catch 는 `throw toNhnCloudCliError(err)`, 쓰기(POST·PUT·DELETE)의 catch 는 지역 함수 `toPrivateDnsWriteError(err, target: "zone" | "record")` 를 거쳐 던진다. 이 함수는 `await toNetworkWriteError(err)` 결과에 「의도 메모」 의 반영 여부 불명 안내를 시간 초과·연결 오류일 때만 덧붙인다.
 - 목록 두 메서드는 지역 함수 `nextMarker(raw, linksKey): { marker: string; limit?: string } | null` 와 반복 루프로 모든 페이지를 모은다. 규칙은 「의도 메모」 대로다.
 
 ### 4. 이 phase 를 검증하는 테스트
@@ -110,8 +111,10 @@ export interface UpdatePrivateDnsRecordSetParams {
   - 열 메서드가 부르는 URL 이 `/v2.0/v2.0` 없이 위 표의 경로와 같다. POST·PUT 은 `json` 옵션 본문이 `{ zone: ... }`·`{ rrset: ... }` 이고 `createZone` 의 `description` 이 `undefined` 면 키가 없다.
   - `getZone` 이 `{ zone: {...} }` 를 받아 객체를 돌려주고, `{ zones: [...] }` 를 받으면 `EXIT_API_ERROR`.
   - `description: null` 인 SOA 레코드 세트가 가드를 통과한다.
-  - `listRecordSets` 첫 응답에 `rrsets_links` 의 `rel: "next"`(`marker=r2&limit=1`)가 있으면 두 번째 `ky.get` 의 `searchParams` 에 `marker: "r2"`, `limit: "1"` 이 있고, 두 응답의 레코드를 합쳐 돌려준다. 두 번째 요청 URL 은 href 의 host 가 아니라 생성자 endpoint 다.
+  - `listRecordSets(zoneId, { type: "A" })` 첫 응답에 `rrsets_links` 의 `rel: "next"`(`marker=r2&limit=1`)가 있으면 두 번째 `ky.get` 의 `searchParams` 가 `type: "A"`, `marker: "r2"`, `limit: "1"` 을 모두 담고, 두 응답의 레코드를 합쳐 돌려준다. 두 번째 요청 URL 은 href 의 host 가 아니라 생성자 endpoint 다.
   - 같은 marker 가 두 번 오면 `EXIT_API_ERROR`.
+  - `rel: "next"` href 에 `marker` 가 없으면 `EXIT_API_ERROR`.
+  - `createRecordSet` 이 `TimeoutError` 로 실패하면 메시지에 `요청이 반영됐는지 알 수 없습니다` 와 `privatedns record list` 가 들어가고, HTTP 400 실패에는 이 문장이 없다. `deleteZone` 의 연결 오류(`new Error("fetch failed")`)는 `privatedns zone list` 안내를 단다.
   - `createRecordSet` 이 HTTP 400 `{"NeutronError": {"message": "Invalid record"}}` 를 받으면 오류 메시지에 `서버 응답: Invalid record` 가 들어간다(`HTTPError` 생성 방식은 `src/services/network/errors.test.ts` 를 따른다).
 
 ## 검증
