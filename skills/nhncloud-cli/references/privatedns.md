@@ -164,4 +164,10 @@ nhncloud privatedns zone delete example.net. \
 
 - 조회 응답은 공공망 kr1에서 실제로 호출해 확인했다(2026-10-28). 단건 조회는 `zone`·`rrset` 객체로 오고, 서버가 만든 SOA·NS 레코드 세트는 `description`이 `null`이다.
 - zone 이름 필터는 끝에 `.`이 있어야 서버가 찾는다. CLI가 `.`을 붙여 보낸다.
-- 쓰기 명령의 실제 호출 결과, 생성 직후 `BUILD`에서 `ACTIVE`로 바뀌는 시간, VPC 연결 변경의 서버 측 동작은 아직 확인하지 않았다.
+- 쓰기 명령도 공공망 kr1의 임시 zone으로 생성부터 삭제까지 확인했다(2026-10-28).
+  - zone 생성 응답은 `status: BUILD`이고, 바로 다음 `zone get`에서 `ACTIVE`였다. VPC를 더할 때도 잠시 `BUILD`가 된다.
+  - 생성 응답의 `updated_at`은 `created_at`과 같은 값으로 왔다.
+  - `--description` 없이 만든 레코드 세트는 `description`이 `""`로 온다.
+  - `record update --ttl`만 준 수정에서 레코드 값과 설명이 그대로 남았다. 서버가 돌려주는 레코드 순서는 바뀔 수 있다.
+  - zone 의 설명과 VPC 연결을 바꿔도 레코드 세트는 바뀌지 않았다.
+  - 레코드 세트를 지운 직후 같은 zone 을 `--force` 없이 지울 수 있었다.
