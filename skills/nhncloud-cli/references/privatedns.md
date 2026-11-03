@@ -24,7 +24,7 @@ nhncloud privatedns record list <zone> --profile <profile> --region <region> --j
 - `example.net`과 `example.net.`은 같은 zone으로 본다.
 - 같은 이름의 zone이 여럿이면 입력 오류로 끝난다. `zone list --json`에서 UUID를 확인해 그 UUID를 넘긴다.
 
-`<record>`에는 레코드 세트의 UUID, FQDN(끝이 `.`), zone 기준 상대 이름, zone apex를 뜻하는 `@`를 넣는다.
+`<record>`에는 레코드 세트의 UUID, FQDN(끝이 `.`), zone 기준 상대 이름, zone apex를 뜻하는 `@`를 넣는다. 상대 이름이 이미 zone 이름으로 끝나면 FQDN 으로 보고 zone 이름을 다시 붙이지 않으며, zone 밖의 FQDN 은 종료 코드 3이다.
 
 - 같은 이름에 타입이 다른 레코드 세트가 여럿이면 `--type`을 요구한다.
 - `--type`이 없으면 후보 `타입:UUID`가 함께 나오고 종료 코드 3으로 끝난다. 후보 중 하나를 `--type`으로 고른다.
@@ -166,7 +166,7 @@ nhncloud privatedns zone delete example.net. \
 - zone 이름 필터는 끝에 `.`이 있어야 서버가 찾는다. CLI가 `.`을 붙여 보낸다.
 - 쓰기 명령도 공공망 kr1의 임시 zone으로 생성부터 삭제까지 확인했다(2026-10-28).
   - zone 생성 응답은 `status: BUILD`이고, 바로 다음 `zone get`에서 `ACTIVE`였다. VPC를 더할 때도 잠시 `BUILD`가 된다.
-  - 생성 응답의 `updated_at`은 `created_at`과 같은 값으로 왔다.
+  - 생성 응답의 `updated_at`은 `created_at`과 같은 값으로 왔다. 문서가 `null` 가능성을 배제하지 않아 CLI 타입 가드는 zone 과 레코드 세트 생성 응답 모두 `updated_at: null` 을 받고(`client.test.ts`), 출력은 빈 문자열이다.
   - `--description` 없이 만든 레코드 세트는 `description`이 `""`로 온다.
   - `record update --ttl`만 준 수정에서 레코드 값과 설명이 그대로 남았다. 서버가 돌려주는 레코드 순서는 바뀔 수 있다.
   - zone 의 설명과 VPC 연결을 바꿔도 레코드 세트는 바뀌지 않았다.

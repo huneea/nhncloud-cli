@@ -165,7 +165,7 @@ nhncloud dnsplus recordset create --zone example.com --name www.example.com --ty
 nhncloud dnsplus recordset create --zone example.com --name www.example.com --type A --value 192.0.2.10 --yes       # 같은 이름이 없을 때만 생성
 ```
 
-삭제처럼 되돌리기 어려운 일부 명령은 `--yes` 를 붙여야 실행돼요. 비대화형 환경에서 `--yes` 가 없으면 API 를 호출하기 전에 끝나요. `dnsplus recordset create`·`delete` 는 `--yes` 나 `--dry-run` 이 없으면 API 를 호출하기 전에 끝나요. `rds-mysql` 쓰기 명령과 `skm secret patch` 는 `--yes` 가 없으면 바뀔 내용만 보여 주는 미리보기로 끝나요.
+삭제처럼 되돌리기 어려운 일부 명령은 `--yes` 를 붙여야 실행돼요. 비대화형 환경에서 `--yes` 가 없으면 API 를 호출하기 전에 끝나요. `dnsplus recordset create`·`delete` 와 `privatedns` 의 zone·record 생성·수정·삭제는 `--yes` 나 `--dry-run` 이 없으면 API 를 호출하기 전에 끝나요. `rds-mysql` 쓰기 명령과 `skm secret patch` 는 `--yes` 가 없으면 바뀔 내용만 보여 주는 미리보기로 끝나요.
 확인 없이 바로 실행되는 변경 명령도 있으니, 에이전트에게 맡기기 전에 [공통 가이드](skills/nhncloud-cli/references/common.md)의 「되돌릴 수 없는 명령」 절을 먼저 봐 주세요.
 
 명령과 옵션은 `--help` 로 볼 수 있어요.

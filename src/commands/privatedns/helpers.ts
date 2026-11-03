@@ -81,13 +81,40 @@ export async function resolveZone(
   );
 }
 
-/** `@` 는 zone apex, 끝이 `.` 이면 FQDN, 그 밖은 zone 이름을 붙인 상대 이름이다. zoneName 은 정규화된 값이다. */
+/** 끝 점과 대소문자를 맞춘 이름 비교용 값이다. DNS 이름은 대소문자를 구분하지 않는다. */
+export function comparableName(name: string): string {
+  const lowered = name.trim().toLowerCase();
+  return lowered.endsWith(".") ? lowered : `${lowered}.`;
+}
+
+function isInsideZone(fqdn: string, zoneName: string): boolean {
+  const name = comparableName(fqdn);
+  const zone = comparableName(zoneName);
+  return name === zone || name.endsWith(`.${zone}`);
+}
+
+/**
+ * `@` 는 zone apex, 끝이 `.` 이면 FQDN 이다. FQDN 이 zone 밖이면 입력 오류다.
+ * 그 밖은 zone 이름을 붙인 상대 이름인데, 이미 zone 이름으로 끝나면 FQDN 으로 보고 다시 붙이지 않는다.
+ * zoneName 은 정규화된 값이다.
+ */
 export function toRecordName(input: string, zoneName: string): string {
   const trimmed = input.trim();
   if (!trimmed) throw paramError("레코드 세트 이름이 비어 있습니다.");
   if (trimmed === "@") return zoneName;
-  if (trimmed.endsWith(".")) return trimmed;
+  if (trimmed.endsWith(".")) {
+    if (!isInsideZone(trimmed, zoneName)) {
+      throw paramError(`레코드 세트 이름은 zone ${zoneName} 안의 이름이어야 합니다: ${JSON.stringify(input)}`);
+    }
+    return trimmed;
+  }
+  if (isInsideZone(trimmed, zoneName)) return `${trimmed}.`;
   return `${trimmed}.${zoneName}`;
+}
+
+/** 빈 VPC 값은 자격증명·토큰 발급 전에 거부한다. */
+export function assertVpcInputs(inputs: string[]): void {
+  for (const input of inputs) requireResourceInput(input, "VPC");
 }
 
 export function parseRecordType(value: string): PrivateDnsRecordType {

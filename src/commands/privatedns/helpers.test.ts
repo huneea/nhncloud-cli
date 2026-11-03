@@ -113,6 +113,18 @@ describe("toRecordName", () => {
     expect(toRecordName("www.example.net.", ZONE_NAME)).toBe("www.example.net.");
   });
 
+  it("이미 zone 이름으로 끝나는 상대 이름에는 zone 이름을 다시 붙이지 않는다", () => {
+    expect(toRecordName("www.example.net", ZONE_NAME)).toBe("www.example.net.");
+    expect(toRecordName("WWW.Example.Net", ZONE_NAME)).toBe("WWW.Example.Net.");
+  });
+
+  it("zone 밖의 FQDN 은 입력 오류다", () => {
+    const error = catchError(() => toRecordName("www.other.com.", ZONE_NAME));
+    expect(error.exitCode).toBe(EXIT_PARAM_ERROR);
+    expect(error.message).toContain("안의 이름");
+    expect(catchError(() => toRecordName("badexample.net.", ZONE_NAME)).exitCode).toBe(EXIT_PARAM_ERROR);
+  });
+
   it("빈 값은 입력 오류다", () => {
     const error = catchError(() => toRecordName(" ", ZONE_NAME));
     expect(error.exitCode).toBe(EXIT_PARAM_ERROR);

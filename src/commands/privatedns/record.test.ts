@@ -37,6 +37,7 @@ const apexNs = { ...www, id: "r-ns", name: "example.net.", type: "NS", descripti
 const dns = {
   listZones: vi.fn(),
   listRecordSets: vi.fn(),
+  getRecordSet: vi.fn(),
   createRecordSet: vi.fn(),
   updateRecordSet: vi.fn(),
   deleteRecordSet: vi.fn(),
@@ -59,6 +60,7 @@ beforeEach(() => {
   vi.mocked(resolvePrivateDnsClients).mockResolvedValue({ dns, profileName: "default" } as never);
   dns.listZones.mockResolvedValue([zone]);
   dns.listRecordSets.mockResolvedValue([www, apexNs]);
+  dns.getRecordSet.mockResolvedValue(www);
   dns.createRecordSet.mockResolvedValue(www);
   dns.updateRecordSet.mockResolvedValue(www);
   dns.deleteRecordSet.mockResolvedValue(undefined);
@@ -87,6 +89,44 @@ describe("privatedns record", () => {
       },
     });
     expect(body).not.toHaveProperty("rrset.ttl");
+  });
+
+  it("create 는 zone 이름으로 끝나는 상대 이름에 zone 이름을 다시 붙이지 않는다", async () => {
+    dns.listRecordSets.mockResolvedValue([]);
+    await run(["create", "example.net", "--name", "api.example.net", "--type", "A", "--record", "10.0.0.3", "--yes"]);
+    expect(dns.createRecordSet).toHaveBeenCalledWith(
+      "zone-1",
+      expect.objectContaining({ name: "api.example.net." }),
+    );
+  });
+
+  it("create 는 zone 밖의 FQDN 을 API 쓰기 전에 거부한다", async () => {
+    dns.listRecordSets.mockResolvedValue([]);
+    await expect(
+      run(["create", "example.net", "--name", "www.other.com.", "--type", "A", "--record", "10.0.0.3", "--yes"]),
+    ).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+    expect(dns.createRecordSet).not.toHaveBeenCalled();
+  });
+
+  it("list 는 --name, --type 을 서버에 전달하고 --quiet 용 ids 를 낸다", async () => {
+    await run(["list", "example.net", "--name", "WWW", "--type", "a"]);
+    expect(dns.listRecordSets).toHaveBeenCalledWith("zone-1", { name: "WWW.example.net.", type: "A" });
+    expect(lastCall().ids).toEqual(["r-www"]);
+  });
+
+  it("get 은 목록에서 고른 레코드 세트를 단건 조회로 다시 읽는다", async () => {
+    await run(["get", "example.net", "www"]);
+    expect(dns.getRecordSet).toHaveBeenCalledWith("zone-1", "r-www");
+    expect(lastCall().ids).toEqual(["r-www"]);
+  });
+
+  it.each([
+    ["create", ["create", "example.net", "--name", "x", "--type", "A", "--record", "10.0.0.9"]],
+    ["update", ["update", "example.net", "www", "--ttl", "600"]],
+    ["delete", ["delete", "example.net", "www"]],
+  ])("%s 는 --yes 도 --dry-run 도 없으면 API 호출 전에 거부한다", async (_name, args) => {
+    await expect(run(args)).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+    expect(resolvePrivateDnsClients).not.toHaveBeenCalled();
   });
 
   it("create 는 같은 이름과 타입이 있으면 요청하지 않고 기존 UUID 를 알린다", async () => {

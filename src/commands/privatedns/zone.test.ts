@@ -110,6 +110,55 @@ describe("privatedns zone", () => {
     expect(dns.createZone).not.toHaveBeenCalled();
   });
 
+  it("create 의 중복 확인은 서버 이름 필터 없이 대소문자와 끝 점을 무시하고 비교한다", async () => {
+    await expect(
+      run(["create", "--name", "Example.Net", "--network", "vpc-a", "--yes"]),
+    ).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR, message: expect.stringContaining("zone-1") });
+    expect(dns.listZones).toHaveBeenCalledWith();
+    expect(dns.createZone).not.toHaveBeenCalled();
+  });
+
+  it("list --name 은 서버 결과를 정규화 비교로 한 번 더 거른다", async () => {
+    dns.listZones.mockResolvedValue([zone, { ...zone, id: "zone-2", name: "other.net." }]);
+    await run(["list", "--name", "Example.Net"]);
+    expect(lastCall().ids).toEqual(["zone-1"]);
+  });
+
+  it("list --quiet 용 ids 는 UUID 목록이다", async () => {
+    await run(["list"]);
+    expect(lastCall().ids).toEqual(["zone-1"]);
+  });
+
+  it("get 은 이름으로 찾아 단건 조회 결과를 출력한다", async () => {
+    await run(["get", "example.net"]);
+    expect(dns.getZone).toHaveBeenCalledWith("zone-1");
+    expect(lastCall().ids).toEqual(["zone-1"]);
+  });
+
+  it("빈 VPC 값은 자격증명 해석 전에 거부한다", async () => {
+    await expect(run(["create", "--name", "example.net", "--network", "", "--yes"])).rejects.toMatchObject({
+      exitCode: EXIT_PARAM_ERROR,
+    });
+    await expect(run(["update", "example.net", "--add-network", " ", "--yes"])).rejects.toMatchObject({
+      exitCode: EXIT_PARAM_ERROR,
+    });
+    expect(resolvePrivateDnsClients).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["create", ["create", "--name", "example.net", "--network", "vpc-a"]],
+    ["update", ["update", "example.net", "--description", "x"]],
+    ["delete", ["delete", "example.net"]],
+  ])("%s 는 --yes 도 --dry-run 도 없으면 API 호출 전에 거부한다", async (_name, args) => {
+    await expect(run(args)).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+    expect(resolvePrivateDnsClients).not.toHaveBeenCalled();
+  });
+
+  it("update --network 는 연결 VPC 를 통째로 바꾼다", async () => {
+    await run(["update", "example.net", "--network", "vpc-b", "--yes"]);
+    expect(dns.updateZone).toHaveBeenCalledWith("zone-1", { description: "내부 zone", networks: ["vpc-b-id"] });
+  });
+
   it("create --yes 는 해석한 VPC UUID 로 만든다", async () => {
     dns.listZones.mockResolvedValue([]);
     await run(["create", "--name", "example.net.", "--network", "vpc-a", "--network", "vpc-b", "--yes"]);

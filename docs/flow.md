@@ -345,7 +345,7 @@ flowchart TD
 IaaS Keystone 토큰과 network endpoint 를 쓰고, 경로는 `/v2.0/privatedns/zones` 아래다([[adr-050]]).
 일반망은 `kr1`, `kr2`, `kr3`, 공공망은 `kr1` 만 받는다. 다른 region 은 profile 과 region 을 해석한 뒤 토큰 발급 전에 종료 코드 3으로 끝난다.
 `privatedns zone list` 로 zone 을 찾고, zone 이름이나 UUID 를 `record` 명령의 첫 인수로 넘긴다.
-zone 이름은 끝의 `.` 를 생략해도 된다. 레코드 세트는 UUID, FQDN(끝이 `.`), zone 기준 상대 이름, zone apex 를 뜻하는 `@` 로 고른다.
+zone 이름은 끝의 `.` 를 생략해도 된다. 레코드 세트는 UUID, FQDN(끝이 `.`), zone 기준 상대 이름, zone apex 를 뜻하는 `@` 로 고른다. 상대 이름이 이미 zone 이름으로 끝나면 FQDN 으로 보고 zone 이름을 다시 붙이지 않으며, zone 밖의 FQDN 은 종료 코드 3이다.
 같은 이름에 타입이 다른 레코드 세트가 여럿이면 `--type` 을 요구하고, 없으면 후보 `타입:UUID` 와 함께 종료 코드 3으로 끝난다.
 목록 응답에 `zones_links`, `rrsets_links` 의 `rel: next` 가 있으면 그 `marker` 로 끝까지 이어 받는다. 빈 목록은 성공이다.
 
@@ -378,7 +378,7 @@ flowchart TD
 - 조회와 PUT 사이에 다른 사용자가 같은 대상을 바꾸면 그 변경을 덮어쓴다. CLI 는 이를 막지 않는다.
 - zone 생성 응답의 상태는 `BUILD` 이고 CLI 는 `ACTIVE` 를 기다리지 않는다. 레코드를 만들기 전에 `privatedns zone get` 으로 상태를 확인한다.
 - 결과를 모르는 실패 뒤에는 `privatedns record list` 나 `zone list` 로 반영 여부를 확인한 뒤 다시 실행한다.
-- `--quiet` 은 `create`, `update` 에서 대상 UUID 를, `delete` 에서 지운 UUID 를 출력한다. `--dry-run` 은 stdout 에 아무것도 내지 않는다.
+- `--quiet` 은 `create`, `update` 에서 대상 UUID 를, `delete` 에서 지운 UUID 를 출력한다. `--dry-run` 은 보낼 요청을 stdout 에 출력하고, `--dry-run --quiet` 만 아무것도 출력하지 않는다.
 
 ### DNS Plus
 

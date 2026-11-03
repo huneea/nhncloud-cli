@@ -9,6 +9,7 @@ import { parseIntegerOption } from "../parse-options.js";
 import { outputDryRun, requireWriteMode } from "../write-mode.js";
 import {
   assertWritableRecordSet,
+  comparableName,
   mergeRecordSetUpdate,
   parseRecordType,
   resolvePrivateDnsClients,
@@ -97,7 +98,9 @@ const listCommand = withPrivateDnsOptions(
   const rrsets = await withSpinner("레코드 세트 목록 조회 중...", async () => {
     const zone = await resolveZone(dns, zoneInput);
     const name = nameInput === undefined ? undefined : toRecordName(nameInput, zone.name);
-    return dns.listRecordSets(zone.id, { name, type });
+    const listed = await dns.listRecordSets(zone.id, { name, type });
+    // 서버 이름 필터가 대소문자를 구분할 수 있어, 받은 결과를 정규화 비교로 한 번 더 거른다.
+    return name === undefined ? listed : listed.filter((rrset) => comparableName(rrset.name) === comparableName(name));
   });
 
   output(opts, {
@@ -128,7 +131,8 @@ const getCommand = withPrivateDnsOptions(
   const { dns } = await resolvePrivateDnsClients(opts);
   const rrset = await withSpinner("레코드 세트 조회 중...", async () => {
     const zone = await resolveZone(dns, zoneInput);
-    return resolveRecordSet(dns, zone, recordInput, type);
+    const found = await resolveRecordSet(dns, zone, recordInput, type);
+    return dns.getRecordSet(zone.id, found.id);
   });
   outputRecordSet(opts, rrset);
 });

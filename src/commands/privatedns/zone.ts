@@ -7,6 +7,8 @@ import { collectOption } from "../loadbalancer/helpers.js";
 import { optionalInput, withSpinner } from "../loadbalancer/lbaas-helpers.js";
 import { outputDryRun, requireWriteMode } from "../write-mode.js";
 import {
+  assertVpcInputs,
+  comparableName,
   countUserRecordSets,
   mergeZoneNetworks,
   normalizeZoneName,
@@ -72,7 +74,9 @@ const listCommand = withPrivateDnsOptions(
   const nameInput = optionalInput(opts.name, "--name");
   const name = nameInput === undefined ? undefined : normalizeZoneName(nameInput);
   const { dns } = await resolvePrivateDnsClients(opts);
-  const zones = await withSpinner("zone 목록 조회 중...", () => dns.listZones({ name }));
+  const listed = await withSpinner("zone 목록 조회 중...", () => dns.listZones({ name }));
+  // 서버 이름 필터가 대소문자를 구분할 수 있어, 받은 결과를 정규화 비교로 한 번 더 거른다.
+  const zones = name === undefined ? listed : listed.filter((zone) => comparableName(zone.name) === comparableName(name));
 
   output(opts, {
     headers: ["id", "name", "status", "records", "vpcs", "description"],
@@ -112,12 +116,12 @@ const createCommand = withPrivateDnsOptions(
   const opts = cmd.optsWithGlobals<ZoneCreateOpts>();
   const dryRun = requireWriteMode(opts, "Private DNS zone 생성");
   const name = normalizeZoneName(opts.name);
+  assertVpcInputs(opts.network);
   const { dns, network } = await resolvePrivateDnsClients(opts);
 
   const planned = await withSpinner("zone 생성 준비 중...", async () => {
-    const existing = (await dns.listZones({ name })).find(
-      (zone) => zone.name.toLowerCase() === name.toLowerCase(),
-    );
+    // 서버 이름 필터는 대소문자 동작을 확인하지 못했으므로 필터 없이 전체 목록에서 정규화 비교로 찾는다.
+    const existing = (await dns.listZones()).find((zone) => comparableName(zone.name) === comparableName(name));
     if (existing) {
       throw paramError(
         `이미 같은 이름의 zone 이 있습니다: ${existing.name} (${existing.id}). 설정을 바꾸려면 zone update 를 쓰세요.`,
@@ -162,6 +166,7 @@ const updateCommand = withPrivateDnsOptions(
   if (replaceInputs.length > 0 && (addInputs.length > 0 || removeInputs.length > 0)) {
     throw paramError("--network는 --add-network, --remove-network와 함께 쓸 수 없습니다.");
   }
+  assertVpcInputs([...replaceInputs, ...addInputs, ...removeInputs]);
   const dryRun = requireWriteMode(opts, "Private DNS zone 수정");
   const { dns, network } = await resolvePrivateDnsClients(opts);
 
