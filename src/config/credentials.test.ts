@@ -140,6 +140,60 @@ describe("listProfilesWithUak", () => {
   });
 });
 
+describe("자격증명 머지 저장", () => {
+  const uak = { id: "<uak-id>", secret: "<uak-secret>" };
+
+  async function readCredentialsRaw(): Promise<string> {
+    const { readFile } = await import("node:fs/promises");
+    return readFile(credentialsPath, "utf-8");
+  }
+
+  it("파일이 없으면 새로 만든다", async () => {
+    await credentials.setServiceCredential("default", "pipeline", { appkey: "<appkey>" });
+
+    expect(JSON.parse(await readCredentialsRaw())).toEqual({
+      version: 1,
+      profiles: { default: { pipeline: { appkey: "<appkey>" } } },
+    });
+  });
+
+  it("형식이 맞지 않는 파일은 덮어쓰지 않고 EXIT_CONFIG_ERROR 로 멈춘다", async () => {
+    await writeCredentials({ profiles: { default: { userAccessKey: uak } } });
+    const original = await readCredentialsRaw();
+
+    for (const write of [
+      () => credentials.setServiceCredential("default", "pipeline", { appkey: "<appkey>" }),
+      () => credentials.setUserAccessKey("default", uak),
+      () => credentials.setIaasCredential("default", {
+        tenantId: "<tenant-id>", username: "<username>", password: "<password>", region: "KR1",
+      }),
+    ]) {
+      await expect(write()).rejects.toMatchObject({
+        exitCode: EXIT_CONFIG_ERROR,
+        message: expect.stringContaining("형식 오류"),
+      });
+    }
+    await expect(readCredentialsRaw()).resolves.toBe(original);
+  });
+
+  it("읽을 수 없는 파일은 덮어쓰지 않고 EXIT_CONFIG_ERROR 로 멈춘다", async () => {
+    await writeCredentials({ version: 1, profiles: { default: { userAccessKey: uak } } });
+    await chmod(credentialsPath, 0o200);
+
+    try {
+      await expect(
+        credentials.setServiceCredential("default", "pipeline", { appkey: "<appkey>" }),
+      ).rejects.toMatchObject({ exitCode: EXIT_CONFIG_ERROR, message: expect.stringContaining("EACCES") });
+    } finally {
+      await chmod(credentialsPath, 0o600);
+    }
+    expect(JSON.parse(await readCredentialsRaw())).toEqual({
+      version: 1,
+      profiles: { default: { userAccessKey: uak } },
+    });
+  });
+});
+
 describe("warnLegacyDeployTargets", () => {
   it("deploy.targets 에 항목이 있으면 stderr 로 경고하고 계속 진행한다", async () => {
     await writeConfig({
