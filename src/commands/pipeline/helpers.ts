@@ -42,8 +42,21 @@ export async function resolvePipelineAppKey(profileName: string): Promise<string
   );
 }
 
-/** 공통 UAK OAuth 토큰을 발급받는다 (ADR-007). UAK 가 없으면 기존 오류를 그대로 쓴다. */
-export async function issuePipelineToken(profileName: string, environment: CloudEnvironment): Promise<string> {
-  const uak = await getUserAccessKey(profileName);
+export interface PipelineUak {
+  id: string;
+  secret: string;
+}
+
+/** profile 의 UAK 를 읽는다. 없으면 기존 설정 오류를 그대로 던진다. 진행 표시 전에 불러 실패 줄이 먼저 나오지 않게 한다. */
+export async function resolvePipelineUak(profileName: string): Promise<PipelineUak> {
+  return getUserAccessKey(profileName);
+}
+
+/** 공통 UAK OAuth 토큰을 발급받는다 (ADR-007). */
+export async function issuePipelineToken(
+  profileName: string,
+  environment: CloudEnvironment,
+  uak: PipelineUak,
+): Promise<string> {
   return getAccessToken(profileName, uak.id, uak.secret, false, environment);
 }

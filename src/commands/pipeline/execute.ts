@@ -10,6 +10,7 @@ import {
   requireWriteMode,
   resolvePipelineAppKey,
   resolvePipelineProfile,
+  resolvePipelineUak,
   type PipelineExecuteOptions,
 } from "./helpers.js";
 
@@ -22,7 +23,7 @@ export const executeCommand = new Command("execute")
   .option("--dry-run", "실행 없이 보낼 요청을 출력한다")
   .action(async (pipelineNameArg: string, _opts: unknown, command: Command) => {
     const opts = command.optsWithGlobals<PipelineExecuteOptions>();
-    // 검증 순서: 인수 → --yes/--dry-run → profile → region → appkey → (dry-run 종료) → 토큰 → 실행.
+    // 검증 순서: 인수 → --yes/--dry-run → profile → region → appkey → (dry-run 종료) → UAK → 진행 표시 → 토큰 → 실행.
     const pipelineName = parseRequiredArgument(pipelineNameArg, "pipeline-name");
     const dryRun = requireWriteMode(opts, "pipeline execute");
     const { profileName, environment } = await resolvePipelineProfile(opts);
@@ -41,10 +42,11 @@ export const executeCommand = new Command("execute")
       return;
     }
 
+    const uak = await resolvePipelineUak(profileName);
     startSpinner("Pipeline 실행 요청 중...");
     let result;
     try {
-      const token = await issuePipelineToken(profileName, environment);
+      const token = await issuePipelineToken(profileName, environment, uak);
       result = await new PipelineClient(token, appKey, region, environment).execute(pipelineName);
       stopSpinner(true);
     } catch (error) {

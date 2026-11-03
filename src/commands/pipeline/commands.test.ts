@@ -5,7 +5,8 @@ import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_API_ERROR, EXIT_CONFIG_ERROR, EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
 import { configureCommanderExitCodes } from "../commander-errors.js";
 import { executeCommand } from "./execute.js";
-import { issuePipelineToken, resolvePipelineAppKey, resolvePipelineProfile } from "./helpers.js";
+import { startSpinner } from "../../utils/spinner.js";
+import { issuePipelineToken, resolvePipelineAppKey, resolvePipelineProfile, resolvePipelineUak } from "./helpers.js";
 
 vi.mock("./helpers.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./helpers.js")>();
@@ -13,6 +14,7 @@ vi.mock("./helpers.js", async (importOriginal) => {
     ...actual,
     resolvePipelineProfile: vi.fn(),
     resolvePipelineAppKey: vi.fn(),
+    resolvePipelineUak: vi.fn(),
     issuePipelineToken: vi.fn(),
   };
 });
@@ -47,6 +49,7 @@ describe("pipeline execute 명령", () => {
     stdoutWrite = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     vi.mocked(resolvePipelineProfile).mockResolvedValue({ profileName: "default", environment: "real" });
     vi.mocked(resolvePipelineAppKey).mockResolvedValue("test-appkey");
+    vi.mocked(resolvePipelineUak).mockResolvedValue({ id: "<uak-id>", secret: "<uak-secret>" });
     vi.mocked(issuePipelineToken).mockResolvedValue("test-token");
     executeSpy.mockResolvedValue(body);
   });
@@ -58,6 +61,7 @@ describe("pipeline execute 명령", () => {
       message: expect.stringMatching(/--yes.*--dry-run/),
     });
 
+    expect(resolvePipelineProfile).not.toHaveBeenCalled();
     expect(issuePipelineToken).not.toHaveBeenCalled();
     expect(executeSpy).not.toHaveBeenCalled();
     expect(stdout()).toBe("");
@@ -122,6 +126,16 @@ describe("pipeline execute 명령", () => {
     expect(executeSpy).not.toHaveBeenCalled();
   });
 
+  it("UAK 가 없으면 진행 표시를 시작하지 않고 설정 오류로 끝난다", async () => {
+    vi.mocked(resolvePipelineUak).mockRejectedValue(new NhnCloudCliError("UAK 없음", EXIT_CONFIG_ERROR));
+
+    await expect(run("execute", "demo", "--yes")).rejects.toMatchObject({ exitCode: EXIT_CONFIG_ERROR });
+
+    expect(startSpinner).not.toHaveBeenCalled();
+    expect(issuePipelineToken).not.toHaveBeenCalled();
+    expect(executeSpy).not.toHaveBeenCalled();
+  });
+
   it("--app-key 옵션은 없다", async () => {
     await expect(run("execute", "demo", "--yes", "--app-key", "x")).rejects.toMatchObject({
       message: expect.stringContaining("--app-key"),
@@ -139,7 +153,7 @@ describe("pipeline execute 명령", () => {
     expect(out).toContain("executionId");
     expect(executeSpy).toHaveBeenCalledTimes(1);
     expect(executeSpy).toHaveBeenCalledWith("demo");
-    expect(issuePipelineToken).toHaveBeenCalledWith("default", "real");
+    expect(issuePipelineToken).toHaveBeenCalledWith("default", "real", { id: "<uak-id>", secret: "<uak-secret>" });
   });
 
   it("--json 은 응답 body 를 그대로 쓴다", async () => {

@@ -376,7 +376,7 @@ flowchart TD
 ### Pipeline
 
 profile 공통 UAK 의 OAuth 토큰과 `pipeline.appkey` 로 Pipeline 수동 실행 API v1.1 을 한 번 호출한다. 망은 profile `environment`, region 은 `--region`(공공망은 `kr1` 만)으로 고른다.
-검증 순서는 인수 → `--yes`/`--dry-run` → region → appkey → 토큰 발급 → 호출이다. 앞 단계에서 실패하면 토큰을 발급하지 않고 API 도 부르지 않는다.
+검증 순서는 인수 → `--yes`/`--dry-run` → profile 해석 → region → appkey → (`--dry-run` 이면 출력 후 종료) → UAK 확인 → 진행 표시 시작 → 토큰 발급 → 호출이다. 앞 단계에서 실패하면 진행 표시를 시작하지 않고 토큰도 발급하지 않으며 API 도 부르지 않는다.
 `--dry-run`은 보낼 요청만 출력하고 appkey 와 토큰은 내지 않는다.
 실행은 실제 배포를 일으키므로 재시도하지 않는다. 서버가 상태 코드나 봉투로 답한 실패는 확정 실패이고, 요청 뒤 timeout·연결 끊김이나 `lastExecutionId` 없는 성공 응답은 접수됐을 수 있어 콘솔 실행 이력을 확인하기 전에 다시 실행하지 않도록 안내한다.
 실행 상태 조회 API 가 없어 `--quiet`의 실행 ID 로 콘솔 실행 이력에서 결과를 확인한다.

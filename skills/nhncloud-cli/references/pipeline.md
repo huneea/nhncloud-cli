@@ -9,7 +9,7 @@ profile 공통 UAK 와 Pipeline `appkey` 가 필요하다. 콘솔 Pipeline 의 *
 `nhncloud configure --pipeline-appkey <appkey>`로 profile 의 `pipeline.appkey` 를 설정한다. 연결 테스트는 하지 않고 저장만 한다.
 
 - UAK 를 OAuth 토큰으로 교환해 `X-NHN-Authorization` 으로 보내고, appkey 는 `X-NHN-APPKEY` 로 보낸다.
-- `--app-key` 옵션은 없다. appkey 가 없으면 API 를 호출하기 전에 종료 코드 2로 끝나고 `--pipeline-appkey` 를 안내한다.
+- `--app-key` 옵션은 없다. appkey 가 없으면 API 를 호출하기 전에 종료 코드 4로 끝나고 `--pipeline-appkey` 를 안내한다.
 - 공공망은 profile 의 `"environment": "gov"`로 고르고 `kr1` 만 쓴다.
 
 ## 실행
@@ -40,12 +40,12 @@ nhncloud pipeline execute <pipeline-name> --yes --region kr3
 
 ## 종료 코드와 재실행
 
-| 상황 | 종료 코드 |
-|---|---|
-| `--yes`/`--dry-run` 없음, 지원하지 않는 region, 빈 이름 | 3 |
-| Pipeline appkey 없음 | 2 |
-| 인증 실패(HTTP 401·403) | 인증 오류 코드 |
-| API 실패, 접수 여부를 모르는 실패 | 1 |
+| 구분 | 상황 | 종료 코드 |
+|---|---|---|
+| 입력 오류 | `--yes`/`--dry-run` 없음, 지원하지 않는 region, 빈 이름 | 3 |
+| 설정 오류 | Pipeline appkey 없음, UAK 없음 | 4 |
+| 인증 오류 | HTTP 401·403 | 2 |
+| API 오류 | 그 밖의 실패, 접수 여부를 모르는 실패 | 1 |
 
 HTTP 4xx·5xx 와 `header.isSuccessful=false` 는 서버가 답한 확정 실패다.
 요청을 보낸 뒤 timeout·연결 끊김이 나거나, 성공 응답인데 `lastExecutionId` 가 없으면 실행이 접수됐을 수 있다.

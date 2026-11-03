@@ -114,6 +114,7 @@ describe("PipelineClient.execute", () => {
 
     expect(error).toMatchObject({ exitCode: EXIT_API_ERROR });
     expect(error.message).toContain(PIPELINE_UNKNOWN_OUTCOME_HINT);
+    expect(error.message).not.toContain("--request-timeout");
   });
 
   it("연결 끊김도 재실행 금지 문구를 담는다", async () => {

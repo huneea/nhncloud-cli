@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { collectCommandCatalog, createCommandsCommand } from "./commands.js";
+import { executeCommand as pipelineExecuteCommand } from "./pipeline/execute.js";
 
 function buildProgram(): Command {
   const program = new Command("nhncloud")
@@ -57,6 +58,19 @@ describe("collectCommandCatalog", () => {
       arguments: ["registry"],
       options: ["--app-key <key>"],
     });
+  });
+
+  it("pipeline execute 는 인수와 옵션을 노출하고 --app-key 는 없다", () => {
+    const program = buildProgram();
+    program.addCommand(new Command("pipeline").addCommand(pipelineExecuteCommand));
+
+    const entry = collectCommandCatalog(program).commands.find((command) => command.path === "pipeline execute");
+
+    expect(entry).toBeDefined();
+    expect(entry?.arguments).toEqual(["pipeline-name"]);
+    const flags = entry?.options.join(" ") ?? "";
+    for (const flag of ["--region", "--profile", "--yes", "--dry-run"]) expect(flags).toContain(flag);
+    expect(flags).not.toContain("--app-key");
   });
 
   it("help pseudo-command를 포함하지 않는다", () => {

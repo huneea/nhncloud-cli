@@ -63,7 +63,9 @@ export class PipelineClient {
       const converted = toNhnCloudCliError(err);
       // 서버가 상태 코드로 답했으면 결과가 확정이다. 그 밖(timeout·연결 끊김)은 접수 여부를 모른다.
       if (err instanceof HTTPError) throw converted;
-      throw new NhnCloudCliError(`${converted.message} ${PIPELINE_UNKNOWN_OUTCOME_HINT}`, EXIT_API_ERROR);
+      // --request-timeout 으로 상한을 늘려 다시 실행하라는 안내는 중복 배포를 부르므로 뺀다.
+      const message = converted.message.replace(/\s*--request-timeout <초>로 상한을 늘릴 수 있습니다\./, "");
+      throw new NhnCloudCliError(`${message} ${PIPELINE_UNKNOWN_OUTCOME_HINT}`, EXIT_API_ERROR);
     }
   }
 }
