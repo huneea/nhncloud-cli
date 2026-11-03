@@ -48,12 +48,20 @@ function baseArgs(): string[] {
   ];
 }
 
+// 인자의 고정 날짜가 90일 조회 한도 안에 들도록 테스트 시각을 고정한다. 고정하지 않으면 날짜가 지나며 깨진다.
+const FIXED_NOW = new Date("2026-08-03T02:00:00Z");
+
 describe("logncrash search v3 cursor", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     // 90일 조회 한도 검사가 실행 날짜에 흔들리지 않도록 현재 시각만 고정한다.
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-08-03T12:00:00Z"));
     vi.clearAllMocks();
+    vi.setSystemTime(FIXED_NOW);
     vi.mocked(resolveLogncrashClient).mockResolvedValue(client as never);
     availableToken.mockResolvedValue({ availableToken: 1 });
     cursorSearch.mockResolvedValue({

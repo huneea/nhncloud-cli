@@ -8,6 +8,7 @@ import { DeployClient } from "../../services/deploy/client.js";
 import { resolveServiceAppKey } from "../service-appkey.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
+import { sanitizeForTerminal } from "../../utils/terminal.js";
 
 /**
  * profile 해석 → UAK 로드 → access_token 교환 → DeployClient 생성.
@@ -49,4 +50,21 @@ export function requireCoordinate(value: string | undefined, flag: string): stri
     throw new NhnCloudCliError(`${flag} 가 필요합니다.`, EXIT_PARAM_ERROR);
   }
   return value;
+}
+
+/**
+ * 조회 응답 body 에서 목록 필드를 꺼낸다. 표와 --quiet 출력용이며 --json 은 원본을 쓴다.
+ * 필드가 없거나 배열이 아니면 빈 목록이다. 객체가 아닌 항목은 뺀다.
+ */
+export function listField(body: unknown, field: string): Record<string, unknown>[] {
+  if (typeof body !== "object" || body === null) return [];
+  const list = (body as Record<string, unknown>)[field];
+  if (!Array.isArray(list)) return [];
+  return list.filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null);
+}
+
+/** 표 칸 값. 없는 값은 빈 칸, 나머지는 문자열로 바꾸고 제어 문자를 지운다 */
+export function cell(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  return sanitizeForTerminal(typeof value === "object" ? JSON.stringify(value) : String(value));
 }

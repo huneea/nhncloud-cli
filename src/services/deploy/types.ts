@@ -34,6 +34,8 @@ export interface BinaryListParams {
   sortKey?: string;
   /** 정렬 방향 (예: DESC) */
   sortDirection?: string;
+  /** 바이너리 버전 검색 키워드 */
+  keyword?: string;
 }
 
 /** 바이너리 업로드 요청 — multipart/form-data 로 전송 */
@@ -73,4 +75,34 @@ export interface DeployRunParams {
   deployNote?: string;
   /** true = 즉시 반환, false = 완료 대기 (기본 false) */
   async?: boolean;
+}
+
+/** 배포 이력 — `GET .../deploy-histories` 의 deployHistories[] 항목 */
+export interface DeployHistory {
+  deployKey: number;
+  /** 실행 결과. 문서는 SUCCESS/FAIL/RUNNING 이지만 실제 응답은 소문자다 */
+  totalResult: string;
+  scenarioName?: string;
+  serverGroupName?: string;
+  serverGroupId?: number;
+  binaryVersion?: string;
+  executeDate?: string;
+  executeUser?: string;
+}
+
+/** 배포 이력 조회 쿼리 파라미터. 생략한 값은 API 기본값을 쓴다 */
+export interface DeployHistoryParams {
+  serverGroupId?: number;
+  /** yyyy-MM-dd */
+  from?: string;
+  /** yyyy-MM-dd */
+  to?: string;
+  pageNum?: number;
+  pageSize?: number;
+}
+
+/** 배포 이력 한 페이지 */
+export interface DeployHistoryPage {
+  totalCount: number;
+  deployHistories: DeployHistory[];
 }
