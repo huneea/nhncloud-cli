@@ -1,0 +1,30 @@
+# ADR-050: Deploy 서버별 결과는 배포 실행 응답으로만 보이고, 배포 이력은 공개 쿼리와 CLI 필터로 좁힌다
+
+- **status**: `accepted`
+- **결정**:
+  - 배포 한 건(deployKey)의 서버별 결과와 Task 로그를 조회하는 명령은 두지 않는다. Deploy 공개 API 에 그런 조회가 없다. 콘솔의 「결과 보기」 가 쓰는 내부 API 는 흉내 내지 않는다.
+  - 서버별 결과는 배포 실행(`deploy run`) 의 동기 응답 `deployResult` 로 보인다. 표 출력은 서버마다 `deployKey`, `deployStatus`, `hostname`, `status` 한 행이고, 그 뒤에 서버별 `taskResult` 를 문자열 항목은 그대로, 객체 항목은 들여쓴 JSON 으로 stdout 에 쓴다. `--json` 은 응답 원본, `--quiet` 는 deployKey 다.
+  - `deployStatus` 가 `fail` 로 시작하면 결과를 모두 출력한 뒤 종료 코드 1(`EXIT_API_ERROR`)로 끝낸다. 출력 형식과 관계없다. `success`, `deploying`(`--async`)과 모르는 값은 종료 코드 0이다.
+  - 응답 모양을 알 수 없으면 원본 값을 JSON 문자열로 표에 싣고 종료 코드 0으로 끝낸다. 배포가 이미 실행된 뒤라 해석 실패를 오류로 만들지 않는다.
+  - `deploy histories` 는 공개 쿼리 `serverGroupId`, `deploymentYearFrom`, `deploymentYearTo`, `pageNum`, `pageSize` 를 `--server-group-id`, `--from`, `--to`, `--page-num`, `--page-size` 로 받는다. 결과 필터 쿼리는 API 에 없어 `--result` 는 받은 행을 CLI 가 필터링한다.
+  - `--all` 은 기간 안의 모든 페이지를 100건씩 모은다. `--deploy-key` 는 같은 방식으로 찾다가 그 키를 만나면 남은 페이지를 받지 않고, 못 찾으면 종료 코드 3이다. 두 옵션은 `--page-num` 과 함께 쓸 수 없다. 1000 페이지에서 끊고 stderr 에 경고한다.
+  - 기간은 둘 다 없으면 보내지 않아 API 기본값(최근 1개월)을 쓴다. 하나만 주면 빠진 종료일은 오늘, 빠진 시작일은 종료일의 1개월 전으로 채운다. 시작일이 종료일보다 늦거나 종료일의 1년 전과 같거나 이르면 요청 전에 종료 코드 3으로 거부한다. `--page-size` 는 1 이상 100 이하다.
+  - `deploy histories --json` 은 응답 모양 `{ totalCount, deployHistories }` 를 유지한다. `totalCount` 는 API 가 준 기간 전체 건수이고 `deployHistories` 는 CLI 필터를 거친 행이다.
+- **맥락**:
+  - 배포가 Deploy 단계에서 실패했을 때 `deploy histories` 는 성공·실패만 보여 원인을 콘솔 「결과 보기」 에서 읽어야 했다.
+  - 2026-11-03 공식 문서(일반망 API v2.1, 공공망 v2.1-gov, 구버전 v2.0·v1.0, 릴리스 노트)를 대조했다. 공개 API 는 바이너리 업로드·다운로드, 배포 실행, 그리고 아티팩트·서버 그룹·바이너리 그룹·배포 이력·바이너리·시나리오 목록 조회뿐이고 공공망도 같다. 배포 이력 항목은 `deployKey`, `scenarioName`, `serverGroupName`, `serverGroupId`, `binaryVersion`, `executeDate`, `executeUser`, `totalResult` 이며 실제 응답에도 다른 필드는 없었다.
+  - 서버별 결과는 배포 실행 응답의 `deployResult[].{hostname, status, taskResult}` 에만 있다. `taskResult` 항목 형식은 문서에 `"..."` 로만 있고, 이번 작업에서 배포를 실행하지 않아 실제 형식을 확인하지 못했다. 그래서 필드를 골라 표로 만들지 않고 원본을 그대로 보인다.
+  - 이전 `deploy run` 은 실패해도 종료 코드 0이었고 표 출력이 `deployResult` 를 `[object Object]` 로 찍어, 동기 실행에서 받은 서버별 결과를 잃었다. `histories`, `server-groups`, `artifacts` 의 표도 목록을 같은 방식으로 찍었다.
+  - 공공망 profile 로 실제 조회한 결과(2026-11): 기간이 정확히 1년(시작 2025-11-03, 종료 2026-11-03)이면 `The search period cannot exceed 1 year.`, 하루 짧으면 성공했다. 시작 2024-02-29·종료 2025-02-28 과 시작 2023-03-01·종료 2024-02-29 는 성공했다. 종료일에서 1년을 뺀 날(말일 보정)보다 시작일이 늦어야 한다. `pageSize` 는 100 까지 성공하고 101 부터 `The request parameters are incorrect.` 였다. `totalResult` 는 문서와 달리 소문자(`success`, `fail`)였고 `executeDate` 는 `yyyy-MM-dd HH:mm:ss+09:00` 형식이었다.
+  - 공식 문서: [Deploy API v2.1](https://docs.nhncloud.com/ko/Dev%20Tools/Deploy/ko/api-guide-v2.1/), [공공망 Deploy API v2.1](https://docs.gov-nhncloud.com/ko/Dev%20Tools/Deploy/ko/api-guide-v2.1-gov/), [릴리스 노트](https://docs.nhncloud.com/ko/Dev%20Tools/Deploy/ko/release-notes/).
+- **대안 기각**:
+  - 콘솔 내부 API 로 서버별 로그 조회: 공개 계약이 아니어서 예고 없이 바뀌고, 콘솔 세션 인증을 요구할 수 있다.
+  - `run` 실패를 종료 코드 0으로 유지: CI 가 배포 실패를 성공으로 넘긴다. 결과를 출력한 뒤 실패로 끝내야 로그와 실패 신호를 함께 남긴다.
+  - `run` 실패를 결과 출력 전에 오류로 끝내기: 서버별 결과가 stdout 에 남지 않는다.
+  - `taskResult` 의 필드를 추측해 표 칸으로 만들기: 형식을 확인하지 못했다. 틀리면 로그가 빈 칸으로 사라진다.
+  - `--result` 를 API 쿼리로 보내기: 문서에 없는 쿼리다.
+  - 기간 검증을 API 에 맡기기: API 오류 문구는 경계를 알려 주지 않는다. 요청 전에 거부하면서 허용되는 시작일을 함께 알린다.
+- **결과**:
+  - 얻는 것: 동기 `deploy run` 이 실패하면 CLI 출력에 서버별 결과와 Task 결과가 남고 CI 가 실패로 멈춘다. 배포 이력을 서버 그룹, 기간, 결과, 배포 키로 좁혀 본다.
+  - 감당할 것: 이미 끝난 배포(다른 도구나 `--async` 로 실행한 것)의 서버별 로그는 여전히 콘솔에서 본다. 실패에도 종료 코드 0을 기대하던 스크립트는 동작이 바뀐다. `--result` 와 `--deploy-key` 는 받은 페이지 안에서만 찾으므로 넓은 기간은 여러 번 요청한다.
+- **적용 범위**: `deploy run`, `deploy histories`, 그리고 같은 표 출력 결함을 고친 `deploy artifacts`(`--name`), `deploy server-groups`. `deploy binaries --keyword` 는 공개 쿼리를 그대로 넘긴다. 망 선택은 [[adr-037]], appkey 는 [[adr-033]] 을 따른다.
