@@ -138,7 +138,7 @@ nhncloud instance create --help
 | 영역 | 일반 흐름 | 상세 사용자 가이드 |
 |---|---|---|
 | Log & Crash | 조회 토큰 확인, 검색, 대량 export, 로그 전송 | [logncrash.md](../skills/nhncloud-cli/references/logncrash.md) |
-| Deploy | 좌표 탐색, 배포 실행, 바이너리 전송 | [deploy.md](../skills/nhncloud-cli/references/deploy.md) |
+| Deploy | 좌표 탐색, 배포 실행과 서버별 결과, 배포 이력 필터, 바이너리 전송 | [deploy.md](../skills/nhncloud-cli/references/deploy.md) |
 | Instance·Network·Volume·Floating IP | 리소스 탐색 뒤 조회·생성·변경 | [iaas.md](../skills/nhncloud-cli/references/iaas.md) |
 | Load Balancer | 대상 탐색, IP ACL 변경과 부분 실패 복구, 인증서 업로드부터 HTTPS 리스너와 Host 규칙까지 | [loadbalancer.md](../skills/nhncloud-cli/references/loadbalancer.md) |
 | NCR | registry 조회 뒤 image와 tag 탐색 | [ncr.md](../skills/nhncloud-cli/references/ncr.md) |
@@ -210,6 +210,7 @@ IaaS 서비스는 profile의 Keystone 자격증명과 region을 해석하고 토
 
 공통 UAK를 OAuth access token으로 교환하고 profile의 서비스 appkey를 경로에 사용한다.
 배포 좌표는 명령 옵션으로 받으며 profile에 저장하지 않는다.
+동기 배포 실행은 서버별 결과를 출력한 뒤 실패면 종료 코드 1로 끝난다. 배포 한 건의 서버별 결과를 나중에 조회하는 공개 API는 없다(ADR-050).
 같은 계정 토큰 캐시를 공유하는 서비스 목록은 [data-schema.md](data-schema.md)의 「토큰 캐시」 절을 따른다.
 서비스별 헤더와 응답 봉투는 client가 책임진다.
 

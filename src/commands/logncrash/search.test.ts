@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { output } from "../../formatters/table.js";
 import { LogncrashServerError } from "../../services/logncrash/errors.js";
 import { NhnEnvelopeError } from "../../api/envelope.js";
@@ -48,9 +48,17 @@ function baseArgs(): string[] {
   ];
 }
 
+// 인자의 고정 날짜가 90일 조회 한도 안에 들도록 테스트 시각을 고정한다. 고정하지 않으면 날짜가 지나며 깨진다.
+const FIXED_NOW = new Date("2026-08-03T02:00:00Z");
+
 describe("logncrash search v3 cursor", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.setSystemTime(FIXED_NOW);
     vi.mocked(resolveLogncrashClient).mockResolvedValue(client as never);
     availableToken.mockResolvedValue({ availableToken: 1 });
     cursorSearch.mockResolvedValue({

@@ -144,6 +144,7 @@ nhncloud ncr list                                             # 컨테이너 레
 nhncloud nks cluster list                                     # Kubernetes 클러스터
 nhncloud deploy artifacts                                     # 배포 아티팩트
 nhncloud deploy scenarios --artifact-id <id> --server-group-id <id>  # 서버그룹 시나리오
+nhncloud deploy histories --artifact-id <id> --all --result fail  # 실패한 배포 이력
 nhncloud logncrash available-token                            # 남은 조회 토큰과 추정 대기 시간
 nhncloud logncrash search --query '*' --from 1h --to now      # 최근 1시간 로그
 nhncloud logncrash export --query '<lucene>' --from 1h --to now --output logs.jsonl  # 대량 로그 파일 저장

@@ -94,3 +94,64 @@ describe("DeployClient.scenarios", () => {
     await expect(new DeployClient("token", "gov").scenarios("appkey", "1", "2")).rejects.toThrow("scenarios 응답 형식");
   });
 });
+
+describe("DeployClient.histories", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  const envelope = (body: unknown) => ({
+    json: async () => ({ header: { isSuccessful: true, resultCode: "SUCCESS" }, body }),
+  });
+
+  it("주어진 조건만 문서의 쿼리 이름으로 보낸다", async () => {
+    vi.mocked(ky.get).mockReturnValue(envelope({ totalCount: 1, deployHistories: [{ deployKey: 1, totalResult: "fail" }] }) as never);
+
+    const page = await new DeployClient("token", "gov").histories("appkey", "1", {
+      serverGroupId: 2,
+      from: "2026-01-01",
+      to: "2026-01-31",
+      pageSize: 100,
+    });
+
+    expect(page).toEqual({ totalCount: 1, deployHistories: [{ deployKey: 1, totalResult: "fail" }] });
+    expect(ky.get).toHaveBeenCalledWith(
+      "https://api-tcd.gov-nhncloudservice.com/api/v2.1/projects/appkey/artifacts/1/deploy-histories",
+      expect.objectContaining({
+        searchParams: { serverGroupId: 2, deploymentYearFrom: "2026-01-01", deploymentYearTo: "2026-01-31", pageSize: 100 },
+      }),
+    );
+  });
+
+  it("숫자 문자열 totalCount 를 숫자로 바꾼다", async () => {
+    vi.mocked(ky.get).mockReturnValue(envelope({ totalCount: "5", deployHistories: [] }) as never);
+
+    await expect(new DeployClient("token").histories("appkey", "1")).resolves.toEqual({ totalCount: 5, deployHistories: [] });
+  });
+
+  it("deployKey 나 totalResult 가 없는 항목은 형식 오류다", async () => {
+    vi.mocked(ky.get).mockReturnValue(envelope({ totalCount: 1, deployHistories: [{ deployKey: "1" }] }) as never);
+
+    await expect(new DeployClient("token").histories("appkey", "1")).rejects.toThrow("deploy-histories 응답 형식");
+  });
+});
+
+describe("DeployClient 검색 쿼리", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("artifacts 는 이름을 artifactName 으로 보낸다", async () => {
+    vi.mocked(ky.get).mockReturnValue({ json: async () => ({ header: { isSuccessful: true }, body: { artifacts: [] } }) } as never);
+
+    await new DeployClient("token").artifacts("appkey", "app");
+
+    expect(ky.get).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ searchParams: { artifactName: "app" } }));
+  });
+
+  it("binaries 는 keyword 를 보낸다", async () => {
+    vi.mocked(ky.get).mockReturnValue({
+      json: async () => ({ header: { isSuccessful: true }, body: { totalCount: 0, binaries: [] } }),
+    } as never);
+
+    await new DeployClient("token").binaries("appkey", "1", 2, { keyword: "1.0" });
+
+    expect(ky.get).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ searchParams: { keyword: "1.0" } }));
+  });
+});

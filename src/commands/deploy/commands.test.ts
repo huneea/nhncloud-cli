@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { EXIT_CONFIG_ERROR, EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
+import { EXIT_API_ERROR, EXIT_CONFIG_ERROR, EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import {
   collectAppKeyOptionPaths,
@@ -16,6 +16,9 @@ const mocks = vi.hoisted(() => ({
   getAccessToken: vi.fn(),
   artifacts: vi.fn(),
   scenarios: vi.fn(),
+  histories: vi.fn(),
+  run: vi.fn(),
+  serverGroups: vi.fn(),
   startSpinner: vi.fn(),
 }));
 
@@ -35,6 +38,9 @@ vi.mock("../../services/deploy/client.js", () => ({
   DeployClient: class {
     artifacts = mocks.artifacts;
     scenarios = mocks.scenarios;
+    histories = mocks.histories;
+    run = mocks.run;
+    serverGroups = mocks.serverGroups;
   },
 }));
 
@@ -214,7 +220,7 @@ describe("deploy 좌표 옵션 검증", () => {
 
     await expect(parseLeaf(artifactsCommand, [], ["--json"])).resolves.toBeUndefined();
 
-    expect(mocks.artifacts).toHaveBeenCalledWith("<appkey>");
+    expect(mocks.artifacts).toHaveBeenCalledWith("<appkey>", undefined);
     stdout.mockRestore();
   });
 
@@ -245,6 +251,250 @@ describe("deploy 좌표 옵션 검증", () => {
     } finally {
       stdout.mockRestore();
     }
+  });
+});
+
+/** stdout 과 stderr 에 쓴 글을 모으고, 끝나면 원래대로 돌린다 */
+async function captureOutput(fn: () => Promise<unknown>): Promise<{ stdout: string; stderr: string; error?: unknown }> {
+  const out: string[] = [];
+  const err: string[] = [];
+  const stdout = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+    out.push(String(chunk));
+    return true;
+  });
+  const stderr = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+    err.push(String(chunk));
+    return true;
+  });
+  try {
+    await fn();
+    return { stdout: out.join(""), stderr: err.join("") };
+  } catch (error) {
+    return { stdout: out.join(""), stderr: err.join(""), error };
+  } finally {
+    stdout.mockRestore();
+    stderr.mockRestore();
+  }
+}
+
+function history(deployKey: number, totalResult: string) {
+  return {
+    deployKey,
+    totalResult,
+    scenarioName: "sample-scenario",
+    serverGroupName: "sample-group",
+    serverGroupId: 10,
+    binaryVersion: "1.0.0",
+    executeDate: "2026-01-02 03:04:05+09:00",
+    executeUser: "user@example.com",
+  };
+}
+
+function stubAuth(): void {
+  vi.resetAllMocks();
+  mocks.resolveProfileName.mockResolvedValue("p");
+  mocks.getUserAccessKey.mockResolvedValue({ id: "<uak-id>", secret: "<uak-secret>" });
+  mocks.getProfileEnvironment.mockResolvedValue("real");
+  mocks.getOptionalServiceCredential.mockResolvedValue({ appkey: "<appkey>" });
+  mocks.getAccessToken.mockResolvedValue("access-token");
+}
+
+describe("deploy histories", () => {
+  beforeEach(stubAuth);
+
+  it("필터 옵션을 API 쿼리로 넘기고 행마다 표로 보인다", async () => {
+    mocks.histories.mockResolvedValue({ totalCount: 1, deployHistories: [history(101, "fail")] });
+
+    const { stdout, error } = await captureOutput(() =>
+      parseLeaf(historiesCommand, [
+        "--artifact-id", "1", "--server-group-id", "10", "--from", "2026-01-01", "--to", "2026-01-31",
+        "--page-num", "2", "--page-size", "50",
+      ]),
+    );
+
+    expect(error).toBeUndefined();
+    expect(mocks.histories).toHaveBeenCalledWith("<appkey>", "1", {
+      serverGroupId: 10, from: "2026-01-01", to: "2026-01-31", pageNum: 2, pageSize: 50,
+    });
+    expect(stdout).toContain("101");
+    expect(stdout).toContain("sample-group (10)");
+    expect(stdout).not.toContain("[object Object]");
+  });
+
+  it.each([
+    ["중간 페이지", ["--page-size", "2", "--page-num", "1"], [history(5, "success"), history(4, "success")], true],
+    ["꽉 찬 마지막 페이지", ["--page-size", "2", "--page-num", "3"], [history(2, "success"), history(1, "success")], false],
+    ["덜 찬 마지막 페이지", ["--page-size", "4", "--page-num", "2"], [history(1, "success"), history(2, "success")], false],
+  ])("%s 의 다음 페이지 안내는 %s 이다", async (_name, args, rows, expected) => {
+    mocks.histories.mockResolvedValue({ totalCount: 6, deployHistories: rows });
+
+    const { stderr } = await captureOutput(() => parseLeaf(historiesCommand, ["--artifact-id", "1", ...args]));
+
+    expect(stderr.includes("다음 페이지는")).toBe(expected);
+  });
+
+  it("--json 은 { totalCount, deployHistories } 모양을 유지하고 --result 로 필터링한 행만 담는다", async () => {
+    mocks.histories.mockResolvedValue({
+      totalCount: 3,
+      deployHistories: [history(3, "success"), history(2, "fail"), history(1, "running")],
+    });
+
+    const { stdout } = await captureOutput(() =>
+      parseLeaf(historiesCommand, ["--artifact-id", "1", "--result", "FAIL"], ["--json"]),
+    );
+
+    expect(JSON.parse(stdout)).toEqual({ totalCount: 3, deployHistories: [history(2, "fail")] });
+  });
+
+  it("--quiet 는 deployKey 를 한 줄씩 출력한다", async () => {
+    mocks.histories.mockResolvedValue({ totalCount: 2, deployHistories: [history(2, "success"), history(1, "fail")] });
+
+    const { stdout } = await captureOutput(() => parseLeaf(historiesCommand, ["--artifact-id", "1"], ["--quiet"]));
+
+    expect(stdout).toBe("2\n1\n");
+  });
+
+  it("--all 은 마지막 페이지까지 100건씩 모은다", async () => {
+    const first = Array.from({ length: 100 }, (_, i) => history(300 - i, "success"));
+    mocks.histories
+      .mockResolvedValueOnce({ totalCount: 150, deployHistories: first })
+      .mockResolvedValueOnce({ totalCount: 150, deployHistories: [history(1, "fail")] });
+
+    const { stdout } = await captureOutput(() =>
+      parseLeaf(historiesCommand, ["--artifact-id", "1", "--all", "--result", "fail"], ["--quiet"]),
+    );
+
+    expect(mocks.histories).toHaveBeenNthCalledWith(1, "<appkey>", "1", expect.objectContaining({ pageNum: 1, pageSize: 100 }));
+    expect(mocks.histories).toHaveBeenNthCalledWith(2, "<appkey>", "1", expect.objectContaining({ pageNum: 2, pageSize: 100 }));
+    expect(stdout).toBe("1\n");
+  });
+
+  it("--deploy-key 는 찾으면 남은 페이지를 받지 않고 그 한 건만 보인다", async () => {
+    const first = Array.from({ length: 100 }, (_, i) => history(500 - i, "success"));
+    first[3] = history(497, "fail");
+    mocks.histories.mockResolvedValue({ totalCount: 1000, deployHistories: first });
+
+    const { stdout } = await captureOutput(() =>
+      parseLeaf(historiesCommand, ["--artifact-id", "1", "--deploy-key", "497"], ["--json"]),
+    );
+
+    expect(mocks.histories).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(stdout).deployHistories).toEqual([history(497, "fail")]);
+  });
+
+  it("--deploy-key 를 못 찾으면 입력 오류로 끝난다", async () => {
+    mocks.histories.mockResolvedValue({ totalCount: 1, deployHistories: [history(1, "success")] });
+
+    const { error } = await captureOutput(() =>
+      parseLeaf(historiesCommand, ["--artifact-id", "1", "--deploy-key", "9"]),
+    );
+
+    expect(error).toMatchObject({ exitCode: EXIT_PARAM_ERROR, message: expect.stringContaining("9") });
+  });
+
+  it.each([
+    ["--page-num 과 --all", ["--page-num", "2", "--all"]],
+    ["--page-num 과 --deploy-key", ["--page-num", "2", "--deploy-key", "1"]],
+    ["--page-size 상한 초과", ["--page-size", "101"]],
+    ["잘못된 날짜", ["--from", "2026-02-30"]],
+    ["1년에 닿는 기간", ["--from", "2025-01-01", "--to", "2026-01-01"]],
+    ["알 수 없는 결과", ["--result", "done"]],
+    ["--deploy-key 와 --result", ["--deploy-key", "1", "--result", "fail"]],
+  ])("%s 은 API 호출 전에 입력 오류로 거부한다", async (_name, args) => {
+    const { error } = await captureOutput(() => parseLeaf(historiesCommand, ["--artifact-id", "1", ...args]));
+
+    expect(error).toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+    expect(mocks.getAccessToken).not.toHaveBeenCalled();
+    expect(mocks.histories).not.toHaveBeenCalled();
+  });
+});
+
+describe("deploy run 결과 출력", () => {
+  beforeEach(stubAuth);
+
+  const runArgs = ["--artifact-id", "1", "--server-group-id", "2", "--scenario-ids", "3"];
+
+  function runBody(deployStatus: string) {
+    return {
+      deployKey: 77,
+      deployStatus,
+      deployResult: [
+        { deployKey: 77, hostname: "host-a", status: deployStatus, taskResult: ["exit code 1", { task: "check", message: "denied" }] },
+      ],
+      deployResultLocation: "https://console.example.com/deploy",
+    };
+  }
+
+  it("실패하면 서버별 결과와 Task 결과를 출력한 뒤 종료 코드 1 로 끝난다", async () => {
+    mocks.run.mockResolvedValue(runBody("fail"));
+
+    const { stdout, error } = await captureOutput(() => parseLeaf(runCommand, runArgs));
+
+    expect(stdout).toContain("host-a");
+    expect(stdout).toContain("exit code 1");
+    expect(stdout).toContain('"message": "denied"');
+    expect(stdout).not.toContain("[object Object]");
+    expect(error).toMatchObject({ exitCode: EXIT_API_ERROR, message: expect.stringContaining("77") });
+  });
+
+  it("--json 은 응답 원본을 출력하고 실패면 종료 코드 1 이다", async () => {
+    mocks.run.mockResolvedValue(runBody("fail"));
+
+    const { stdout, error } = await captureOutput(() => parseLeaf(runCommand, runArgs, ["--json"]));
+
+    expect(JSON.parse(stdout)).toEqual(runBody("fail"));
+    expect(error).toMatchObject({ exitCode: EXIT_API_ERROR });
+  });
+
+  it("--quiet 는 deployKey 만 출력한다", async () => {
+    mocks.run.mockResolvedValue([runBody("success"), { ...runBody("success"), deployKey: 78 }]);
+
+    const { stdout, error } = await captureOutput(() => parseLeaf(runCommand, runArgs, ["--quiet"]));
+
+    expect(error).toBeUndefined();
+    expect(stdout).toBe("77\n78\n");
+  });
+
+  it("성공과 비동기 deploying 은 종료 코드 0 이다", async () => {
+    mocks.run.mockResolvedValueOnce(runBody("success")).mockResolvedValueOnce({ deployKey: 79, deployStatus: "deploying" });
+
+    expect((await captureOutput(() => parseLeaf(runCommand, runArgs))).error).toBeUndefined();
+    expect((await captureOutput(() => parseLeaf(runCommand, [...runArgs, "--async"]))).error).toBeUndefined();
+  });
+
+  it("모양을 모르는 응답은 원본 값을 JSON 문자열로 보이고 종료 코드 0 이다", async () => {
+    mocks.run.mockResolvedValue({ unexpected: { nested: true } });
+
+    const { stdout, error } = await captureOutput(() => parseLeaf(runCommand, runArgs));
+
+    expect(error).toBeUndefined();
+    expect(stdout).toContain('{"nested":true}');
+  });
+});
+
+describe("deploy server-groups 와 artifacts 표 출력", () => {
+  beforeEach(stubAuth);
+
+  it("server-groups 는 서버 그룹마다 한 행이고 --quiet 는 id 다", async () => {
+    mocks.serverGroups.mockResolvedValue({
+      serverGroups: [{ id: 5, name: "group-a", osType: "LINUX", serverCount: 2, description: "" }],
+    });
+
+    const table = await captureOutput(() => parseLeaf(serverGroupsCommand, ["--artifact-id", "1"]));
+    const quiet = await captureOutput(() => parseLeaf(serverGroupsCommand, ["--artifact-id", "1"], ["--quiet"]));
+
+    expect(table.stdout).toContain("group-a");
+    expect(table.stdout).not.toContain("[object Object]");
+    expect(quiet.stdout).toBe("5\n");
+  });
+
+  it("artifacts --name 은 이름 검색으로 넘긴다", async () => {
+    mocks.artifacts.mockResolvedValue({ artifacts: [{ id: 9, name: "app", applicationType: "server" }] });
+
+    const { stdout } = await captureOutput(() => parseLeaf(artifactsCommand, ["--name", "app"], ["--quiet"]));
+
+    expect(mocks.artifacts).toHaveBeenCalledWith("<appkey>", "app");
+    expect(stdout).toBe("9\n");
   });
 });
 

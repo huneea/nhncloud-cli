@@ -60,9 +60,13 @@ function args(output: string, extra: string[] = []): string[] {
   ];
 }
 
+// 인자의 고정 날짜가 90일 조회 한도 안에 들도록 테스트 시각을 고정한다. 고정하지 않으면 날짜가 지나며 깨진다.
+const FIXED_NOW = new Date("2026-08-03T02:00:00Z");
+
 describe("logncrash export v3 scroll", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.setSystemTime(FIXED_NOW);
     directory = mkdtempSync(join(tmpdir(), "logncrash-export-test-"));
     vi.mocked(resolveLogncrashClient).mockResolvedValue(client as never);
     availableToken.mockResolvedValue({ availableToken: 1 });
@@ -72,6 +76,7 @@ describe("logncrash export v3 scroll", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     rmSync(directory, { recursive: true, force: true });
   });
