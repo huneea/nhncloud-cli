@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NhnCloudCliError } from "../utils/errors.js";
-import { EXIT_CONFIG_ERROR, EXIT_PARAM_ERROR } from "../utils/exit-codes.js";
+import { EXIT_AUTH_ERROR, EXIT_CONFIG_ERROR, EXIT_PARAM_ERROR } from "../utils/exit-codes.js";
 import {
   getUserAccessKey,
   getProfileEnvironment,
@@ -11,6 +11,7 @@ import {
   setUserAccessKey,
 } from "../config/credentials.js";
 import {
+  verifyDnsplus,
   verifyIaas,
   verifyLogncrash,
   verifyNcr,
@@ -34,6 +35,7 @@ vi.mock("./configure-verify.js", () => ({
   verifyIaas: vi.fn(),
   verifyNcr: vi.fn(),
   verifyNcs: vi.fn(),
+  verifyDnsplus: vi.fn(),
 }));
 
 function programWithConfigure(): Command {
@@ -360,6 +362,62 @@ describe("configure logncrash Search v3", () => {
         "profile-rds",
         "--no-verify",
         "--rds-mysql-appkey",
+        "  ",
+      ]),
+    ).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+
+    expect(setServiceCredential).not.toHaveBeenCalled();
+  });
+
+  it("--dnsplus-appkey 는 UAK 없이 profile 의 망 주소로 검증하고 저장한다", async () => {
+    vi.mocked(getProfileEnvironment).mockResolvedValue("gov");
+    vi.mocked(verifyDnsplus).mockResolvedValue(true);
+
+    await programWithConfigure().parseAsync([
+      "node",
+      "nhncloud",
+      "configure",
+      "--profile",
+      "profile-dns",
+      "--dnsplus-appkey",
+      " dnsplus-appkey ",
+    ]);
+
+    expect(verifyDnsplus).toHaveBeenCalledWith("dnsplus-appkey", "gov");
+    expect(verifyUserAccessKey).not.toHaveBeenCalled();
+    expect(vi.mocked(setServiceCredential).mock.calls).toStrictEqual([
+      ["profile-dns", "dnsplus", { appkey: "dnsplus-appkey" }],
+    ]);
+  });
+
+  it("--dnsplus-appkey 검증이 실패하면 저장하지 않고 인증 오류로 끝난다", async () => {
+    vi.mocked(verifyDnsplus).mockResolvedValue(false);
+
+    await expect(
+      programWithConfigure().parseAsync([
+        "node",
+        "nhncloud",
+        "configure",
+        "--profile",
+        "profile-dns",
+        "--dnsplus-appkey",
+        "bad",
+      ]),
+    ).rejects.toMatchObject({ exitCode: EXIT_AUTH_ERROR });
+
+    expect(setServiceCredential).not.toHaveBeenCalled();
+  });
+
+  it("--dnsplus-appkey 공백 값은 EXIT_PARAM_ERROR 로 거부된다", async () => {
+    await expect(
+      programWithConfigure().parseAsync([
+        "node",
+        "nhncloud",
+        "configure",
+        "--profile",
+        "profile-dns",
+        "--no-verify",
+        "--dnsplus-appkey",
         "  ",
       ]),
     ).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });

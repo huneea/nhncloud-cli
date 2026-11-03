@@ -9,6 +9,11 @@ interface IntegerOptionRange {
 const POSITIVE_INTEGER_PATTERN = /^[1-9]\d*$/;
 const NON_NEGATIVE_INTEGER_PATTERN = /^(0|[1-9]\d*)$/;
 
+/** 반복 지정할 수 있는 옵션 값을 배열로 모은다. Commander 의 option parser 로 쓴다. */
+export function collectOption(value: string, previous: string[] = []): string[] {
+  return [...previous, value];
+}
+
 export function parseRequiredArgument(value: string, label: string): string {
   const trimmed = value.trim();
   if (!trimmed) {

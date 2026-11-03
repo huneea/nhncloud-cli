@@ -152,6 +152,11 @@ nhncloud volume list --json
 nhncloud volume get <volume-id> --json
 nhncloud volume create --size 50 --name my-volume
 nhncloud volume create --size 50 --volume-type "General SSD" --availability-zone kr-pub-a
+nhncloud volume attach <volume-id> --server <server-id> [--wait]
+nhncloud volume detach <volume-id> [--server <server-id>] --dry-run
+nhncloud volume detach <volume-id> [--server <server-id>] --yes [--wait]
+nhncloud volume delete <volume-id> --dry-run
+nhncloud volume delete <volume-id> --yes [--wait]
 nhncloud instance volumes <instance-id> --json
 nhncloud instance volume attach <instance-id> --volume <volume-id>
 nhncloud instance volume detach <instance-id> <volume-id>
@@ -160,7 +165,16 @@ nhncloud instance volume detach <instance-id> <volume-id>
 `volume create`, `attach`, `detach`는 쓰기 작업이다.
 `--availability-zone <az>`에는 `instance availability-zones`의 `zoneName`을 지정한다.
 인스턴스와 같은 AZ에 볼륨을 만들어 attach 시 AZ 불일치 400을 피할 수 있다.
-`attach`는 `--volume <id>` 플래그를 쓰고, `detach`는 `<instanceId> <volumeId>` 위치 인수를 쓴다.
+`instance volume attach`는 `--volume <id>` 플래그를 쓰고, `instance volume detach`는 `<instanceId> <volumeId>` 위치 인수를 쓴다.
+
+`volume attach|detach|delete`는 볼륨 ID가 첫 인수다.
+
+- `volume detach`는 연결이 하나면 그 서버에서 떼고, 여러 서버에 연결돼 있으면 `--server`를 요구한다.
+- `volume delete`는 연결된 볼륨을 거절한다. 먼저 `volume detach`로 연결을 해제한다. 삭제는 되돌릴 수 없다.
+- `detach`와 `delete`는 대상 볼륨의 이름·크기·연결 서버를 stderr에 보여 준다. 터미널에서는 확인을 묻고, 비대화형 환경에서는 `--yes`가 없으면 API 호출 전에 거절한다.
+- `--dry-run`은 요청을 보내지 않고 할 일만 출력한다(조회는 한다).
+- `--wait`은 연결은 `in-use`, 해제는 서버 연결 목록에서 빠질 때, 삭제는 조회가 404가 될 때까지 기다린다. `--timeout <sec>`로 상한을 정한다(기본 300초, `--wait`와 함께만 쓴다).
+- 응답 JSON의 `completed`는 `--wait`로 끝까지 확인했을 때만 `true`다.
 
 ## Floating IP
 

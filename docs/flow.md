@@ -148,6 +148,7 @@ nhncloud instance create --help
 | API Gateway | service·stage·resource 탐색 뒤 설정·배포 | [apigateway.md](../skills/nhncloud-cli/references/apigateway.md) |
 | Secure Key Manager | 키 저장소와 키 탐색 뒤 기밀 데이터 조회, 암복호화, 서명과 검증 | [skm.md](../skills/nhncloud-cli/references/skm.md) |
 | RDS for MySQL | DB 인스턴스 탐색 뒤 DB 스키마와 DB 사용자 조회·변경 | [rds-mysql.md](../skills/nhncloud-cli/references/rds-mysql.md) |
+| DNS Plus | 존 탐색 뒤 레코드 세트 조회·생성·삭제 | [dnsplus.md](../skills/nhncloud-cli/references/dnsplus.md) |
 
 ## 조회와 페이지 이동
 
@@ -378,6 +379,39 @@ flowchart TD
 - zone 생성 응답의 상태는 `BUILD` 이고 CLI 는 `ACTIVE` 를 기다리지 않는다. 레코드를 만들기 전에 `privatedns zone get` 으로 상태를 확인한다.
 - 결과를 모르는 실패 뒤에는 `privatedns record list` 나 `zone list` 로 반영 여부를 확인한 뒤 다시 실행한다.
 - `--quiet` 은 `create`, `update` 에서 대상 UUID 를, `delete` 에서 지운 UUID 를 출력한다. `--dry-run` 은 stdout 에 아무것도 내지 않는다.
+
+### DNS Plus
+
+`dnsplus.appkey`를 요청 경로에 넣어 호출한다. 인증 헤더와 region이 없고, 망은 profile `environment`로 고른다([[adr-049]]).
+`dnsplus zone list`로 존 이름이나 ID를 찾고, 레코드 세트 명령의 `--zone`에 넘긴다. 존 이름은 끝 점과 대소문자를 맞춰 비교한다.
+공식 API에 존 단건 조회가 없어 `zone get`은 목록을 좁혀 읽는다.
+
+#### DNS Plus 쓰기
+
+`recordset create`와 `recordset delete`는 같은 흐름을 따른다.
+
+```mermaid
+flowchart TD
+  A[인수 검증] -->|형식 오류, TTL 범위 밖| E3[종료 코드 3, 요청 없음]
+  A --> W{--yes 나 --dry-run 인가}
+  W -->|둘 다 없다| E3w[종료 코드 3, 요청 없음]
+  W --> B[profile, appkey, 망 해석]
+  B -->|설정 없음| E4[종료 코드 4]
+  B --> C[존 해석]
+  C -->|없거나 이름이 같은 존이 여럿| E3z[종료 코드 3, 쓰기 없음]
+  C --> D[레코드 세트 목록 조회]
+  D -->|create 인데 같은 이름이 있다, delete 인데 대상이 없거나 여럿이다| E3b[종료 코드 3, 쓰기 없음]
+  D -->|delete 대상이 SOA| E3s[종료 코드 3, 쓰기 없음]
+  D --> F{--dry-run 인가}
+  F -->|그렇다| P[보낼 요청 출력, 앱키는 가림, 종료 코드 0]
+  F -->|아니다| G[쓰기 요청]
+  G -->|봉투 실패| K[서버 메시지로 종료, 종료 코드 1, 앱키 오류는 2]
+  G --> OK[결과 출력, 종료 코드 0]
+```
+
+- 이름 비교는 끝 점을 붙인 소문자 FQDN 으로 한다. `create` 의 `--name` 이 존 밖이면 종료 코드 3이다.
+- `create` 는 같은 이름이 타입과 관계없이 있으면 멈춘다. 쓰기 결과를 모르는 실패(시간 초과, 연결 오류) 뒤에는 `recordset list` 로 반영 여부를 확인한 다음 다시 실행한다.
+- `--quiet` 은 `recordsetId` 만 출력한다. 미리보기는 stdout 에 요청을 내고 `--quiet` 에는 아무것도 내지 않는다.
 
 ## 공개 스킬 수명주기
 

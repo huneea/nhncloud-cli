@@ -1,5 +1,6 @@
 import { getAccessToken } from "../api/oauth.js";
 import { getIaasToken } from "../api/keystone.js";
+import { DnsplusClient } from "../services/dnsplus/client.js";
 import { LogncrashClient } from "../services/logncrash/client.js";
 import { NcrClient } from "../services/ncr/client.js";
 import { NcsClient } from "../services/ncs/client.js";
@@ -138,6 +139,29 @@ export async function verifyLogncrash(uak: UserAccessKey, appkey: string, enviro
       to: now.toISOString(),
       pageSize: 1,
     });
+    return true;
+  } catch (err) {
+    if (err instanceof NhnCloudCliError && err.exitCode === EXIT_AUTH_ERROR) {
+      return false;
+    }
+    throw err;
+  }
+}
+
+/**
+ * DNS Plus appkey 로 존 목록 조회를 시도해 유효성을 검증한다 (ADR-049).
+ *
+ * - 성공(0건 포함): true
+ * - 잘못된 appkey(결과 코드 4010001) 등 인증 실패: false
+ * - 그 외 에러: throw
+ *
+ * DNS Plus 는 appkey 하나로 인증하므로 UAK 가 필요 없다.
+ */
+export async function verifyDnsplus(appkey: string, environment: CloudEnvironment = "real"): Promise<boolean> {
+  if (!appkey) return false;
+
+  try {
+    await new DnsplusClient(appkey, environment).listZones();
     return true;
   } catch (err) {
     if (err instanceof NhnCloudCliError && err.exitCode === EXIT_AUTH_ERROR) {

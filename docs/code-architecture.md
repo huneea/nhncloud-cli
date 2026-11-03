@@ -33,6 +33,9 @@
 `src/services/`와 `src/commands/`는 가능한 한 같은 서비스 이름으로 짝을 이룬다.
 서비스 이름은 `src/services/`의 디렉터리 이름이다. 서비스는 서비스별 인증을 쓰는 쪽과 IaaS Keystone 토큰을 쓰는 쪽으로 나뉘고, 그 경계는 아래 「인증과 endpoint 조합」 표가 정한다.
 
+- `logncrash`, `deploy`, `ncr`, `ncs`, `apigateway`, `skm`, `rds-mysql`, `dnsplus`
+- `instance`, `network`, `blockstorage`, `loadbalancer`, `nks`, `privatedns`
+
 `floatingip`과 `volume` 명령은 각각 network와 blockstorage 서비스 경계를 재사용한다.
 서비스가 늘면 먼저 기존 인증과 endpoint 조합으로 표현할 수 있는지 확인한다.
 공공망 profile의 명시적 선택은 [ADR-037](adr/037-gov-profile-endpoints.md)을 따른다.
@@ -63,6 +66,7 @@ skill ──> config와 독립된 사용자 데이터 경계
 | 토큰 캐시를 공유하는 OAuth 서비스([data-schema.md](data-schema.md)의 「토큰 캐시」) | `api/oauth.ts`, `cache/token-store.ts` | `api/endpoints.ts`와 서비스 client |
 | Keystone 토큰을 쓰는 IaaS 서비스 | `api/keystone.ts`, `cache/token-store.ts` | region별 IaaS endpoint. loadbalancer 인증서의 key-manager 주소는 캐시하지 않고 region 과 망으로 만든다. privatedns 는 network endpoint 를 쓰고 지원 region 은 [[adr-050]] 를 따른다 |
 | NCR Management API, RDS for MySQL | profile 공통 UAK 정적 헤더 | region별 NCR host, region별 RDS for MySQL host |
+| DNS Plus | profile의 `dnsplus.appkey`를 요청 경로에 넣는다. 헤더와 토큰이 없다 | 망별 단일 host. 오류 메시지의 앱키는 가린다([[adr-049]]) |
 | NCR Harbor data plane | UAK Basic Auth | registry 응답에서 검증한 host |
 | Log & Crash collector | 서비스 규약에 맞춘 body | collector endpoint |
 

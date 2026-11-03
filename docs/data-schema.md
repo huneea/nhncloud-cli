@@ -97,6 +97,9 @@ UAK 는 개인/계정 단위라 OAuth 쓰는 서비스가 공유하고, 서비�
       "rds-mysql": {
         "appkey": "<appkey>"
       },
+      "dnsplus": {
+        "appkey": "<appkey>"
+      },
       "iaas": {
         "tenantId": "<tenant-id>",
         "username": "<account-email>",
@@ -123,11 +126,12 @@ UAK 는 개인/계정 단위라 OAuth 쓰는 서비스가 공유하고, 서비�
 - `apigateway`: appkey(path)만. 인증 토큰은 `userAccessKey` OAuth 를 재사용하며 헤더 이름이 `X-NHN-Authorization` 이다(secret 불요, [[adr-027]])
 - `skm`: appkey(path)만. 인증 토큰은 `userAccessKey` OAuth 를 재사용하며 헤더 이름이 `X-NHN-Authorization` 이다. 키 저장소의 MAC 인증 값은 저장하지 않고 명령 옵션으로 받는다([[adr-039]])
 - `rds-mysql`: RDS for MySQL appkey(프로젝트 통합 appkey 도 된다)만. `X-TC-APP-KEY` 헤더로 보내고, 인증은 `userAccessKey` 의 id 와 secret 을 정적 헤더로 보낸다. OAuth 토큰으로 교환하지 않는다. region 은 저장하지 않고 명령 `--region` 으로 받는다. DB 사용자 비밀번호는 저장하지 않는다([[adr-046]], [[adr-047]])
+- `dnsplus`: DNS Plus appkey(요청 경로에 들어간다)만. 인증 헤더와 UAK 는 쓰지 않는다. region 은 없다([[adr-049]])
 - `iaas`: OpenStack Keystone 자격증명. instance 등 IaaS 서비스가 공유 ([[adr-010]])
   - `password` 는 NHN 콘솔 IAM 에서 별도 발급하는 API 비밀번호 (로그인 비밀번호가 아님)
   - `region`: 일반망은 `kr1` / `kr2` / `kr3` / `jp1`(NKS는 `jp1` 제외), 공공망은 `kr1` / `kr2`. 명령의 `--region` 으로 override
 - 예약 키 `userAccessKey`와 `environment` 외 키는 서비스명 = 서비스별 블록
-- `environment: "gov"`: 공공망 profile에만 명시한다. 생략한 기존 profile은 일반망을 사용한다. 현재 공공망 endpoint 선택 대상은 OAuth, Deploy, NCR, IaaS, NKS, Secure Key Manager, RDS for MySQL, Log & Crash, NCS, API Gateway다([[adr-037]], [[adr-039]], [[adr-046]]).
+- `environment: "gov"`: 공공망 profile에만 명시한다. 생략한 기존 profile은 일반망을 사용한다. 현재 공공망 endpoint 선택 대상은 OAuth, Deploy, NCR, IaaS, NKS, Secure Key Manager, RDS for MySQL, DNS Plus, Log & Crash, NCS, API Gateway다([[adr-037]], [[adr-039]], [[adr-046]]).
 
 ## config.json
 

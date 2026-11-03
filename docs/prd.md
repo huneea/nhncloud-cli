@@ -81,11 +81,15 @@ AWS CLI 같은 통합 명령줄 도구가 없어 매번 토큰·엔드포인트�
   - 인증은 profile 공통 UAK 정적 헤더와 `rds-mysql.appkey`다. region은 `--region`(기본 `kr1`)으로 고른다.
   - 쓰기는 `--yes`가 없으면 미리보기이고, 비동기 작업은 `--wait`로 완료까지 기다린다. 비밀번호는 파일이나 표준 입력으로만 받고 출력하지 않는다.
   - 권한은 인스턴스의 모든 스키마에 적용된다. 스키마 하나로 좁히는 권한, 비밀번호 변경, 스키마 삭제는 범위 밖이다.
+- `nhncloud dnsplus`: DNS Plus의 존과 레코드 세트를 조회하고, 레코드 세트(A, CNAME, TXT)를 만들고 지운다([[adr-049]]).
+  - Load Balancer로 공개한 서비스의 레코드를 콘솔 대신 CLI로 더하는 것이 목적이다. 일반망과 공공망 profile을 모두 지원한다.
+  - 인증은 profile의 `dnsplus.appkey` 하나이고 요청 경로에 들어간다. UAK와 region은 쓰지 않는다.
+  - 쓰기는 `--yes`나 `--dry-run`이 필요하고, 같은 이름의 레코드 세트가 있으면 덮지 않고 멈춘다. 존 생성·삭제와 레코드 세트 수정은 범위 밖이다.
 - `nhncloud skills`: 공개 스킬의 상태 조회·설치·갱신·제거. 버전과 콘텐츠 해시로 오래된 설치와 사용자 수정본을 구분한다([[adr-025]]).
   Claude Code 와 Codex 의 스킬 경로를 같은 관리 저장소에 함께 연결하고 함께 바꾼다([[adr-043]]).
 - `nhncloud commands`와 `doctor`: 기계 판독 가능한 명령 탐색과 로컬 설정 진단. `doctor`는 `--json` 보고서를 내고, `--check-connection`을 줄 때만 대상 profile 의 연결을 확인한다([[adr-042]]).
 - profile 기반 자격증명 (`~/.nhncloud/credentials.json` 과 `~/.nhncloud/config.json`)
-- 공공망 profile(`environment: gov`)은 OAuth, Deploy, NCR, IaaS(Private DNS 포함), NKS, Secure Key Manager, RDS for MySQL, Log & Crash, NCS, API Gateway를 지원한다. 공공망 문서에 주소가 없는 region은 호출 전에 거부한다 ([[adr-037]])
+- 공공망 profile(`environment: gov`)은 OAuth, Deploy, NCR, IaaS(Private DNS 포함), NKS, Secure Key Manager, RDS for MySQL, DNS Plus, Log & Crash, NCS, API Gateway를 지원한다. 공공망 문서에 주소가 없는 region은 호출 전에 거부한다 ([[adr-037]])
 - 출력 3모드: 테이블 / `--json` / `--quiet`
 - `--profile` 로 profile 전환
 - `--proxy` 와 `HTTPS_PROXY`·`HTTP_PROXY`·`NO_PROXY` 로 토큰 발급을 포함한 모든 HTTP 요청을 프록시로 보낸다 ([[adr-044]])

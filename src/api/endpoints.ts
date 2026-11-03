@@ -10,12 +10,14 @@ const ENDPOINTS: Record<string, string> = {
   "logncrash-collector": "https://api-logncrash.nhncloudservice.com",
   deploy: "https://api-deploy.nhncloudservice.com",
   skm: "https://api-keymanager.nhncloudservice.com",
+  dnsplus: "https://dnsplus.api.nhncloudservice.com",
 };
 const GOV_ENDPOINTS: Record<string, string> = {
   logncrash: "https://api-lncs-search.gov-nhncloudservice.com",
   "logncrash-collector": "https://api-logncrash.gov-nhncloudservice.com",
   deploy: "https://api-tcd.gov-nhncloudservice.com",
   skm: "https://api-keymanager.gov-nhncloudservice.com",
+  dnsplus: "https://dnsplus.api.gov-nhncloudservice.com",
 };
 
 /**

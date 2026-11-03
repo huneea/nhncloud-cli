@@ -1,7 +1,7 @@
 # ADR-037: 공공망 profile의 endpoint 선택
 
 - **status**: `accepted`
-- **결정**: `credentials.json`의 profile에 `"environment": "gov"`를 명시하면 OAuth, Deploy, NCR, IaaS(NKS, Floating IP, Load Balancer, Private DNS 포함), Secure Key Manager, RDS for MySQL, Log & Crash(검색, 수집), NCS, API Gateway 호출에 공공망 endpoint를 사용한다. 이 필드가 없는 기존 profile은 일반망 주소를 유지한다.
+- **결정**: `credentials.json`의 profile에 `"environment": "gov"`를 명시하면 OAuth, Deploy, NCR, IaaS(NKS, Floating IP, Load Balancer, Private DNS 포함), Secure Key Manager, RDS for MySQL, DNS Plus, Log & Crash(검색, 수집), NCS, API Gateway 호출에 공공망 endpoint를 사용한다. 이 필드가 없는 기존 profile은 일반망 주소를 유지한다.
 - **대체된 부분**: [ADR-005](005-endpoint-hardcoded-map.md)의 gov 제외 결정을 대체한다.
 - **맥락**: 공공기관용 자격증명으로 호출해도 CLI가 일반망 주소에 연결되는 문제가 있었다(PR #108). 일반망과 공공망의 토큰과 endpoint가 섞이면 한 망의 자격증명이 다른 망 주소로 전송될 수 있다.
 - **인증**: UAK와 IaaS 자격증명 형식은 유지한다. OAuth와 Keystone 토큰 캐시의 자격 지문에 망 구분을 포함해, 같은 profile의 설정을 바꾼 뒤 다른 망의 토큰을 재사용하지 않는다. OAuth 토큰을 쓰는 서비스는 profile의 망으로 토큰을 발급받고, 같은 망의 서비스 주소에만 그 토큰을 보낸다.
@@ -26,6 +26,7 @@
 | loadbalancer certificate | `{region}-api-key-manager-infrastructure.gov-nhncloudservice.com` ([Load Balancer API v2](https://docs.gov-nhncloud.com/ko/Network/Load%20Balancer/ko/public-api-gov/)) | Keystone 발급 주소만 공공망 | kr1, kr2 | 확인하지 않음 | `GET /v1/containers` 가 HTTP 403(IAM 계정의 key-manager 권한 없음) | 지원([[adr-048]]) |
 | skm | `api-keymanager.gov-nhncloudservice.com` ([SKM API v1.3](https://docs.gov-nhncloud.com/ko/Security/Secure%20Key%20Manager/ko/api-guide-v1.3-gov/)) | OAuth 발급 주소만 공공망 | 없음(전역) | `resultCode 20002` | `skm keystore list` 성공 | 지원 |
 | rds-mysql | `kr1-rds-mysql.api.gov-nhncloudservice.com` ([RDS for MySQL API v3.0](https://docs.gov-nhncloud.com/ko/Database/RDS%20for%20MySQL/ko/api-guide-v3.0-gov/)) | 없음 | kr1 | kr1 은 본문 봉투 응답, kr2 는 HTTP 503 | `rds-mysql instance list` 성공 | 지원 |
+| dnsplus | `dnsplus.api.gov-nhncloudservice.com` ([DNS Plus API](https://docs.gov-nhncloud.com/ko/Network/DNS%20Plus/ko/api-guide/)) | 없음(앱키가 경로에 든다, [[adr-049]]) | 없음(전역) | 가짜 앱키로 HTTP 200 과 `resultCode 4010001` (2026-10-27) | 미확인(profile 에 dnsplus appkey 없음) | 지원 |
 | logncrash 검색 | `api-lncs-search.gov-nhncloudservice.com` ([Log & Crash Search API](https://docs.gov-nhncloud.com/ko/Data%20%26%20Analytics/Log%20%26%20Crash%20Search/ko/gov-api-guide/)) | OAuth 발급 주소만 공공망 | 없음(전역) | `available-token` 이 `resultCode -401` | `available-token`, `search` 성공 | 지원 |
 | logncrash 수집(`send`) | `api-logncrash.gov-nhncloudservice.com` (같은 문서) | 없음(본문의 appkey 로 식별) | 없음(전역) | `GET /v2/log` 가 HTTP 405 `Only support POST method` | 쓰기라 실행하지 않음 | 지원 |
 | ncs | `kr1-ncs.api.gov-nhncloudservice.com` ([NCS API](https://docs.gov-nhncloud.com/ko/Container/NCS/ko/public-api-gov/)) | OAuth 발급 주소만 공공망 | kr1 | kr1 은 `resultCode 10001`, kr2 는 DNS 없음 | 미확인(profile 에 ncs appkey 없음) | 지원 |

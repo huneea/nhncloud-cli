@@ -30,6 +30,9 @@ import { listCommand } from "./commands/instance/list.js";
 import { listCommand as volumeListCommand } from "./commands/volume/list.js";
 import { getCommand as volumeGetCommand } from "./commands/volume/get.js";
 import { createCommand as volumeCreateCommand } from "./commands/volume/create.js";
+import { attachCommand as volumeAttachCommand } from "./commands/volume/attach.js";
+import { detachCommand as volumeDetachCommand } from "./commands/volume/detach.js";
+import { deleteCommand as volumeDeleteCommand } from "./commands/volume/delete.js";
 import { listCommand as networkListCommand } from "./commands/network/list.js";
 import { subnetCommand } from "./commands/network/subnet.js";
 import { securityGroupCommand } from "./commands/network/security-group.js";
@@ -74,6 +77,8 @@ import { instanceCommand as rdsMysqlInstanceCommand } from "./commands/rds-mysql
 import { schemaCommand as rdsMysqlSchemaCommand } from "./commands/rds-mysql/schema.js";
 import { userCommand as rdsMysqlUserCommand } from "./commands/rds-mysql/user.js";
 import { jobCommand as rdsMysqlJobCommand } from "./commands/rds-mysql/job.js";
+import { zoneCommand as dnsplusZoneCommand } from "./commands/dnsplus/zone.js";
+import { recordsetCommand as dnsplusRecordsetCommand } from "./commands/dnsplus/recordset.js";
 import { listCommand as loadBalancerListCommand } from "./commands/loadbalancer/list.js";
 import { getCommand as loadBalancerGetCommand } from "./commands/loadbalancer/get.js";
 import { ipaclCommand as loadBalancerIpAclCommand } from "./commands/loadbalancer/ipacl.js";
@@ -131,6 +136,7 @@ const volumeAgentWorkflow = `
 Agent workflow:
   1. nhncloud volume list --json
   2. nhncloud volume get <volume-id> --json
+  3. 연결과 삭제는 volume attach/detach/delete. detach·delete 는 --dry-run 으로 대상을 확인하고 --yes 로 실행한다.
 `;
 
 const floatingIpAgentWorkflow = `
@@ -309,6 +315,9 @@ const volumeCommand = new Command("volume")
 volumeCommand.addCommand(volumeListCommand);
 volumeCommand.addCommand(volumeGetCommand);
 volumeCommand.addCommand(volumeCreateCommand);
+volumeCommand.addCommand(volumeAttachCommand);
+volumeCommand.addCommand(volumeDetachCommand);
+volumeCommand.addCommand(volumeDeleteCommand);
 
 program.addCommand(volumeCommand);
 
@@ -411,6 +420,14 @@ rdsMysqlCommand.addCommand(rdsMysqlUserCommand);
 rdsMysqlCommand.addCommand(rdsMysqlJobCommand);
 
 program.addCommand(rdsMysqlCommand);
+
+// DNS Plus 커맨드 그룹
+const dnsplusCommand = new Command("dnsplus")
+  .description("NHN Cloud DNS Plus 존·레코드 세트 명령");
+dnsplusCommand.addCommand(dnsplusZoneCommand);
+dnsplusCommand.addCommand(dnsplusRecordsetCommand);
+
+program.addCommand(dnsplusCommand);
 program.addCommand(skillsCommand);
 program.addCommand(doctorCommand);
 program.addCommand(createCommandsCommand(program));

@@ -33,9 +33,7 @@ export function parseIpAclAction(value: string): IpAclAction {
   return value;
 }
 
-export function collectOption(value: string, previous: string[] = []): string[] {
-  return [...previous, value];
-}
+export { collectOption } from "../parse-options.js";
 
 export function requireResourceInputs(values: string[], label: string): string[] {
   if (values.length === 0) {

@@ -27,6 +27,13 @@ function isVolumeResponse(val: unknown): val is { volume: Volume } {
   return isVolume(obj["volume"]);
 }
 
+const DEFAULT_POLL_INTERVAL_MS = 3_000;
+
+/** get() 은 모든 오류를 NhnCloudCliError 로 바꾸므로 상태를 메시지의 "(404)" 접두사로 판별한다. */
+function isNotFound(err: unknown): boolean {
+  return err instanceof NhnCloudCliError && err.message.startsWith("API 호출 실패 (404)");
+}
+
 // ── BlockStorageClient ────────────────────────────────────────────────────────
 
 export class BlockStorageClient {
@@ -126,5 +133,78 @@ export class BlockStorageClient {
     } catch (err) {
       throw toNhnCloudCliError(err);
     }
+  }
+
+  /** 볼륨을 삭제한다 (DELETE /volumes/{id}, 202 무응답). 연결된 볼륨은 서버가 거절한다. */
+  async delete(id: string): Promise<void> {
+    const url = `${this.endpoint}/volumes/${encodeURIComponent(id)}`;
+    try {
+      await ky.delete(url, { headers: this.authHeaders(), retry: 0, timeout: DEFAULT_TIMEOUT_MS });
+    } catch (err) {
+      throw toNhnCloudCliError(err);
+    }
+  }
+
+  /**
+   * 볼륨이 `done` 조건을 만족할 때까지 폴링한다.
+   * `error*` 상태가 되면 기다리지 않고 실패하고, 제한 시간을 넘으면 마지막 상태를 담아 실패한다.
+   */
+  async waitForVolume(
+    id: string,
+    done: (volume: Volume) => boolean,
+    opts: { timeoutMs: number; intervalMs?: number; label: string },
+  ): Promise<Volume> {
+    const intervalMs = opts.intervalMs ?? DEFAULT_POLL_INTERVAL_MS;
+    const deadline = Date.now() + opts.timeoutMs;
+    let lastStatus = "unknown";
+    for (;;) {
+      const volume = await this.get(id);
+      lastStatus = volume.status;
+      if (done(volume)) return volume;
+      if (volume.status.startsWith("error")) {
+        throw new NhnCloudCliError(
+          `볼륨 ${id} 가 ${opts.label} 중 오류 상태가 되었습니다 (상태: ${volume.status}).`,
+          EXIT_API_ERROR,
+        );
+      }
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+      await new Promise<void>((resolve) => setTimeout(resolve, Math.min(intervalMs, remaining)));
+    }
+    throw new NhnCloudCliError(
+      `볼륨 ${id} 의 ${opts.label} 이 끝나지 않았습니다 (마지막 상태: ${lastStatus}). ` +
+        `--wait 타임아웃(${Math.round(opts.timeoutMs / 1000)}초) 초과.`,
+      EXIT_API_ERROR,
+    );
+  }
+
+  /** 볼륨 조회가 404 가 될 때까지 폴링한다. `error_deleting` 이 되면 바로 실패한다. */
+  async waitForDeleted(id: string, opts: { timeoutMs: number; intervalMs?: number }): Promise<void> {
+    const intervalMs = opts.intervalMs ?? DEFAULT_POLL_INTERVAL_MS;
+    const deadline = Date.now() + opts.timeoutMs;
+    let lastStatus = "unknown";
+    for (;;) {
+      try {
+        const volume = await this.get(id);
+        lastStatus = volume.status;
+        if (volume.status.startsWith("error")) {
+          throw new NhnCloudCliError(
+            `볼륨 ${id} 삭제 중 오류 상태가 되었습니다 (상태: ${volume.status}).`,
+            EXIT_API_ERROR,
+          );
+        }
+      } catch (err) {
+        if (isNotFound(err)) return;
+        throw err;
+      }
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+      await new Promise<void>((resolve) => setTimeout(resolve, Math.min(intervalMs, remaining)));
+    }
+    throw new NhnCloudCliError(
+      `볼륨 ${id} 삭제가 끝나지 않았습니다 (마지막 상태: ${lastStatus}). ` +
+        `--wait 타임아웃(${Math.round(opts.timeoutMs / 1000)}초) 초과.`,
+      EXIT_API_ERROR,
+    );
   }
 }

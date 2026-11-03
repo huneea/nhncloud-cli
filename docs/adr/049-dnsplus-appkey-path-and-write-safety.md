@@ -1,0 +1,31 @@
+# ADR-049: DNS Plus 는 앱키를 요청 경로에 넣어 호출하고, 레코드 세트 쓰기는 `--yes` 나 `--dry-run` 을 요구하며 같은 이름이 있으면 멈춘다
+
+- **status**: `accepted`
+- **결정**:
+  - DNS Plus API v1.0 은 `https://dnsplus.api.nhncloudservice.com/dnsplus/v1.0/appkeys/{appkey}` (공공망은 `dnsplus.api.gov-nhncloudservice.com`)로 호출한다. 인증 헤더와 UAK 토큰은 없고 앱키가 경로에 든다. 앱키는 profile 의 `dnsplus.appkey` 로만 지정한다([[adr-029]]).
+  - API 는 항상 HTTP 200 을 돌려주고 성공 여부는 본문 `header.isSuccessful` 로 가른다. 잘못된 앱키는 `resultCode 4010001` 이며 종료 코드 2로 끝낸다.
+  - 요청 URL 이 앱키를 담으므로 오류 메시지에 URL 을 싣지 않는다. 그 밖의 오류 메시지는 앱키를 `<appkey>` 로 가린다. `--dry-run` 출력의 경로도 앱키 자리를 `<appkey>` 로 적는다.
+  - 명령은 `dnsplus zone list|get` 과 `dnsplus recordset list|get|create|delete` 다. 존은 `--zone` 으로 ID(UUID) 나 이름을 받고, 이름은 끝 점을 붙인 소문자 FQDN 으로 맞춰 정확히 같은 존 하나만 고른다. 레코드 세트도 같은 규칙으로 ID 나 이름을 받는다.
+  - 공식 API 에 존 단건 조회가 없어 `zone get` 은 목록을 `zoneIdList` 나 `searchZoneName` 으로 좁혀 읽는다. 목록은 `limit 3000` 으로 `totalCount` 를 채울 때까지 페이지를 읽는다.
+  - `recordset create` 와 `recordset delete` 는 `--yes` 나 `--dry-run` 중 하나가 있어야 실행한다. 둘 다 없으면 API 호출 전에 종료 코드 3이다. `--dry-run` 은 이름 해석을 위한 조회만 하고 보낼 요청을 출력한다. 규칙은 [[adr-048]] 과 같다.
+  - `recordset create` 는 같은 이름의 레코드 세트가 타입과 관계없이 하나라도 있으면 덮지 않고 종료 코드 3으로 멈춘다. 수정(update) 명령은 두지 않는다.
+  - 생성 타입은 `A`, `CNAME`, `TXT` 만 받는다. `A` 는 IPv4 만, `CNAME` 은 값 하나를 끝 점이 있는 FQDN 으로, `TXT` 는 큰따옴표로 감싼 문자열로 `recordContent` 에 보낸다. TTL 은 10~2147483647 이고 기본은 300 이다. 이름은 존 안의 이름이어야 한다.
+  - `recordset delete` 는 찾은 레코드 세트 하나만 지운다. 이름이 같은 타입이 여럿이면 `--type` 이나 ID 를 요구하고, SOA 는 지우지 않는다. 존 생성·수정·삭제는 범위 밖이다.
+  - `configure --dnsplus-appkey` 는 존 목록 조회로 앱키를 검증한다. UAK 가 필요 없고 profile 의 망 주소로 보낸다.
+- **맥락**:
+  - 공공망 프로젝트에서 서비스를 Load Balancer 로 공개할 때 DNS Plus 에 A 레코드를 더해야 하는데 CLI 에 명령이 없어 콘솔에서 했다.
+  - 공용망과 공공망 API 가이드는 같은 경로와 본문을 쓰고 host 만 다르다. 2026-10-27 가짜 앱키로 두 host 에 `GET /zones` 를 보내 둘 다 HTTP 200 과 `resultCode 4010001 Invalid appKey.` 를 확인했다.
+  - DNS 이름은 대소문자를 구분하지 않고 API 이름은 끝 점이 있는 FQDN 이라, 사용자가 끝 점을 빼고 쓰거나 대문자로 써도 같은 이름으로 다룬다.
+  - TXT 값은 공식 문서의 SPF 예시와 길이 제한이 따옴표를 값에 포함해 센다. 사용자가 따옴표를 직접 쓰지 않아도 되도록 CLI 가 감싼다.
+  - 이 저장소의 profile 에는 dnsplus 앱키가 없어 존 조회 성공 응답은 실호출로 확인하지 못했다. 응답 필드는 공식 문서의 예시를 따랐다. 쓰기는 실행하지 않았으므로 TXT 따옴표 처리와 `recordContent` 만 보내는 본문은 단위 테스트로만 검증했다.
+  - 공식 문서: [DNS Plus API 가이드](https://docs.nhncloud.com/ko/Network/DNS%20Plus/ko/api-guide/), [공공망 API 가이드](https://docs.gov-nhncloud.com/ko/Network/DNS%20Plus/ko/api-guide/).
+- **대안 기각**:
+  - `recordset create` 가 같은 이름을 덮어쓰기: 운영 중인 레코드를 조용히 바꾼다. 이름이 같으면 타입이 달라도 멈추고, 바꾸려면 지우고 다시 만든다.
+  - 같은 이름 검사를 같은 타입으로 한정: CNAME 은 같은 이름의 다른 타입과 함께 둘 수 없고, 서버 오류에 맡기면 보낼 요청을 미리 볼 수 없다.
+  - `--yes` 없이 미리보기([[adr-047]] 방식): 같은 사용자가 쓰는 Load Balancer 쓰기([[adr-048]])와 방식을 맞춘다.
+  - 앱키를 `--appkey` 옵션으로도 받기: [[adr-029]] 가 이미 막은 경로다.
+  - `zone create` 와 `delete` 포함: 존 삭제는 레코드 세트까지 비동기로 지우는 되돌리기 어려운 쓰기다. 이번 요구(레코드 추가)에 필요하지 않다.
+- **결과**:
+  - 얻는 것: Load Balancer 로 공개한 서비스의 A 레코드를 CLI 로 추가·확인·삭제하고, 보낼 요청을 앱키 없이 미리 볼 수 있다.
+  - 감당할 것: 레코드 세트 수정, AAAA·MX 같은 다른 타입, 한 번에 여러 레코드 세트를 다루는 대량 생성·삭제는 없다. `doctor --check-connection` 은 dnsplus 를 확인하지 않는다.
+- **적용 범위**: `dnsplus` 명령군과 `configure --dnsplus-appkey`. 공공망 endpoint 선택은 [[adr-037]] 을 따른다.
