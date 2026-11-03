@@ -7,7 +7,7 @@
   - `deployStatus` 가 `fail` 로 시작하면 결과를 모두 출력한 뒤 종료 코드 1(`EXIT_API_ERROR`)로 끝낸다. 출력 형식과 관계없다. `success`, `deploying`(`--async`)과 모르는 값은 종료 코드 0이다.
   - 응답 모양을 알 수 없으면 원본 값을 JSON 문자열로 표에 싣고 종료 코드 0으로 끝낸다. 배포가 이미 실행된 뒤라 해석 실패를 오류로 만들지 않는다.
   - `deploy histories` 는 공개 쿼리 `serverGroupId`, `deploymentYearFrom`, `deploymentYearTo`, `pageNum`, `pageSize` 를 `--server-group-id`, `--from`, `--to`, `--page-num`, `--page-size` 로 받는다. 결과 필터 쿼리는 API 에 없어 `--result` 는 받은 행을 CLI 가 필터링한다.
-  - `--all` 은 기간 안의 모든 페이지를 100건씩 모은다. `--deploy-key` 는 같은 방식으로 찾다가 그 키를 만나면 남은 페이지를 받지 않고, 못 찾으면 종료 코드 3이다. 두 옵션은 `--page-num` 과 함께 쓸 수 없다. 1000 페이지에서 끊고 stderr 에 경고한다.
+  - `--all` 은 기간 안의 모든 페이지를 100건씩 모은다. `--deploy-key` 는 같은 방식으로 찾다가 그 키를 만나면 남은 페이지를 받지 않고, 못 찾으면 종료 코드 3이다. 두 옵션은 `--page-num` 과 함께 쓸 수 없다. `--deploy-key` 는 `--result` 와도 함께 쓸 수 없다. 함께 쓰면 「찾았지만 결과가 다름」 과 「기간 안에 없음」 을 구분할 수 없다. 1000 페이지에서 끊고 stderr 에 경고한다.
   - 기간은 둘 다 없으면 보내지 않아 API 기본값(최근 1개월)을 쓴다. 하나만 주면 빠진 종료일은 오늘, 빠진 시작일은 종료일의 1개월 전으로 채운다. 시작일이 종료일보다 늦거나 종료일의 1년 전과 같거나 이르면 요청 전에 종료 코드 3으로 거부한다. `--page-size` 는 1 이상 100 이하다.
   - `deploy histories --json` 은 응답 모양 `{ totalCount, deployHistories }` 를 유지한다. `totalCount` 는 API 가 준 기간 전체 건수이고 `deployHistories` 는 CLI 필터를 거친 행이다.
 - **맥락**:

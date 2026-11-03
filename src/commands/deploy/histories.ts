@@ -7,6 +7,7 @@ import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
 import type { DeployHistory, DeployHistoryPage } from "../../services/deploy/types.js";
 import {
+  DEFAULT_PAGE_SIZE,
   HISTORY_RESULTS,
   MAX_PAGE_SIZE,
   MAX_SCAN_PAGES,
@@ -43,10 +44,10 @@ export const historiesCommand = new Command("histories")
   .option("--from <yyyy-MM-dd>", "조회 시작일 (생략 시 --to 의 1개월 전, 둘 다 생략 시 최근 1개월)")
   .option("--to <yyyy-MM-dd>", "조회 종료일 (생략 시 오늘). 기간은 1년보다 짧아야 한다")
   .option("--page-num <n>", "페이지 번호 (기본 1)")
-  .option("--page-size <n>", `페이지당 건수 (기본 20, 최대 ${MAX_PAGE_SIZE})`)
+  .option("--page-size <n>", `페이지당 건수 (기본 ${DEFAULT_PAGE_SIZE}, 최대 ${MAX_PAGE_SIZE})`)
   .option("--all", "기간 안의 모든 페이지를 모은다")
   .option("--result <result>", `실행 결과로 필터링한다 (${HISTORY_RESULTS.join("|")}). API 에 결과 필터가 없어 받은 행을 CLI 가 필터링한다`)
-  .option("--deploy-key <key>", "이 배포 키의 이력 한 건만 찾는다 (기간 안의 페이지를 차례로 찾는다)")
+  .option("--deploy-key <key>", "이 배포 키의 이력 한 건만 찾는다 (기간 안의 페이지를 차례로 찾는다, --result 와 함께 쓸 수 없다)")
   .option("--profile <name>", "사용할 profile 이름")
   .action(async (_opts: unknown, cmd: Command) => {
     const opts = cmd.optsWithGlobals<HistoriesGlobalOpts>();
@@ -65,6 +66,10 @@ export const historiesCommand = new Command("histories")
         "--page-num 은 --all 이나 --deploy-key 와 함께 쓸 수 없습니다.",
         EXIT_PARAM_ERROR,
       );
+    }
+    // 배포 키 한 건을 짚는 조회에 결과 필터는 겹친다. 함께 쓰면 「찾았지만 결과가 다름」 과 「기간 안에 없음」 이 구분되지 않는다.
+    if (deployKey !== undefined && result !== undefined) {
+      throw new NhnCloudCliError("--deploy-key 는 --result 와 함께 쓸 수 없습니다.", EXIT_PARAM_ERROR);
     }
 
     // ── 2. 인증 체인 + appKey 해석 (spinner 시작 전) ──
@@ -128,8 +133,11 @@ export const historiesCommand = new Command("histories")
       ids: rows.map((history) => String(history.deployKey)),
     });
 
-    if (!opts.json && !opts.quiet && !scan && page.deployHistories.length < page.totalCount) {
-      const current = pageNum ?? 1;
+    const current = pageNum ?? 1;
+    const size = pageSize ?? DEFAULT_PAGE_SIZE;
+    const hasNextPage =
+      page.deployHistories.length === size && (current - 1) * size + page.deployHistories.length < page.totalCount;
+    if (!opts.json && !opts.quiet && !scan && hasNextPage) {
       process.stderr.write(
         `전체 ${page.totalCount}건 중 ${current}페이지를 표시했습니다. 다음 페이지는 --page-num ${current + 1}, 전체는 --all 로 조회합니다.\n`,
       );

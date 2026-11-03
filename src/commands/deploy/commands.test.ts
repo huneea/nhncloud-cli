@@ -321,6 +321,18 @@ describe("deploy histories", () => {
     expect(stdout).not.toContain("[object Object]");
   });
 
+  it.each([
+    ["중간 페이지", ["--page-size", "2", "--page-num", "1"], [history(5, "success"), history(4, "success")], true],
+    ["꽉 찬 마지막 페이지", ["--page-size", "2", "--page-num", "3"], [history(2, "success"), history(1, "success")], false],
+    ["덜 찬 마지막 페이지", ["--page-size", "4", "--page-num", "2"], [history(1, "success"), history(2, "success")], false],
+  ])("%s 의 다음 페이지 안내는 %s 이다", async (_name, args, rows, expected) => {
+    mocks.histories.mockResolvedValue({ totalCount: 6, deployHistories: rows });
+
+    const { stderr } = await captureOutput(() => parseLeaf(historiesCommand, ["--artifact-id", "1", ...args]));
+
+    expect(stderr.includes("다음 페이지는")).toBe(expected);
+  });
+
   it("--json 은 { totalCount, deployHistories } 모양을 유지하고 --result 로 필터링한 행만 담는다", async () => {
     mocks.histories.mockResolvedValue({
       totalCount: 3,
@@ -387,6 +399,7 @@ describe("deploy histories", () => {
     ["잘못된 날짜", ["--from", "2026-02-30"]],
     ["1년에 닿는 기간", ["--from", "2025-01-01", "--to", "2026-01-01"]],
     ["알 수 없는 결과", ["--result", "done"]],
+    ["--deploy-key 와 --result", ["--deploy-key", "1", "--result", "fail"]],
   ])("%s 은 API 호출 전에 입력 오류로 거부한다", async (_name, args) => {
     const { error } = await captureOutput(() => parseLeaf(historiesCommand, ["--artifact-id", "1", ...args]));
 

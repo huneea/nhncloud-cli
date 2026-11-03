@@ -80,7 +80,7 @@ nhncloud deploy histories --artifact-id <id> --deploy-key <key> --json
 `--page-size`는 1 이상 100 이하이고 기본은 20이다.
 
 `--all`은 기간 안의 모든 페이지를 모은다.
-`--deploy-key`는 기간 안의 페이지를 차례로 찾아 그 한 건만 보이고, 없으면 종료 코드 3이다.
+`--deploy-key`는 기간 안의 페이지를 차례로 찾아 그 한 건만 보이고, 없으면 종료 코드 3이다. `--result`와 함께 쓸 수 없다.
 `--result success|fail|running`은 API에 결과 필터가 없어 받은 행을 CLI가 필터링한다. 페이지 하나만 받았으면 그 안에서만 찾는다.
 
 `--json`은 `{ totalCount, deployHistories }` 객체다.

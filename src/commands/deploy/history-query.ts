@@ -7,6 +7,8 @@ import { EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
 export const HISTORY_RESULTS = ["success", "fail", "running"] as const;
 export type HistoryResult = (typeof HISTORY_RESULTS)[number];
 
+/** 페이지당 건수 API 기본값(공식 문서) */
+export const DEFAULT_PAGE_SIZE = 20;
 /** 페이지당 건수 상한. 문서에는 없고 실측(2026-11)에서 101 이상은 요청 오류였다 */
 export const MAX_PAGE_SIZE = 100;
 /** 여러 페이지를 모을 때 한 번에 받는 건수 */
