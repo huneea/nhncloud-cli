@@ -138,7 +138,7 @@ nhncloud instance create --help
 | 영역 | 일반 흐름 | 상세 사용자 가이드 |
 |---|---|---|
 | Log & Crash | 조회 토큰 확인, 검색, 대량 export, 로그 전송 | [logncrash.md](../skills/nhncloud-cli/references/logncrash.md) |
-| Deploy | 좌표 탐색, 배포 실행, 바이너리 전송 | [deploy.md](../skills/nhncloud-cli/references/deploy.md) |
+| Deploy | 좌표 탐색, 배포 실행과 서버별 결과, 배포 이력 필터, 바이너리 전송 | [deploy.md](../skills/nhncloud-cli/references/deploy.md) |
 | Instance·Network·Volume·Floating IP | 리소스 탐색 뒤 조회·생성·변경 | [iaas.md](../skills/nhncloud-cli/references/iaas.md) |
 | Load Balancer | 대상 탐색, IP ACL 변경과 부분 실패 복구, 인증서 업로드부터 HTTPS 리스너와 Host 규칙까지 | [loadbalancer.md](../skills/nhncloud-cli/references/loadbalancer.md) |
 | Private DNS | zone 탐색 뒤 레코드 세트 조회·생성·수정·삭제, zone 생성·VPC 연결 변경·삭제 | [privatedns.md](../skills/nhncloud-cli/references/privatedns.md) |
@@ -211,6 +211,7 @@ IaaS 서비스는 profile의 Keystone 자격증명과 region을 해석하고 토
 
 공통 UAK를 OAuth access token으로 교환하고 profile의 서비스 appkey를 경로에 사용한다.
 배포 좌표는 명령 옵션으로 받으며 profile에 저장하지 않는다.
+동기 배포 실행은 서버별 결과를 출력한 뒤 실패면 종료 코드 1로 끝난다. 배포 한 건의 서버별 결과를 나중에 조회하는 공개 API는 없다(ADR-050).
 같은 계정 토큰 캐시를 공유하는 서비스 목록은 [data-schema.md](data-schema.md)의 「토큰 캐시」 절을 따른다.
 서비스별 헤더와 응답 봉투는 client가 책임진다.
 
@@ -342,7 +343,7 @@ flowchart TD
 
 ### Private DNS
 
-IaaS Keystone 토큰과 network endpoint 를 쓰고, 경로는 `/v2.0/privatedns/zones` 아래다([[adr-050]]).
+IaaS Keystone 토큰과 network endpoint 를 쓰고, 경로는 `/v2.0/privatedns/zones` 아래다([[adr-051]]).
 일반망은 `kr1`, `kr2`, `kr3`, 공공망은 `kr1` 만 받는다. 다른 region 은 profile 과 region 을 해석한 뒤 토큰 발급 전에 종료 코드 3으로 끝난다.
 `privatedns zone list` 로 zone 을 찾고, zone 이름이나 UUID 를 `record` 명령의 첫 인수로 넘긴다.
 zone 이름은 끝의 `.` 를 생략해도 된다. 레코드 세트는 UUID, FQDN(끝이 `.`), zone 기준 상대 이름, zone apex 를 뜻하는 `@` 로 고른다. 상대 이름이 이미 zone 이름으로 끝나면 FQDN 으로 보고 zone 이름을 다시 붙이지 않으며, zone 밖의 FQDN 은 종료 코드 3이다.

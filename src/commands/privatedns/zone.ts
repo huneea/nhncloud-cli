@@ -20,7 +20,7 @@ import {
   type PrivateDnsWriteOpts,
 } from "./helpers.js";
 
-// Private DNS zone 명령 (ADR-050).
+// Private DNS zone 명령 (ADR-051).
 
 interface ZoneListOpts extends PrivateDnsGlobalOpts {
   name?: string;

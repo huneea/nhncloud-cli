@@ -11,6 +11,7 @@ interface BinariesGlobalOpts extends OutputOptions {
   pageSize?: string;
   sortKey?: string;
   sortDirection?: string;
+  keyword?: string;
   artifactId?: string;
   profile?: string;
 }
@@ -38,6 +39,7 @@ export const binariesCommand = new Command("binaries")
   .option("--page-size <n>", "페이지 크기 (1 이상)")
   .option("--sort-key <k>", "정렬 기준 (예: UPLOAD_DATE)")
   .option("--sort-direction <d>", "정렬 방향 (예: DESC)")
+  .option("--keyword <text>", "바이너리 버전 검색 키워드")
   .option("--artifact-id <id>", "조회할 아티팩트 ID (artifacts 로 확인)")
   .option("--profile <name>", "사용할 profile 이름")
   .action(async (_opts: unknown, cmd: Command) => {
@@ -67,6 +69,7 @@ export const binariesCommand = new Command("binaries")
         pageSize,
         sortKey: opts.sortKey,
         sortDirection: opts.sortDirection,
+        keyword: opts.keyword,
       });
     } catch (err) {
       stopSpinner(false);

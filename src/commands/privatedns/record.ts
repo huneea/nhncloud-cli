@@ -21,7 +21,7 @@ import {
   type PrivateDnsWriteOpts,
 } from "./helpers.js";
 
-// Private DNS 레코드 세트 명령 (ADR-050).
+// Private DNS 레코드 세트 명령 (ADR-051).
 
 interface RecordListOpts extends PrivateDnsGlobalOpts {
   name?: string;
