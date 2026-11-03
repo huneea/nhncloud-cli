@@ -62,6 +62,9 @@ function args(output: string, extra: string[] = []): string[] {
 
 describe("logncrash export v3 scroll", () => {
   beforeEach(() => {
+    // 90일 조회 한도 검사가 실행 날짜에 흔들리지 않도록 현재 시각만 고정한다.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-08-03T12:00:00Z"));
     vi.clearAllMocks();
     directory = mkdtempSync(join(tmpdir(), "logncrash-export-test-"));
     vi.mocked(resolveLogncrashClient).mockResolvedValue(client as never);
@@ -72,6 +75,7 @@ describe("logncrash export v3 scroll", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     rmSync(directory, { recursive: true, force: true });
   });
