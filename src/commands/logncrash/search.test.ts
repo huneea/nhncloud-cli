@@ -57,9 +57,6 @@ describe("logncrash search v3 cursor", () => {
   });
 
   beforeEach(() => {
-    // 90일 조회 한도 검사가 실행 날짜에 흔들리지 않도록 현재 시각만 고정한다.
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2026-08-03T12:00:00Z"));
     vi.clearAllMocks();
     vi.setSystemTime(FIXED_NOW);
     vi.mocked(resolveLogncrashClient).mockResolvedValue(client as never);
@@ -70,10 +67,6 @@ describe("logncrash search v3 cursor", () => {
       pageSize: 10,
       data: [{ logTime: "2026-08-03T00:30:00Z", logType: "NORMAL", logBody: "hello" }],
     });
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("조회 토큰을 cursor 검색 직전에 확인한다", async () => {
