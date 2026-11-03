@@ -79,6 +79,7 @@ import { userCommand as rdsMysqlUserCommand } from "./commands/rds-mysql/user.js
 import { jobCommand as rdsMysqlJobCommand } from "./commands/rds-mysql/job.js";
 import { zoneCommand as dnsplusZoneCommand } from "./commands/dnsplus/zone.js";
 import { recordsetCommand as dnsplusRecordsetCommand } from "./commands/dnsplus/recordset.js";
+import { executeCommand as pipelineExecuteCommand } from "./commands/pipeline/execute.js";
 import { listCommand as loadBalancerListCommand } from "./commands/loadbalancer/list.js";
 import { getCommand as loadBalancerGetCommand } from "./commands/loadbalancer/get.js";
 import { ipaclCommand as loadBalancerIpAclCommand } from "./commands/loadbalancer/ipacl.js";
@@ -407,6 +408,13 @@ dnsplusCommand.addCommand(dnsplusZoneCommand);
 dnsplusCommand.addCommand(dnsplusRecordsetCommand);
 
 program.addCommand(dnsplusCommand);
+
+// Pipeline 커맨드 그룹
+const pipelineCommand = new Command("pipeline")
+  .description("Pipeline 수동 실행");
+pipelineCommand.addCommand(pipelineExecuteCommand);
+
+program.addCommand(pipelineCommand);
 program.addCommand(skillsCommand);
 program.addCommand(doctorCommand);
 program.addCommand(createCommandsCommand(program));

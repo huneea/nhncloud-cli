@@ -424,4 +424,38 @@ describe("configure logncrash Search v3", () => {
 
     expect(setServiceCredential).not.toHaveBeenCalled();
   });
+
+  it("--pipeline-appkey 는 연결 테스트 없이 trim 한 값을 저장한다", async () => {
+    await programWithConfigure().parseAsync([
+      "node",
+      "nhncloud",
+      "configure",
+      "--profile",
+      "profile-pipeline",
+      "--pipeline-appkey",
+      " pipeline-appkey ",
+    ]);
+
+    expect(verifyDnsplus).not.toHaveBeenCalled();
+    expect(verifyUserAccessKey).not.toHaveBeenCalled();
+    expect(vi.mocked(setServiceCredential).mock.calls).toStrictEqual([
+      ["profile-pipeline", "pipeline", { appkey: "pipeline-appkey" }],
+    ]);
+  });
+
+  it("--pipeline-appkey 공백 값은 EXIT_PARAM_ERROR 로 거부된다", async () => {
+    await expect(
+      programWithConfigure().parseAsync([
+        "node",
+        "nhncloud",
+        "configure",
+        "--profile",
+        "profile-pipeline",
+        "--pipeline-appkey",
+        "  ",
+      ]),
+    ).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+
+    expect(setServiceCredential).not.toHaveBeenCalled();
+  });
 });

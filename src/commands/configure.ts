@@ -39,6 +39,7 @@ interface ConfigureOptions {
   skmAppkey?: string;
   rdsMysqlAppkey?: string;
   dnsplusAppkey?: string;
+  pipelineAppkey?: string;
   deployAppkey?: string;
   verify: boolean;
 }
@@ -60,6 +61,7 @@ async function saveAndVerify(
   doVerify: boolean,
   logncrashUak: UserAccessKey | undefined = uak,
   dnsplus: ServiceCredential | undefined = undefined,
+  pipeline: ServiceCredential | undefined = undefined,
 ): Promise<void> {
   // 연결 테스트
   if (doVerify) {
@@ -193,6 +195,10 @@ async function saveAndVerify(
   }
   if (dnsplus) {
     await setServiceCredential(profileName, "dnsplus", dnsplus);
+  }
+  // Pipeline 은 부작용 없는 확인 호출이 없어 연결 테스트 없이 저장만 한다.
+  if (pipeline) {
+    await setServiceCredential(profileName, "pipeline", pipeline);
   }
   if (deploy) {
     await setServiceCredential(profileName, "deploy", deploy);
@@ -409,6 +415,9 @@ async function runNonInteractive(opts: ConfigureOptions): Promise<void> {
   if (opts.dnsplusAppkey !== undefined && opts.dnsplusAppkey.trim().length === 0) {
     throw new NhnCloudCliError("--dnsplus-appkey 값은 비어 있을 수 없습니다.", EXIT_PARAM_ERROR);
   }
+  if (opts.pipelineAppkey !== undefined && opts.pipelineAppkey.trim().length === 0) {
+    throw new NhnCloudCliError("--pipeline-appkey 값은 비어 있을 수 없습니다.", EXIT_PARAM_ERROR);
+  }
   if (opts.deployAppkey !== undefined && opts.deployAppkey.trim().length === 0) {
     throw new NhnCloudCliError("--deploy-appkey 값은 비어 있을 수 없습니다.", EXIT_PARAM_ERROR);
   }
@@ -464,15 +473,19 @@ async function runNonInteractive(opts: ConfigureOptions): Promise<void> {
     ? { appkey: opts.dnsplusAppkey.trim() }
     : undefined;
 
+  const pipeline: ServiceCredential | undefined = opts.pipelineAppkey?.trim()
+    ? { appkey: opts.pipelineAppkey.trim() }
+    : undefined;
+
   const deploy: ServiceCredential | undefined = opts.deployAppkey?.trim()
     ? { appkey: opts.deployAppkey.trim() }
     : undefined;
 
-  if (!uak && !logncrash && !iaas && !ncr && !ncs && !apigateway && !skm && !rdsMysql && !dnsplus && !deploy) {
+  if (!uak && !logncrash && !iaas && !ncr && !ncs && !apigateway && !skm && !rdsMysql && !dnsplus && !pipeline && !deploy) {
     throw new NhnCloudCliError(
       "비대화형 모드: --uak-id + UAK secret, --logncrash-appkey,\n" +
         "--iaas-tenant-id + --iaas-username + iaas password,\n" +
-        "--ncr-appkey, --ncs-appkey, --apigateway-appkey, --skm-appkey, --rds-mysql-appkey, --dnsplus-appkey,\n" +
+        "--ncr-appkey, --ncs-appkey, --apigateway-appkey, --skm-appkey, --rds-mysql-appkey, --dnsplus-appkey, --pipeline-appkey,\n" +
         "또는 --deploy-appkey 중 하나가 필요합니다.\n" +
         "secret/password 는 노출 방지를 위해 환경변수 권장:\n" +
         "NHNCLOUD_UAK_SECRET / NHNCLOUD_IAAS_PASSWORD.",
@@ -503,6 +516,7 @@ async function runNonInteractive(opts: ConfigureOptions): Promise<void> {
     opts.verify,
     logncrashUak,
     dnsplus,
+    pipeline,
   );
 }
 
@@ -526,6 +540,7 @@ export const configureCommand = new Command("configure")
   .option("--skm-appkey <key>", "Secure Key Manager appkey (비대화형)")
   .option("--rds-mysql-appkey <key>", "RDS for MySQL appkey (비대화형)")
   .option("--dnsplus-appkey <key>", "DNS Plus appkey (비대화형)")
+  .option("--pipeline-appkey <key>", "Pipeline appkey (비대화형)")
   .option("--deploy-appkey <key>", "deploy appkey (비대화형)")
   .option("--no-verify", "연결 테스트 생략")
   .action(async (opts: ConfigureOptions) => {
@@ -543,6 +558,7 @@ export const configureCommand = new Command("configure")
       opts.skmAppkey !== undefined ||
       opts.rdsMysqlAppkey !== undefined ||
       opts.dnsplusAppkey !== undefined ||
+      opts.pipelineAppkey !== undefined ||
       opts.deployAppkey !== undefined;
 
     try {
