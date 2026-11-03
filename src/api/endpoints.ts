@@ -328,6 +328,37 @@ export function apigatewayHost(region: string, environment: CloudEnvironment = "
   return host;
 }
 
+// ── Pipeline ─────────────────────────────────────────────────────────────────
+
+/**
+ * region → Pipeline API v1.1 host 맵 (ADR-005).
+ * 일반망은 kr1·kr3 만 등록한다. kr3 는 실호출로 확인하지 않았다.
+ * 공공망 문서는 kr1 하나만 제시한다(ADR-037).
+ */
+const PIPELINE_HOST: Record<string, string> = {
+  kr1: "kr1-pipeline.api.nhncloudservice.com",
+  kr3: "kr3-pipeline.api.nhncloudservice.com",
+};
+
+/**
+ * region 에 해당하는 Pipeline API host 를 반환한다.
+ * 미등록 region 은 사용 가능한 region 목록 안내와 함께 EXIT_PARAM_ERROR 를 던진다.
+ */
+export function pipelineHost(region: string, environment: CloudEnvironment = "real"): string {
+  if (environment === "gov") {
+    if (region !== "kr1") throw new NhnCloudCliError(`지원하지 않는 공공망 Pipeline region 입니다: "${region}". 사용 가능한 region: kr1`, EXIT_PARAM_ERROR);
+    return "kr1-pipeline.api.gov-nhncloudservice.com";
+  }
+  const host = PIPELINE_HOST[region];
+  if (!host) {
+    throw new NhnCloudCliError(
+      `지원하지 않는 Pipeline region 입니다: "${region}". 사용 가능한 region: ${Object.keys(PIPELINE_HOST).join(", ")}`,
+      EXIT_PARAM_ERROR,
+    );
+  }
+  return host;
+}
+
 // ── RDS for MySQL ────────────────────────────────────────────────────────────
 
 /**
