@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { EXIT_CONFIG_ERROR, EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
+import { EXIT_API_ERROR, EXIT_CONFIG_ERROR, EXIT_PARAM_ERROR } from "../../utils/exit-codes.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import {
   collectAppKeyOptionPaths,
@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   artifacts: vi.fn(),
   scenarios: vi.fn(),
   histories: vi.fn(),
+  run: vi.fn(),
   serverGroups: vi.fn(),
   startSpinner: vi.fn(),
 }));
@@ -38,6 +39,7 @@ vi.mock("../../services/deploy/client.js", () => ({
     artifacts = mocks.artifacts;
     scenarios = mocks.scenarios;
     histories = mocks.histories;
+    run = mocks.run;
     serverGroups = mocks.serverGroups;
   },
 }));
@@ -391,6 +393,69 @@ describe("deploy histories", () => {
     expect(error).toMatchObject({ exitCode: EXIT_PARAM_ERROR });
     expect(mocks.getAccessToken).not.toHaveBeenCalled();
     expect(mocks.histories).not.toHaveBeenCalled();
+  });
+});
+
+describe("deploy run 결과 출력", () => {
+  beforeEach(stubAuth);
+
+  const runArgs = ["--artifact-id", "1", "--server-group-id", "2", "--scenario-ids", "3"];
+
+  function runBody(deployStatus: string) {
+    return {
+      deployKey: 77,
+      deployStatus,
+      deployResult: [
+        { deployKey: 77, hostname: "host-a", status: deployStatus, taskResult: ["exit code 1", { task: "check", message: "denied" }] },
+      ],
+      deployResultLocation: "https://console.example.com/deploy",
+    };
+  }
+
+  it("실패하면 서버별 결과와 Task 결과를 출력한 뒤 종료 코드 1 로 끝난다", async () => {
+    mocks.run.mockResolvedValue(runBody("fail"));
+
+    const { stdout, error } = await captureOutput(() => parseLeaf(runCommand, runArgs));
+
+    expect(stdout).toContain("host-a");
+    expect(stdout).toContain("exit code 1");
+    expect(stdout).toContain('"message": "denied"');
+    expect(stdout).not.toContain("[object Object]");
+    expect(error).toMatchObject({ exitCode: EXIT_API_ERROR, message: expect.stringContaining("77") });
+  });
+
+  it("--json 은 응답 원본을 출력하고 실패면 종료 코드 1 이다", async () => {
+    mocks.run.mockResolvedValue(runBody("fail"));
+
+    const { stdout, error } = await captureOutput(() => parseLeaf(runCommand, runArgs, ["--json"]));
+
+    expect(JSON.parse(stdout)).toEqual(runBody("fail"));
+    expect(error).toMatchObject({ exitCode: EXIT_API_ERROR });
+  });
+
+  it("--quiet 는 deployKey 만 출력한다", async () => {
+    mocks.run.mockResolvedValue([runBody("success"), { ...runBody("success"), deployKey: 78 }]);
+
+    const { stdout, error } = await captureOutput(() => parseLeaf(runCommand, runArgs, ["--quiet"]));
+
+    expect(error).toBeUndefined();
+    expect(stdout).toBe("77\n78\n");
+  });
+
+  it("성공과 비동기 deploying 은 종료 코드 0 이다", async () => {
+    mocks.run.mockResolvedValueOnce(runBody("success")).mockResolvedValueOnce({ deployKey: 79, deployStatus: "deploying" });
+
+    expect((await captureOutput(() => parseLeaf(runCommand, runArgs))).error).toBeUndefined();
+    expect((await captureOutput(() => parseLeaf(runCommand, [...runArgs, "--async"]))).error).toBeUndefined();
+  });
+
+  it("모양을 모르는 응답은 원본 값을 JSON 문자열로 보이고 종료 코드 0 이다", async () => {
+    mocks.run.mockResolvedValue({ unexpected: { nested: true } });
+
+    const { stdout, error } = await captureOutput(() => parseLeaf(runCommand, runArgs));
+
+    expect(error).toBeUndefined();
+    expect(stdout).toContain('{"nested":true}');
   });
 });
 

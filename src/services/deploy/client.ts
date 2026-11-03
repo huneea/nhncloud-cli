@@ -87,7 +87,7 @@ export class DeployClient {
    * - targetHosts 가 비어있으면 payload 에서 targetServerHostnames 를 제외한다 (서버그룹 전체 배포).
    * - async=false(기본) 일 때 서버가 완료까지 응답을 보류하므로 ky timeout 을 600s 로 설정한다.
    */
-  async run(params: DeployRunParams): Promise<Record<string, unknown>> {
+  async run(params: DeployRunParams): Promise<unknown> {
     const url =
       `${this.baseUrl}/api/v2.1/projects/${encodeURIComponent(params.appKey)}` +
       `/artifacts/${encodeURIComponent(params.artifactId)}` +
@@ -119,8 +119,9 @@ export class DeployClient {
           retry: 0,
           timeout: isAsync ? DEFAULT_TIMEOUT_MS : SYNC_TIMEOUT_MS,
         })
-        .json<NhnEnvelope<Record<string, unknown>>>();
+        .json<NhnEnvelope<unknown>>();
 
+      // body 는 일반 서버 그룹이면 객체, Autoscale 서버 그룹이면 목록이다. 모양 해석은 명령이 한다.
       return unwrap(res);
     } catch (err) {
       throw toNhnCloudCliError(err);
