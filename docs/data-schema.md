@@ -170,6 +170,8 @@ UAK 는 개인/계정 단위라 OAuth 쓰는 서비스가 공유하고, 서비�
 
 자격증명 파일 손상과 존재하지 않는 profile은 원인을 보존한
 `NhnCloudCliError(EXIT_CONFIG_ERROR)`로 종료한다.
+`configure` 같은 쓰기 경로는 파일이 없을 때만 새로 만든다.
+읽지 못하거나 JSON·형식이 맞지 않는 파일은 덮어쓰지 않고 같은 종료 코드로 멈춘다. 덮어쓰면 기존 UAK 와 다른 서비스 블록이 사라진다.
 NCR, NCS, API Gateway, Secure Key Manager, RDS for MySQL, Deploy와 Log & Crash의 서비스 블록이나 필수 appkey가 없으면
 같은 종료 코드와 함께 해당 서비스의 `configure` 명령을 안내한다.
 
