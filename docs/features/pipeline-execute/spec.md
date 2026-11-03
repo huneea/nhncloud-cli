@@ -1,5 +1,7 @@
 # Pipeline 수동 실행
 
+확인: 2026-11-03
+
 ## 목표
 
 사용자가 CI 스크립트나 터미널에서 `nhncloud pipeline execute <pipeline-name>` 으로 NHN Cloud Pipeline 을 수동 실행하고,
