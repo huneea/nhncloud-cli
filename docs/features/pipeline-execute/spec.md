@@ -10,9 +10,11 @@
 이번 범위:
 
 - `nhncloud pipeline execute <pipeline-name>` 명령 하나.
-- profile 의 `pipeline.appkey` 저장과 `nhncloud configure --pipeline-appkey` 비대화형 flag, 대화형 마법사 항목.
+- profile 의 `pipeline.appkey` 저장과 `nhncloud configure --pipeline-appkey` 비대화형 flag.
+  대화형 마법사에는 넣지 않는다. 최근 서비스(`apigateway`·`skm`·`rds-mysql`·`dnsplus`)도 비대화형 flag 만 제공한다.
 - 일반망 `kr1`·`kr3`, 공공망 `kr1` endpoint.
-- README, `skills/nhncloud-cli/SKILL.md` 라우팅 표, 새 `skills/nhncloud-cli/references/pipeline.md`, `docs/data-schema.md` 의 서비스 블록 설명.
+- README, `skills/nhncloud-cli/SKILL.md` 라우팅 표, 새 `skills/nhncloud-cli/references/pipeline.md`,
+  서비스를 나열하는 `docs/prd.md`·`docs/flow.md`·`docs/code-architecture.md`·`docs/data-schema.md` 의 해당 줄.
 
 범위 밖:
 
@@ -43,7 +45,7 @@
 | R3 | 출력이 기본·`--json`·`--quiet` 에서 결정적이다 | 기본은 pipeline 이름·region·`lastExecutionId` 를 stdout 에 표로 쓴다. `--json` 은 응답 `body` 를 그대로 JSON 으로 쓴다. `--quiet` 는 `lastExecutionId` 한 줄만 쓴다. 진행·경고는 stderr 에만 간다 |
 | R4 | region 은 `--region` 으로 고르고 지원하지 않는 값은 호출 전에 거부한다 | 기본값 `kr1`. 일반망은 `kr1`·`kr3`, 공공망 profile 은 `kr1` 만 허용한다. 그 밖의 값은 토큰 발급 전에 `EXIT_PARAM_ERROR` 다. `X-NHN-REGION` 은 대문자(`KR1`·`KR3`)로 보낸다 |
 | R5 | appkey 는 profile 의 `pipeline.appkey` 로만 정한다 | `--app-key` 옵션은 없다([ADR-029](../../adr/029-appkey-profile-only.md)). 값이 없으면 토큰 발급 전에 `EXIT_CONFIG_ERROR` 로 끝나고 `nhncloud configure --pipeline-appkey` 를 안내한다. `configure --pipeline-appkey <key>` 는 credentials 에 저장하고 빈 값은 `EXIT_PARAM_ERROR` 다 |
-| R6 | API 실패는 기존 봉투·HTTP 오류 규칙으로 보고한다 | `header.isSuccessful=false` 또는 HTTP 4xx·5xx 는 0 이 아닌 종료 코드와 stderr 메시지가 되고 stdout 은 비어 있다. 응답 `body` 에 `lastExecutionId` 문자열이 없으면 응답 형식 오류(`EXIT_API_ERROR`)다 |
+| R6 | API 실패는 기존 봉투·HTTP 오류 규칙으로 보고하고, 실행 여부를 모르는 실패는 재실행하지 말라고 안내한다 | `header.isSuccessful=false` 또는 HTTP 4xx·5xx 는 기존 규칙의 0 이 아닌 종료 코드와 stderr 메시지가 되고 stdout 은 비어 있다. 요청을 보낸 뒤 timeout·연결 끊김, 또는 성공 응답인데 `body.lastExecutionId` 문자열이 없으면 `EXIT_API_ERROR` 이고 메시지는 「실행이 접수됐을 수 있으니 콘솔 실행 이력을 확인하기 전에 다시 실행하지 마세요」를 담는다 |
 | R7 | 문서와 명령 카탈로그가 구현과 맞다 | `nhncloud commands --json` 에 `pipeline execute` 와 그 옵션이 있고 README·스킬 reference·data-schema 가 같은 이름과 옵션을 적는다 |
 
 ## 설계
@@ -53,7 +55,8 @@
 - 토큰은 기존 공통 UAK OAuth `getAccessToken` 을 그대로 쓴다([ADR-007](../../adr/007-deploy-oauth-token-cache.md), [ADR-021](../../adr/021-token-cache-credential-fingerprint.md)). `apigateway`·`skm` 과 같은 `X-NHN-Authorization` 헤더다.
 - host 는 `src/api/endpoints.ts` 의 정적 맵에 `pipelineHost(region, environment)` 로 더한다([ADR-005](../../adr/005-endpoint-hardcoded-map.md), [ADR-037](../../adr/037-gov-profile-endpoints.md)). 공공망 kr3 은 문서에 없으므로 거부한다. ADR-037 조사 표에 Pipeline 행을 더한다.
 - HTTP 는 `ky`, 응답은 `src/api/envelope.ts` 의 `unwrap`, 오류는 `toNhnCloudCliError` 를 쓴다([ADR-002](../../adr/002-ky-http-client.md), [ADR-006](../../adr/006-nhn-response-envelope.md)).
-- 요청 본문은 보내지 않는다. 공식 예제는 `Content-Type: application/json` 만 있고 본문이 없다.
+- 요청 본문은 보내지 않고 공식 cURL 예제와 같게 `Content-Type: application/json` 헤더를 보낸다.
+- 실행은 재시도하지 않는다. 중복 실행은 곧 중복 배포라 결과를 모르는 실패는 사용자에게 콘솔 확인을 맡긴다(R6).
 
 ### 안전 확인 (R2)
 
@@ -75,7 +78,7 @@
 | R3 | 명령 테스트: 기본·`--json`·`--quiet` 의 stdout/stderr 분리 | R1 실호출에서 세 출력 형식을 확인한다 |
 | R4 | 명령 테스트: `kr2`·공공망 `kr3` 거부와 토큰 미발급, `X-NHN-REGION` 대문자 | kr3 은 미검증으로 PR 에 남긴다 |
 | R5 | 명령·configure 테스트: appkey 없음 종료 코드, `--pipeline-appkey` 저장과 빈 값 거부 | 없음 |
-| R6 | client 테스트: 봉투 실패·HTTP 404·`lastExecutionId` 누락 | 없는 파이프라인 이름으로 실행해 실제 오류 응답(HTTP 상태와 `resultCode`)을 기록하고 메시지를 확인한다 |
+| R6 | client 테스트: 봉투 실패·HTTP 404·timeout·`lastExecutionId` 누락과 재실행 금지 문구 | 없는 파이프라인 이름으로 실행해 실제 오류 응답(HTTP 상태와 `resultCode`)을 기록하고 메시지를 확인한다 |
 | R7 | `commands --json` 스냅샷 또는 카탈로그 테스트 | `node dist/index.js commands --json` 대조 |
 
 실호출에는 사용자가 제공한 kr1 Pipeline appkey 와 실행해도 되는 테스트 파이프라인을 쓴다. 실제 appkey·파이프라인 이름·실행 ID 는 커밋·PR 본문에 남기지 않는다.

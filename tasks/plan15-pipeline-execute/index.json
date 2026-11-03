@@ -1,0 +1,17 @@
+{
+  "name": "plan15-pipeline-execute",
+  "description": "NHN Cloud Pipeline 수동 실행 API v1.1 을 `nhncloud pipeline execute` 명령으로 제공한다",
+  "spec": "docs/features/pipeline-execute/spec.md",
+  "requirements": ["R1", "R2", "R3", "R4", "R5", "R6", "R7"],
+  "pr_scope": "Pipeline client·endpoint, `pipeline execute` 명령, `configure --pipeline-appkey`, 사용자·설계 문서를 한 PR 로 더한다.",
+  "deferred": [],
+  "status": "pending",
+  "created_at": "2026-11-03",
+  "total_phases": 3,
+  "current_phase": 1,
+  "phases": [
+    {"number": 1, "file": "phase-01.md", "execution_profile": "standard", "requirements": ["R1", "R4", "R6"]},
+    {"number": 2, "file": "phase-02.md", "execution_profile": "standard", "requirements": ["R1", "R2", "R3", "R4", "R5"]},
+    {"number": 3, "file": "phase-03.md", "execution_profile": "fast", "requirements": ["R7"]}
+  ]
+}
