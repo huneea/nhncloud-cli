@@ -85,13 +85,13 @@
 
 실호출에는 사용자가 제공한 kr1 Pipeline appkey 와 실행해도 되는 테스트 파이프라인을 쓴다. 실제 appkey·파이프라인 이름·실행 ID 는 커밋·PR 본문에 남기지 않는다.
 
-## 해결한 결정
+## 결정
 
-- 범위는 `execute` 하나다. 상태 조회는 공개 API 가 없어 제외한다(사용자 결정).
-- 실행은 `--yes` 또는 `--dry-run` 을 요구한다(사용자 결정).
-- 실호출 검증은 kr1 만 하고 kr3 의 `X-NHN-REGION: KR3` 은 v1.0 표를 근거로 두고 미검증으로 남긴다(사용자 결정).
-- `--quiet` 의 한 줄 값은 `lastExecutionId` 다. 후속 자동화가 쓰는 유일한 식별자이기 때문이다.
-
-## 미결정
-
-없음
+| ID | 결정 | 답 | 누가 | 근거 |
+| --- | --- | --- | --- | --- |
+| DECISION1 | 범위 | `execute` 하나. 상태 조회·`--wait` 는 제외 | 사용자 2026-11-03 | 공개 API 가 수동 실행 하나뿐이다 |
+| DECISION2 | 실행 안전 확인 | `--yes` 또는 `--dry-run` 필수 | 사용자 2026-11-03 | 실행이 실제 배포를 일으킨다. ADR-048·049 와 같은 규칙 |
+| DECISION3 | 실호출 검증 범위 | kr1 만 실호출. kr3 `X-NHN-REGION: KR3` 은 v1.0 표 근거로 두고 미검증 | 사용자 2026-11-03 | 사용자가 kr1 appkey 와 테스트 파이프라인만 갖고 있다 |
+| DECISION4 | `--quiet` 의 한 줄 값 | `lastExecutionId` | 작성자 | 후속 자동화가 쓰는 유일한 식별자다 |
+| DECISION5 | configure 대화형 마법사 | 넣지 않고 `--pipeline-appkey` 비대화형 flag 만 | 작성자 | 최근 서비스(`apigateway`·`skm`·`rds-mysql`·`dnsplus`)와 같은 관례 |
+| DECISION6 | 결과 불확정 실패 | 재시도 없이 `EXIT_API_ERROR` 와 재실행 금지 안내 | 작성자 | 재실행은 중복 배포다(R6) |
