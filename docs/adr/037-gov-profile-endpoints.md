@@ -1,7 +1,7 @@
 # ADR-037: 공공망 profile의 endpoint 선택
 
 - **status**: `accepted`
-- **결정**: `credentials.json`의 profile에 `"environment": "gov"`를 명시하면 OAuth, Deploy, NCR, IaaS(NKS, Floating IP, Load Balancer 포함), Secure Key Manager, RDS for MySQL, DNS Plus, Log & Crash(검색, 수집), NCS, API Gateway 호출에 공공망 endpoint를 사용한다. 이 필드가 없는 기존 profile은 일반망 주소를 유지한다.
+- **결정**: `credentials.json`의 profile에 `"environment": "gov"`를 명시하면 OAuth, Deploy, NCR, IaaS(NKS, Floating IP, Load Balancer 포함), Secure Key Manager, RDS for MySQL, DNS Plus, Log & Crash(검색, 수집), NCS, API Gateway, Pipeline 호출에 공공망 endpoint를 사용한다. 이 필드가 없는 기존 profile은 일반망 주소를 유지한다.
 - **대체된 부분**: [ADR-005](005-endpoint-hardcoded-map.md)의 gov 제외 결정을 대체한다.
 - **맥락**: 공공기관용 자격증명으로 호출해도 CLI가 일반망 주소에 연결되는 문제가 있었다(PR #108). 일반망과 공공망의 토큰과 endpoint가 섞이면 한 망의 자격증명이 다른 망 주소로 전송될 수 있다.
 - **인증**: UAK와 IaaS 자격증명 형식은 유지한다. OAuth와 Keystone 토큰 캐시의 자격 지문에 망 구분을 포함해, 같은 profile의 설정을 바꾼 뒤 다른 망의 토큰을 재사용하지 않는다. OAuth 토큰을 쓰는 서비스는 profile의 망으로 토큰을 발급받고, 같은 망의 서비스 주소에만 그 토큰을 보낸다.
@@ -30,6 +30,8 @@
 | logncrash 수집(`send`) | `api-logncrash.gov-nhncloudservice.com` (같은 문서) | 없음(본문의 appkey 로 식별) | 없음(전역) | `GET /v2/log` 가 HTTP 405 `Only support POST method` | 쓰기라 실행하지 않음 | 지원 |
 | ncs | `kr1-ncs.api.gov-nhncloudservice.com` ([NCS API](https://docs.gov-nhncloud.com/ko/Container/NCS/ko/public-api-gov/)) | OAuth 발급 주소만 공공망 | kr1 | kr1 은 `resultCode 10001`, kr2 는 DNS 없음 | 미확인(profile 에 ncs appkey 없음) | 지원 |
 | apigateway | `kr1-apigateway.api.gov-nhncloudservice.com` ([API Gateway API v2.0](https://docs.gov-nhncloud.com/ko/Application%20Service/API%20Gateway/ko/api-guide-v2.0-gov/)) | OAuth 발급 주소만 공공망 | kr1 | kr1, kr2 모두 `resultCode 403100000` | 미확인(profile 에 apigateway appkey 없음) | 지원(kr1) |
+| pipeline | `kr1-pipeline.api.gov-nhncloudservice.com` ([Pipeline API v1.1](https://docs.gov-nhncloud.com/ko/Dev%20Tools/Pipeline/ko/api-guide-gov-v1-1/)) | OAuth 발급 주소만 공공망 | kr1 | 확인하지 않음 | 미확인(실행 API 뿐이라 부작용 없는 확인 호출이 없다) | 지원(kr1) |
+| pipeline kr3 | 문서에 없음 | | | | | 거부 |
 | apigateway kr2, kr3 | 문서에 없음 | | | kr2 는 응답이 오지만 문서에 없다 | | 거부 유지 |
 
 `configure`, `doctor`, `commands`, `skills`는 서비스 API를 부르지 않거나 위 서비스의 검증 경로를 재사용한다. `doctor`는 공공망 profile의 연결 확인을 건너뛰며, 이 점은 위 「제한」 절에 있다.

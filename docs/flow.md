@@ -148,6 +148,7 @@ nhncloud instance create --help
 | Secure Key Manager | 키 저장소와 키 탐색 뒤 기밀 데이터 조회, 암복호화, 서명과 검증 | [skm.md](../skills/nhncloud-cli/references/skm.md) |
 | RDS for MySQL | DB 인스턴스 탐색 뒤 DB 스키마와 DB 사용자 조회·변경 | [rds-mysql.md](../skills/nhncloud-cli/references/rds-mysql.md) |
 | DNS Plus | 존 탐색 뒤 레코드 세트 조회·생성·삭제 | [dnsplus.md](../skills/nhncloud-cli/references/dnsplus.md) |
+| Pipeline | 이름으로 수동 실행하고 실행 ID 를 받는다 | [pipeline.md](../skills/nhncloud-cli/references/pipeline.md) |
 
 ## 조회와 페이지 이동
 
@@ -371,6 +372,14 @@ flowchart TD
 - 이름 비교는 끝 점을 붙인 소문자 FQDN 으로 한다. `create` 의 `--name` 이 존 밖이면 종료 코드 3이다.
 - `create` 는 같은 이름이 타입과 관계없이 있으면 멈춘다. 쓰기 결과를 모르는 실패(시간 초과, 연결 오류) 뒤에는 `recordset list` 로 반영 여부를 확인한 다음 다시 실행한다.
 - `--quiet` 은 `recordsetId` 만 출력한다. 미리보기는 stdout 에 요청을 내고 `--quiet` 에는 아무것도 내지 않는다.
+
+### Pipeline
+
+profile 공통 UAK 의 OAuth 토큰과 `pipeline.appkey` 로 Pipeline 수동 실행 API v1.1 을 한 번 호출한다. 망은 profile `environment`, region 은 `--region`(공공망은 `kr1` 만)으로 고른다.
+검증 순서는 인수 → `--yes`/`--dry-run` → region → appkey → 토큰 발급 → 호출이다. 앞 단계에서 실패하면 토큰을 발급하지 않고 API 도 부르지 않는다.
+`--dry-run`은 보낼 요청만 출력하고 appkey 와 토큰은 내지 않는다.
+실행은 실제 배포를 일으키므로 재시도하지 않는다. 서버가 상태 코드나 봉투로 답한 실패는 확정 실패이고, 요청 뒤 timeout·연결 끊김이나 `lastExecutionId` 없는 성공 응답은 접수됐을 수 있어 콘솔 실행 이력을 확인하기 전에 다시 실행하지 않도록 안내한다.
+실행 상태 조회 API 가 없어 `--quiet`의 실행 ID 로 콘솔 실행 이력에서 결과를 확인한다.
 
 ## 공개 스킬 수명주기
 

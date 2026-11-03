@@ -32,7 +32,7 @@
 
 `src/services/`와 `src/commands/`는 가능한 한 같은 서비스 이름으로 짝을 이룬다.
 
-- `logncrash`, `deploy`, `ncr`, `ncs`, `apigateway`, `skm`, `rds-mysql`, `dnsplus`
+- `logncrash`, `deploy`, `ncr`, `ncs`, `apigateway`, `skm`, `rds-mysql`, `dnsplus`, `pipeline`
 - `instance`, `network`, `blockstorage`, `loadbalancer`, `nks`
 
 `floatingip`과 `volume` 명령은 각각 network와 blockstorage 서비스 경계를 재사용한다.
@@ -66,6 +66,7 @@ skill ──> config와 독립된 사용자 데이터 경계
 | instance, network, blockstorage, loadbalancer, nks | `api/keystone.ts`, `cache/token-store.ts` | region별 IaaS endpoint. loadbalancer 인증서의 key-manager 주소는 캐시하지 않고 region 과 망으로 만든다 |
 | NCR Management API, RDS for MySQL | profile 공통 UAK 정적 헤더 | region별 NCR host, region별 RDS for MySQL host |
 | DNS Plus | profile의 `dnsplus.appkey`를 요청 경로에 넣는다. 헤더와 토큰이 없다 | 망별 단일 host. 오류 메시지의 앱키는 가린다([[adr-049]]) |
+| Pipeline | profile 공통 UAK 의 OAuth 토큰을 `X-NHN-Authorization` 으로, profile 의 `pipeline.appkey` 를 `X-NHN-APPKEY` 헤더로 보낸다 | region별 Pipeline host. 실행은 재시도하지 않는다 |
 | NCR Harbor data plane | UAK Basic Auth | registry 응답에서 검증한 host |
 | Log & Crash collector | 서비스 규약에 맞춘 body | collector endpoint |
 

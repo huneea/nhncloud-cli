@@ -6,7 +6,7 @@ description: >-
   Claude Code·Codex 공개 스킬의 상태를 확인하거나
   `skills status|install|update|uninstall`로 관리하고 상태별 복구 방법을 안내할 때도 사용한다.
   Log & Crash, Deploy, Compute, Network, Block Storage, Floating IP,
-  Load Balancer, NCR, NKS, NCS, API Gateway, Secure Key Manager, RDS for MySQL, DNS Plus 작업을 서비스별 참조와 명령 카탈로그로 안내한다.
+  Load Balancer, NCR, NKS, NCS, API Gateway, Secure Key Manager, RDS for MySQL, DNS Plus, Pipeline 작업을 서비스별 참조와 명령 카탈로그로 안내한다.
 ---
 
 # nhncloud-cli
@@ -40,4 +40,5 @@ description: >-
 | Secure Key Manager 키·키 저장소·인증 정보 관리, 기밀 데이터·암복호화·서명 검증 | [skm.md](references/skm.md) |
 | RDS for MySQL DB 인스턴스·스키마·사용자 조회, 스키마·사용자 생성, 사용자 권한 변경·삭제 | [rds-mysql.md](references/rds-mysql.md) |
 | DNS Plus 존 조회, 레코드 세트(A·CNAME·TXT) 조회·생성·삭제 | [dnsplus.md](references/dnsplus.md) |
+| Pipeline 수동 실행 | [pipeline.md](references/pipeline.md) |
 | 인증·profile·region·출력·검색 제한 문제 해결 | [troubleshooting.md](references/troubleshooting.md) |
