@@ -5,7 +5,18 @@ import { toNhnCloudCliError } from "../../api/httpError.js";
 import { DEFAULT_TIMEOUT_MS, SYNC_TIMEOUT_MS } from "../../api/timeout.js";
 import { NhnCloudCliError } from "../../utils/errors.js";
 import { EXIT_API_ERROR } from "../../utils/exit-codes.js";
-import type { DeployRunParams, BinaryGroup, Scenario, Binary, BinaryListParams, UploadBinaryParams, UploadBinaryResult } from "./types.js";
+import type {
+  DeployRunParams,
+  BinaryGroup,
+  Scenario,
+  Binary,
+  BinaryListParams,
+  UploadBinaryParams,
+  UploadBinaryResult,
+  DeployHistory,
+  DeployHistoryPage,
+  DeployHistoryParams,
+} from "./types.js";
 import type { CloudEnvironment } from "../../config/types.js";
 
 /**
@@ -41,6 +52,19 @@ function isBinary(val: unknown): val is Binary {
     (binaryKeyType === "number" || binaryKeyType === "string") &&
     (binarySizeType === "number" || binarySizeType === "string")
   );
+}
+
+function isDeployHistory(val: unknown): val is DeployHistory {
+  if (typeof val !== "object" || val === null) return false;
+  const obj = val as Record<string, unknown>;
+  return typeof obj["deployKey"] === "number" && typeof obj["totalResult"] === "string";
+}
+
+/** totalCount 는 number 가 정상이나 숫자 문자열도 받는다. 그 밖이면 fallback 을 쓴다 */
+function normalizeCount(value: unknown, fallback: number): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && /^\d+$/.test(value)) return Number(value);
+  return fallback;
 }
 
 export class DeployClient {
@@ -104,15 +128,18 @@ export class DeployClient {
   }
 
   /**
-   * 아티팩트 목록을 조회한다.
+   * 아티팩트 목록을 조회한다. artifactName 을 주면 이름으로 검색한다.
    */
-  async artifacts(appKey: string): Promise<Record<string, unknown>> {
+  async artifacts(appKey: string, artifactName?: string): Promise<Record<string, unknown>> {
     const url = `${this.baseUrl}/api/v2.1/projects/${encodeURIComponent(appKey)}/artifacts`;
+    const searchParams: Record<string, string> = {};
+    if (artifactName !== undefined) searchParams["artifactName"] = artifactName;
 
     try {
       const res = await ky
         .get(url, {
           headers: this.authHeaders(),
+          searchParams,
           retry: 0,
           timeout: DEFAULT_TIMEOUT_MS,
         })
@@ -171,23 +198,44 @@ export class DeployClient {
   }
 
   /**
-   * 배포 이력을 조회한다.
+   * 배포 이력 한 페이지를 조회한다.
+   * 생략한 쿼리는 보내지 않아 API 기본값(아티팩트 전체, 최근 1개월, 1페이지, 20건)을 쓴다.
    */
-  async histories(appKey: string, artifactId: string): Promise<Record<string, unknown>> {
+  async histories(
+    appKey: string,
+    artifactId: string,
+    params: DeployHistoryParams = {},
+  ): Promise<DeployHistoryPage> {
     const url =
       `${this.baseUrl}/api/v2.1/projects/${encodeURIComponent(appKey)}` +
       `/artifacts/${encodeURIComponent(artifactId)}/deploy-histories`;
+
+    const searchParams: Record<string, string | number> = {};
+    if (params.serverGroupId !== undefined) searchParams["serverGroupId"] = params.serverGroupId;
+    if (params.from !== undefined) searchParams["deploymentYearFrom"] = params.from;
+    if (params.to !== undefined) searchParams["deploymentYearTo"] = params.to;
+    if (params.pageNum !== undefined) searchParams["pageNum"] = params.pageNum;
+    if (params.pageSize !== undefined) searchParams["pageSize"] = params.pageSize;
 
     try {
       const res = await ky
         .get(url, {
           headers: this.authHeaders(),
+          searchParams,
           retry: 0,
           timeout: DEFAULT_TIMEOUT_MS,
         })
-        .json<NhnEnvelope<Record<string, unknown>>>();
+        .json<NhnEnvelope<{ totalCount?: unknown; deployHistories?: unknown }>>();
 
-      return unwrap(res);
+      const body = unwrap(res);
+      const list = body.deployHistories;
+      if (!Array.isArray(list) || !list.every(isDeployHistory)) {
+        throw new NhnCloudCliError(
+          "deploy-histories 응답 형식이 올바르지 않습니다 — deployHistories 배열이 없습니다.",
+          EXIT_API_ERROR,
+        );
+      }
+      return { totalCount: normalizeCount(body.totalCount, list.length), deployHistories: list };
     } catch (err) {
       throw toNhnCloudCliError(err);
     }
@@ -226,7 +274,7 @@ export class DeployClient {
 
   /**
    * 특정 바이너리 그룹의 바이너리 목록을 조회한다.
-   * pageNum/pageSize/sortKey/sortDirection 은 NHN docs 의 쿼리 파라미터로 그대로 전달한다.
+   * pageNum/pageSize/sortKey/sortDirection/keyword 는 NHN docs 의 쿼리 파라미터로 그대로 전달한다.
    */
   async binaries(
     appKey: string,
@@ -243,6 +291,7 @@ export class DeployClient {
     if (params.pageSize !== undefined) searchParams["pageSize"] = params.pageSize;
     if (params.sortKey !== undefined) searchParams["sortKey"] = params.sortKey;
     if (params.sortDirection !== undefined) searchParams["sortDirection"] = params.sortDirection;
+    if (params.keyword !== undefined) searchParams["keyword"] = params.keyword;
 
     try {
       const res = await ky
@@ -264,14 +313,7 @@ export class DeployClient {
       }
       // totalCount 는 number 가 정상이나 string("123") 으로 올 수 있어(resultCode 처럼 타입 혼재)
       // 숫자 문자열이면 변환해 "전체 항목 수" 의미를 보존한다. 그 외에만 현재 페이지 길이로 fallback.
-      const tc = body.totalCount;
-      const totalCount =
-        typeof tc === "number"
-          ? tc
-          : typeof tc === "string" && /^\d+$/.test(tc)
-            ? Number(tc)
-            : list.length;
-      return { totalCount, binaries: list };
+      return { totalCount: normalizeCount(body.totalCount, list.length), binaries: list };
     } catch (err) {
       throw toNhnCloudCliError(err);
     }

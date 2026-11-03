@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { startSpinner, stopSpinner } from "../../utils/spinner.js";
 import { output, type OutputOptions } from "../../formatters/table.js";
-import { createDeployClient, requireCoordinate, resolveDeployAppKey } from "./helpers.js";
+import { cell, createDeployClient, listField, requireCoordinate, resolveDeployAppKey } from "./helpers.js";
 
 interface ServerGroupsGlobalOpts extends OutputOptions {
   artifactId?: string;
@@ -36,10 +36,18 @@ export const serverGroupsCommand = new Command("server-groups")
     stopSpinner(true);
 
     // ── 4. 출력 ──
+    // --json 은 응답 원본({ serverGroups }), 표와 --quiet 는 serverGroups 배열의 행이다.
+    const serverGroups = listField(result, "serverGroups");
     output(opts, {
-      headers: ["key", "value"],
-      rows: Object.entries(result).map(([k, v]) => [k, String(v ?? "")]),
+      headers: ["id", "name", "osType", "serverCount", "description"],
+      rows: serverGroups.map((item) => [
+        cell(item["id"]),
+        cell(item["name"]),
+        cell(item["osType"]),
+        cell(item["serverCount"]),
+        cell(item["description"]),
+      ]),
       raw: result,
-      ids: [],
+      ids: serverGroups.map((item) => cell(item["id"])).filter(Boolean),
     });
   });
