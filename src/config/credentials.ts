@@ -57,6 +57,11 @@ async function loadCredentials(): Promise<Credentials> {
     );
   }
 
+  return parseCredentials(raw);
+}
+
+/** credentials.json 본문을 파싱하고 형식을 검사한다. 읽기와 쓰기 경로가 같은 판정을 쓴다. */
+function parseCredentials(raw: string): Credentials {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -112,7 +117,7 @@ async function loadConfig(): Promise<Config | null> {
  * userAccessKey 가 설정된 profile 이름 목록을 반환한다.
  * environment 를 주면 그 망의 profile 만 돌려준다. 다른 망의 UAK 를 가져와 검증 요청에 쓰지 않기 위해서다(ADR-037).
  * `loadCredentialsOrEmpty` 재사용 — 자격증명 파일이 없으면 빈 배열(설정 전 최초 configure 시나리오),
- * 파일이 손상(JSON 파싱 오류)됐으면 조용히 넘기지 않고 NhnCloudCliError 를 rethrow 한다.
+ * 파일을 읽지 못하거나 JSON·형식이 맞지 않으면 조용히 넘기지 않고 NhnCloudCliError 를 던진다.
  * configure 대화형의 UAK 재사용 프롬프트 전용 — 비대화형 경로는 이 함수를 타지 않는다.
  */
 export async function listProfilesWithUak(environment?: CloudEnvironment): Promise<string[]> {
@@ -235,26 +240,23 @@ export async function getOptionalServiceCredential(
 }
 
 /**
- * 파일이 없으면 빈 구조를 반환하는 credentials 로더 (쓰기 경로 전용).
+ * 파일이 없을 때만 빈 구조를 반환하는 credentials 로더 (쓰기 경로 전용).
+ * 읽지 못하거나 JSON·형식이 맞지 않는 파일은 빈 구조로 바꾸지 않고 오류로 멈춘다.
+ * 빈 구조를 돌려주면 뒤이은 저장이 기존 UAK 와 다른 서비스 블록을 덮어써 지운다.
  */
 async function loadCredentialsOrEmpty(): Promise<Credentials> {
+  let raw: string;
   try {
-    const raw = await readFile(CREDENTIALS_PATH, "utf-8");
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      throw new NhnCloudCliError(
-        `자격증명 파일 파싱 오류: ${CREDENTIALS_PATH} — 올바른 JSON 형식인지 확인하세요.`,
-        EXIT_CONFIG_ERROR,
-      );
-    }
-    if (isCredentials(parsed)) return parsed;
-    return { version: 1, profiles: {} };
+    raw = await readFile(CREDENTIALS_PATH, "utf-8");
   } catch (err) {
-    if (err instanceof NhnCloudCliError) throw err;
-    return { version: 1, profiles: {} };
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return { version: 1, profiles: {} };
+    throw new NhnCloudCliError(
+      `자격증명 파일을 읽지 못했습니다 (${code ?? "UNKNOWN"}): ${CREDENTIALS_PATH} — 파일 권한을 확인하세요.`,
+      EXIT_CONFIG_ERROR,
+    );
   }
+  return parseCredentials(raw);
 }
 
 /**
