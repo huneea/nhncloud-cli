@@ -74,7 +74,9 @@ Commander가 비슷한 옵션을 제안했으면 판정이 맞아도 안내를 �
 - profile을 정하고 공통 UAK와 필요한 서비스 블록만 저장한다.
 - 비대화형 flag가 하나라도 있으면 prompt를 열지 않는다.
 - 기본 동작은 이번에 입력한 자격증명을 확인한다. `--no-verify`를 주면 연결 테스트를 생략한다.
-- 연결 테스트는 저장할 profile의 `environment`가 가리키는 망 주소로만 보낸다. 아직 파일에 없는 새 profile은 일반망으로 검증하므로, 새 공공망 profile은 `--no-verify`로 저장하고 `environment`를 추가한다.
+- 새 profile은 `--environment private|gov`로 망을 정한다. 옵션 없이 대화형으로 만들면 「공공망(gov) profile 인가요?」를 한 번 묻는다(기본 일반망). `--environment`만으로는 비대화형이 되지 않는다.
+- 기존 profile은 저장된 망을 쓴다. 다른 망을 주면 연결 테스트와 저장 전에 종료 코드 3으로 끝난다([[adr-037]]).
+- 연결 테스트는 정한 망 주소로만 보내고, 공공망 profile이면 `environment: "gov"`를 함께 저장한다.
 - 자격증명은 `credentials.json`, 기본 profile 같은 일반 설정은 `config.json`에 둔다.
 
 설정 후 `nhncloud doctor`로 파일 상태와 권한, profile과 공개 스킬 상태를 진단할 수 있다.

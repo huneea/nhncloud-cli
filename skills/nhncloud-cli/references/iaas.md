@@ -2,7 +2,7 @@
 
 `instance`, `network`, `volume`, `floatingip`은 IaaS 자격증명과 Keystone token을 공유한다.
 region이 중요하면 `--region <region>`을 명시한다.
-공공망 profile에는 `"environment": "gov"`를 명시한다.
+공공망 profile은 `configure --environment gov`로 만든다.
 공식 문서에 endpoint가 있는 공공망 IaaS region은 `kr1`과 `kr2`다.
 
 ## IaaS 설정
@@ -17,8 +17,11 @@ NHNCLOUD_IAAS_PASSWORD=<password> nhncloud configure \
   --no-verify
 ```
 
-`--iaas-password`는 NHN Cloud 로그인 비밀번호가 아니라 IAM API 비밀번호다.
-`--iaas-username`은 계정 이메일 또는 IAM 계정 ID다.
+세 값은 프로젝트 콘솔 Compute → Instance 화면의 「API 엔드포인트 설정」 창에서 확인한다([IaaS 토큰 공식 문서 「사전 작업」](https://docs.nhncloud.com/ko/nhncloud/ko/public-api/iaas-token/)).
+
+- `--iaas-tenant-id`는 창 맨 위의 테넌트 ID다.
+- `--iaas-password`는 NHN Cloud 로그인 비밀번호가 아니라 같은 창의 「API 비밀번호 설정」에서 정한 API 비밀번호다.
+- `--iaas-username`은 콘솔 로그인 계정 ID(이메일 형식) 또는 IAM 계정 ID다.
 
 ## Discovery 순서
 

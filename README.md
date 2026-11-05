@@ -51,10 +51,24 @@ npm install -g @bifos/nhncloud-cli
 nhncloud configure
 ```
 
-인스턴스, 네트워크 같은 IaaS 명령을 쓴다면 두 값을 특히 조심해 주세요.
+새 profile 을 만들면 먼저 공공망(gov) profile 인지 물어봐요. 기본은 일반망이에요.
+`--environment private`(일반망) 또는 `--environment gov`(공공망)를 주면 이 질문을 건너뛰어요.
+이미 있는 profile 의 망은 바꿀 수 없어요. 다른 망은 새 profile 이름으로 설정해 주세요.
 
-- "API 비밀번호"(`--iaas-password`)는 콘솔 로그인 비밀번호가 아니라 IAM 의 **API 비밀번호**예요. IAM 사용자 상세 페이지의 "API 비밀번호 설정"에서 따로 발급해요.
-- "IAM username"(`--iaas-username`)은 계정 이메일이나 IAM 계정 ID 예요. tenantId 와 비슷하게 생긴 UUID 형태의 "API 사용자 ID"가 아니에요.
+```bash
+nhncloud configure --profile gov-project --environment gov   # 대화형, 망 질문만 건너뜀
+NHNCLOUD_UAK_SECRET=<uak-secret> nhncloud configure --profile gov-project --environment gov --uak-id <uak-id>   # 비대화형
+```
+
+인스턴스, 네트워크 같은 IaaS 명령을 쓴다면 세 값을 콘솔에서 확인해 주세요.
+프로젝트 콘솔의 Compute → Instance 화면 오른쪽 위 "API 엔드포인트 설정"을 열면 돼요.
+
+- "tenantId"(`--iaas-tenant-id`)는 그 창 맨 위의 **테넌트 ID** 예요.
+- "API 비밀번호"(`--iaas-password`)는 콘솔 로그인 비밀번호가 아니에요. 같은 창의 "API 비밀번호 설정"에서 따로 정한 값이에요.
+- "IAM username"(`--iaas-username`)은 콘솔 로그인 계정 ID(이메일 형식)나 IAM 계정 ID 예요. tenantId 와 비슷하게 생긴 UUID 형태의 "API 사용자 ID"가 아니에요.
+- 공공망 profile 은 조직 전용 공공망 콘솔에서 같은 값을 확인해요.
+
+콘솔 메뉴 이름은 바뀔 수 있어요. 최신 위치는 [IaaS 토큰 공식 문서의 「사전 작업」](https://docs.nhncloud.com/ko/nhncloud/ko/public-api/iaas-token/)에서 확인해 주세요.
 
 나머지 입력 항목은 [IaaS 가이드](skills/nhncloud-cli/references/iaas.md)에 있어요.
 공공기관용 NHN Cloud 설정은 [공통 가이드](skills/nhncloud-cli/references/common.md)에 있어요.

@@ -84,14 +84,18 @@ Codex 에서는 `$nhncloud-cli` 로 스킬을 부를 수 있다.
 첫 설정은 `nhncloud configure`로 한다.
 대화형 마법사가 profile, UAK, 서비스별 자격증명을 묻고 저장 전 연결을 테스트한다.
 
-공공망 profile에는 `~/.nhncloud/credentials.json`의 해당 profile 블록에 `"environment": "gov"`를 명시한다.
-기존 profile은 이 필드를 생략하면 일반망을 사용한다.
+새 profile의 망은 `configure`가 정한다.
+대화형은 새 profile이면 「공공망(gov) profile 인가요?」를 묻고(기본 일반망), `--environment private|gov`를 주면 묻지 않는다.
+공공망을 고르면 profile 블록에 `"environment": "gov"`를 저장하고, 일반망은 이 필드를 생략한다.
+기존 profile은 저장된 망을 그대로 쓴다. 다른 망을 주면 종료 코드 3으로 끝나고 아무것도 저장하지 않으므로, 다른 망은 새 profile로 만든다.
+`--environment`는 `private`, `gov`만 받는다(`real`도 종료 코드 3).
 공공망에서 주소가 확인되지 않은 API는 호출하지 않는다.
-`configure`의 연결 테스트는 profile의 망 주소를 사용한다. `configure`는 망을 묻지 않으므로, 새 공공망 profile은 `--no-verify`로 저장하고 profile에 `environment`를 추가한 뒤 조회 명령이나 `configure`로 다시 확인한다.
+`configure`의 연결 테스트는 profile의 망 주소를 사용한다.
 
 ```bash
 nhncloud configure
 nhncloud configure --profile staging
+nhncloud configure --profile gov-project --environment gov
 ```
 
 CI나 자동화에서는 flag로 비대화형 저장을 한다.

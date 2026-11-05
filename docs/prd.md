@@ -25,7 +25,7 @@ AWS CLI 같은 통합 명령줄 도구가 없어 매번 토큰·엔드포인트�
 
 ### 포함
 
-- `nhncloud configure`: 대화형/flag 자격증명 설정 마법사 (UAK 와 서비스별 키, 연결 테스트)
+- `nhncloud configure`: 대화형/flag 자격증명 설정 마법사 (새 profile 의 망 선택, UAK 와 서비스별 키, 연결 테스트)
 - `nhncloud logncrash search`: Log & Crash Search v3 커서 기반 로그 검색 ([[adr-024]])
 - `nhncloud logncrash export`: scroll 대량 추출과 조회 상태별 결과 파일 보존 ([[adr-030]], [[adr-032]], [[adr-034]])
 - `nhncloud logncrash available-token`: 남은 조회 토큰과 양수가 될 때까지의 추정 대기 시간 확인 ([[adr-036]])
