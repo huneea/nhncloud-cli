@@ -126,6 +126,39 @@ describe("getProfileEnvironment", () => {
   });
 });
 
+describe("getStoredProfileEnvironment", () => {
+  it("파일이나 profile 이 없으면 undefined, 있으면 저장된 망을 돌려준다", async () => {
+    await expect(credentials.getStoredProfileEnvironment("p")).resolves.toBeUndefined();
+
+    await writeCredentials({ version: 1, profiles: { gov: { environment: "gov" }, plain: {} } });
+
+    await expect(credentials.getStoredProfileEnvironment("gov")).resolves.toBe("gov");
+    await expect(credentials.getStoredProfileEnvironment("plain")).resolves.toBe("real");
+    await expect(credentials.getStoredProfileEnvironment("other")).resolves.toBeUndefined();
+  });
+
+  it("알 수 없는 환경값은 설정 오류다", async () => {
+    await writeCredentials({ version: 1, profiles: { bad: { environment: "real" } } });
+    await expect(credentials.getStoredProfileEnvironment("bad")).rejects.toMatchObject({ exitCode: EXIT_CONFIG_ERROR });
+  });
+});
+
+describe("setProfileEnvironment", () => {
+  it("gov 는 다른 블록을 보존하며 environment: gov 를 쓰고, 일반망은 아무것도 쓰지 않는다", async () => {
+    const uak = { id: "<uak-id>", secret: "<uak-secret>" };
+    await writeCredentials({ version: 1, profiles: { other: { userAccessKey: uak } } });
+
+    await credentials.setProfileEnvironment("new-gov", "gov");
+    await credentials.setProfileEnvironment("new-real", "real");
+
+    const { readFile } = await import("node:fs/promises");
+    expect(JSON.parse(await readFile(credentialsPath, "utf-8"))).toStrictEqual({
+      version: 1,
+      profiles: { other: { userAccessKey: uak }, "new-gov": { environment: "gov" } },
+    });
+  });
+});
+
 describe("listProfilesWithUak", () => {
   it("environment 를 주면 같은 망의 UAK profile 만 돌려준다", async () => {
     const uak = { id: "<uak-id>", secret: "<uak-secret>" };

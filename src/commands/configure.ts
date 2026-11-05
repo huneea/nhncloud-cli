@@ -8,8 +8,10 @@ import {
   setIaasCredential,
   listProfilesWithUak,
   getUserAccessKey,
-  getProfileEnvironment,
+  getStoredProfileEnvironment,
+  setProfileEnvironment,
 } from "../config/credentials.js";
+import { parseConfigureEnvironment, resolveConfigureEnvironment } from "./configure-environment.js";
 import {
   verifyUserAccessKey,
   verifyLogncrash,
@@ -20,11 +22,12 @@ import {
 } from "./configure-verify.js";
 import { NhnCloudCliError } from "../utils/errors.js";
 import { EXIT_AUTH_ERROR, EXIT_CONFIG_ERROR, EXIT_PARAM_ERROR } from "../utils/exit-codes.js";
-import type { UserAccessKey, ServiceCredential, IaasCredential } from "../config/types.js";
+import type { UserAccessKey, ServiceCredential, IaasCredential, CloudEnvironment } from "../config/types.js";
 import { sanitizeMultilineForTerminal } from "../utils/terminal.js";
 
 interface ConfigureOptions {
   profile?: string;
+  environment?: string;
   uakId?: string;
   uakSecret?: string;
   logncrashAppkey?: string;
@@ -43,11 +46,21 @@ interface ConfigureOptions {
   verify: boolean;
 }
 
+/** 대화형 iaas 질문 앞에 보이는 값 찾는 곳 안내. 콘솔 메뉴 이름은 바뀔 수 있어 공식 문서 주소를 함께 둔다. */
+const IAAS_VALUE_GUIDE =
+  "  ※ 값 찾는 곳: 프로젝트 콘솔 → Compute → Instance 화면 오른쪽 위 「API 엔드포인트 설정」\n" +
+  "    - tenantId: 창 맨 위의 테넌트 ID\n" +
+  "    - API 비밀번호: 같은 창의 「API 비밀번호 설정」 에서 정한 값 (콘솔 로그인 비밀번호가 아닙니다)\n" +
+  "    - IAM username: 콘솔 로그인 계정 ID (NHN Cloud 회원은 이메일 형식, IAM 계정은 IAM 계정 ID)\n" +
+  "    - 공공망 profile 은 조직 전용 공공망 콘솔에서 확인합니다\n" +
+  "    - 안내: https://docs.nhncloud.com/ko/nhncloud/ko/public-api/iaas-token/\n";
+
 /**
  * 공통 저장·검증 로직. 대화형/비대화형 양쪽에서 호출.
  */
 async function saveAndVerify(
   profileName: string,
+  environment: CloudEnvironment,
   uak: UserAccessKey | undefined,
   logncrash: ServiceCredential | undefined,
   iaas: IaasCredential | undefined,
@@ -64,7 +77,6 @@ async function saveAndVerify(
   // 연결 테스트
   if (doVerify) {
     // 공공망 profile의 자격증명은 공공망 검증 주소로만 보낸다(ADR-037).
-    const environment = await getProfileEnvironment(profileName, true);
     if (uak) {
       const ok = await verifyUserAccessKey(uak, environment);
       if (ok) {
@@ -166,7 +178,8 @@ async function saveAndVerify(
     }
   }
 
-  // 머지 저장
+  // 머지 저장. 새 공공망 profile 은 environment 를 먼저 남긴다(일반망은 생략).
+  await setProfileEnvironment(profileName, environment);
   if (uak) {
     await setUserAccessKey(profileName, uak);
   }
@@ -201,7 +214,7 @@ async function saveAndVerify(
   process.stderr.write(chalk.green(`\n✓ profile "${profileName}" 설정이 저장되었습니다.\n`));
 }
 
-async function runInteractive(opts: ConfigureOptions): Promise<void> {
+async function runInteractive(opts: ConfigureOptions, requested: CloudEnvironment | undefined): Promise<void> {
   const { input, password, confirm } = await import("@inquirer/prompts");
 
   // 1. profile 이름
@@ -211,10 +224,18 @@ async function runInteractive(opts: ConfigureOptions): Promise<void> {
     default: defaultProfile,
   });
 
-  // 2. UAK — 다른 profile 에 이미 있으면 재사용 여부 확인 (멀티 프로젝트 UAK 중복 완화)
+  // 2. 망 — 새 profile 이고 --environment 가 없을 때만 묻는다. 기존 profile 의 망은 바꾸지 않는다(ADR-037).
+  const stored = await getStoredProfileEnvironment(profileName);
+  let chosen = requested;
+  if (stored === undefined && chosen === undefined) {
+    const isGov = await confirm({ message: "공공망(gov) profile 인가요?", default: false });
+    chosen = isGov ? "gov" : "real";
+  }
+  const environment = resolveConfigureEnvironment(profileName, stored, chosen);
+
+  // 3. UAK — 다른 profile 에 이미 있으면 재사용 여부 확인 (멀티 프로젝트 UAK 중복 완화)
   let uak: UserAccessKey | undefined;
   // 같은 망의 profile 에서만 UAK 를 가져온다(ADR-037).
-  const environment = await getProfileEnvironment(profileName, true);
   const profilesWithUak = (await listProfilesWithUak(environment)).filter((p) => p !== profileName);
 
   if (profilesWithUak.length > 0) {
@@ -276,13 +297,9 @@ async function runInteractive(opts: ConfigureOptions): Promise<void> {
 
   if (setupIaas) {
     process.stderr.write(chalk.gray("\n— iaas (Compute) 자격증명 —\n"));
-    process.stderr.write(
-      chalk.yellow(
-        "  ※ password 는 NHN Cloud 콘솔 IAM 의 API 비밀번호입니다 (로그인 비밀번호가 아닙니다).\n",
-      ),
-    );
+    process.stderr.write(chalk.yellow(IAAS_VALUE_GUIDE));
     const { select } = await import("@inquirer/prompts");
-    const tenantId = await input({ message: "tenantId (프로젝트 ID)" });
+    const tenantId = await input({ message: "tenantId (테넌트 ID)" });
     const iaasUsername = await input({ message: "IAM username" });
     const iaasPassword = await password({ message: "API 비밀번호", mask: "*" });
     const region = await select({
@@ -354,7 +371,7 @@ async function runInteractive(opts: ConfigureOptions): Promise<void> {
   if (opts.verify) {
     // 대화형: 실패 시 저장 여부 재확인
     try {
-      await saveAndVerify(profileName, uak, logncrash, iaas, ncr, ncs, undefined, undefined, undefined, deploy, true, uak);
+      await saveAndVerify(profileName, environment, uak, logncrash, iaas, ncr, ncs, undefined, undefined, undefined, deploy, true, uak);
     } catch (err) {
       if (err instanceof NhnCloudCliError && err.exitCode === EXIT_AUTH_ERROR) {
         // 여기서 catch 해 대화를 이어가므로 index.ts 의 출력 관문을 지나지 않는다.
@@ -367,17 +384,17 @@ async function runInteractive(opts: ConfigureOptions): Promise<void> {
           process.stderr.write(chalk.yellow("저장이 취소되었습니다.\n"));
           return;
         }
-        await saveAndVerify(profileName, uak, logncrash, iaas, ncr, ncs, undefined, undefined, undefined, deploy, false, uak);
+        await saveAndVerify(profileName, environment, uak, logncrash, iaas, ncr, ncs, undefined, undefined, undefined, deploy, false, uak);
       } else {
         throw err;
       }
     }
   } else {
-    await saveAndVerify(profileName, uak, logncrash, iaas, ncr, ncs, undefined, undefined, undefined, deploy, false, uak);
+    await saveAndVerify(profileName, environment, uak, logncrash, iaas, ncr, ncs, undefined, undefined, undefined, deploy, false, uak);
   }
 }
 
-async function runNonInteractive(opts: ConfigureOptions): Promise<void> {
+async function runNonInteractive(opts: ConfigureOptions, requested: CloudEnvironment | undefined): Promise<void> {
   // secret 은 환경변수로도 받는다 — cmdline 인수는 `ps aux` 로 평문 노출되므로 권장.
   const uakSecret = opts.uakSecret ?? process.env["NHNCLOUD_UAK_SECRET"];
   const iaasPassword = opts.iaasPassword ?? process.env["NHNCLOUD_IAAS_PASSWORD"];
@@ -421,6 +438,12 @@ async function runNonInteractive(opts: ConfigureOptions): Promise<void> {
   }
 
   const profileName = await resolveProfileName(opts.profile);
+  // 기존 profile 과 다른 망이면 연결 테스트와 저장 전에 멈춘다(ADR-037).
+  const environment = resolveConfigureEnvironment(
+    profileName,
+    await getStoredProfileEnvironment(profileName),
+    requested,
+  );
 
   const uak: UserAccessKey | undefined =
     opts.uakId !== undefined && uakSecret !== undefined
@@ -491,6 +514,7 @@ async function runNonInteractive(opts: ConfigureOptions): Promise<void> {
 
   await saveAndVerify(
     profileName,
+    environment,
     uak,
     logncrash,
     iaas,
@@ -509,11 +533,15 @@ async function runNonInteractive(opts: ConfigureOptions): Promise<void> {
 export const configureCommand = new Command("configure")
   .description("자격증명 설정 마법사 (대화형 + flag)")
   .option("--profile <name>", "대상 profile 이름 (기본: default)")
+  .option(
+    "--environment <env>",
+    "새 profile 의 망: private(일반망, 기본) 또는 gov(공공망). 기존 profile 의 망은 바꿀 수 없음",
+  )
   .option("--uak-id <id>", "개인 UAK ID (비대화형)")
   .option("--uak-secret <secret>", "개인 UAK Secret (비대화형, 노출 방지로 env NHNCLOUD_UAK_SECRET 권장)")
   .option("--logncrash-appkey <key>", "logncrash appkey (비대화형)")
   .option("--logncrash-secret <secret>", "폐기 예정: Search v3에서는 사용·저장하지 않음")
-  .option("--iaas-tenant-id <id>", "iaas tenantId / 프로젝트 ID (비대화형)")
+  .option("--iaas-tenant-id <id>", "iaas tenantId / 테넌트 ID (비대화형)")
   .option("--iaas-username <user>", "iaas IAM username (비대화형)")
   .option(
     "--iaas-password <pass>",
@@ -545,11 +573,14 @@ export const configureCommand = new Command("configure")
       opts.dnsplusAppkey !== undefined ||
       opts.deployAppkey !== undefined;
 
+    // 잘못된 --environment 는 프롬프트와 API 호출 전에 사용법 오류로 멈춘다.
+    const requested = opts.environment === undefined ? undefined : parseConfigureEnvironment(opts.environment);
+
     try {
       if (hasFlag) {
-        await runNonInteractive(opts);
+        await runNonInteractive(opts, requested);
       } else {
-        await runInteractive(opts);
+        await runInteractive(opts, requested);
       }
     } catch (err) {
       // ExitPromptError: Ctrl-C 취소 처리

@@ -172,6 +172,15 @@ export async function getUserAccessKey(profileName: string): Promise<UserAccessK
   return uak;
 }
 
+/** profile 블록의 environment 를 해석한다. 생략은 일반망, gov 밖의 값은 설정 오류다. */
+function readProfileEnvironment(profileName: string, profile: Credentials["profiles"][string]): CloudEnvironment {
+  const environment = profile.environment;
+  if (environment !== undefined && environment !== "gov") {
+    throw new NhnCloudCliError(`profile "${profileName}" 의 environment 는 gov 이어야 합니다. 일반망은 이 필드를 생략하세요.`, EXIT_CONFIG_ERROR);
+  }
+  return environment ?? "real";
+}
+
 /** 기존 profile 은 일반망으로 해석하며, 알 수 없는 값은 요청 전에 거부한다. */
 export async function getProfileEnvironment(profileName: string, allowMissing = false): Promise<CloudEnvironment> {
   const credentials = allowMissing ? await loadCredentialsOrEmpty() : await loadCredentials();
@@ -180,11 +189,17 @@ export async function getProfileEnvironment(profileName: string, allowMissing = 
     if (allowMissing) return "real";
     throw new NhnCloudCliError(`profile "${profileName}" 을 찾을 수 없습니다.`, EXIT_CONFIG_ERROR);
   }
-  const environment = profile.environment;
-  if (environment !== undefined && environment !== "gov") {
-    throw new NhnCloudCliError(`profile "${profileName}" 의 environment 는 gov 이어야 합니다. 일반망은 이 필드를 생략하세요.`, EXIT_CONFIG_ERROR);
-  }
-  return environment ?? "real";
+  return readProfileEnvironment(profileName, profile);
+}
+
+/**
+ * 이미 저장된 profile 의 망을 돌려준다. profile 이 아직 없으면 undefined.
+ * configure 가 새 profile 인지 가려 망을 묻고, 기존 profile 의 망 변경을 막는 데 쓴다(ADR-037).
+ */
+export async function getStoredProfileEnvironment(profileName: string): Promise<CloudEnvironment | undefined> {
+  const credentials = await loadCredentialsOrEmpty();
+  const profile = credentials.profiles[profileName];
+  return profile ? readProfileEnvironment(profileName, profile) : undefined;
 }
 
 /**
@@ -281,6 +296,20 @@ export async function setUserAccessKey(
   const creds = await loadCredentialsOrEmpty();
   const profile = creds.profiles[profileName] ?? {};
   creds.profiles[profileName] = { ...profile, userAccessKey: uak };
+  await saveCredentials(creds);
+}
+
+/**
+ * 공공망 profile 에 `environment: "gov"` 를 머지 저장한다.
+ * 일반망은 필드를 생략하는 것이 저장 형식이라(data-schema) 아무것도 쓰지 않는다.
+ * 망 변경 거부는 호출하는 configure 가 저장 전에 한다.
+ */
+export async function setProfileEnvironment(profileName: string, environment: CloudEnvironment): Promise<void> {
+  if (environment !== "gov") return;
+  const creds = await loadCredentialsOrEmpty();
+  const profile = creds.profiles[profileName] ?? {};
+  if (profile.environment === "gov") return;
+  creds.profiles[profileName] = { ...profile, environment };
   await saveCredentials(creds);
 }
 

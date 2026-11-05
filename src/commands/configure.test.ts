@@ -4,9 +4,10 @@ import { NhnCloudCliError } from "../utils/errors.js";
 import { EXIT_AUTH_ERROR, EXIT_CONFIG_ERROR, EXIT_PARAM_ERROR } from "../utils/exit-codes.js";
 import {
   getUserAccessKey,
-  getProfileEnvironment,
+  getStoredProfileEnvironment,
   resolveProfileName,
   setIaasCredential,
+  setProfileEnvironment,
   setServiceCredential,
   setUserAccessKey,
 } from "../config/credentials.js";
@@ -19,6 +20,7 @@ import {
   verifyUserAccessKey,
 } from "./configure-verify.js";
 import { configureCommand } from "./configure.js";
+import { confirm, input, password } from "@inquirer/prompts";
 
 vi.mock("../config/credentials.js", () => ({
   resolveProfileName: vi.fn(async (profile?: string) => profile ?? "default"),
@@ -27,7 +29,14 @@ vi.mock("../config/credentials.js", () => ({
   setIaasCredential: vi.fn(),
   listProfilesWithUak: vi.fn(async () => []),
   getUserAccessKey: vi.fn(),
-  getProfileEnvironment: vi.fn(async () => "real"),
+  getStoredProfileEnvironment: vi.fn(async () => undefined),
+  setProfileEnvironment: vi.fn(),
+}));
+vi.mock("@inquirer/prompts", () => ({
+  input: vi.fn(),
+  password: vi.fn(),
+  confirm: vi.fn(),
+  select: vi.fn(),
 }));
 vi.mock("./configure-verify.js", () => ({
   verifyUserAccessKey: vi.fn(),
@@ -38,6 +47,11 @@ vi.mock("./configure-verify.js", () => ({
   verifyDnsplus: vi.fn(),
 }));
 
+/** credentials 파일에 이미 있는 profile 하나를 흉내 낸다. */
+function mockStoredProfile(environment: "real" | "gov"): void {
+  vi.mocked(getStoredProfileEnvironment).mockResolvedValue(environment);
+}
+
 function programWithConfigure(): Command {
   return new Command("nhncloud").exitOverride().addCommand(configureCommand);
 }
@@ -46,7 +60,7 @@ describe("configure logncrash Search v3", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(process.stderr, "write").mockImplementation((() => true) as never);
-    vi.mocked(getProfileEnvironment).mockResolvedValue("real");
+    vi.mocked(getStoredProfileEnvironment).mockResolvedValue(undefined);
     vi.mocked(getUserAccessKey).mockResolvedValue({ id: "existing-id", secret: "existing-secret" });
     vi.mocked(verifyUserAccessKey).mockResolvedValue(true);
     vi.mocked(verifyLogncrash).mockResolvedValue(true);
@@ -100,7 +114,7 @@ describe("configure logncrash Search v3", () => {
   });
 
   it("기존 공공망 profile은 모든 연결 테스트를 공공망으로 보낸 뒤 저장한다", async () => {
-    vi.mocked(getProfileEnvironment).mockResolvedValue("gov");
+    mockStoredProfile("gov");
     const uak = { id: "<uak-id>", secret: "<uak-secret>" };
     const iaas = { tenantId: "tenant", username: "user", password: "pass", region: "kr2" };
 
@@ -113,7 +127,7 @@ describe("configure logncrash Search v3", () => {
       "--ncr-appkey", "ncr-appkey", "--ncs-appkey", "ncs-appkey",
     ]);
 
-    expect(getProfileEnvironment).toHaveBeenCalledWith("public", true);
+    expect(getStoredProfileEnvironment).toHaveBeenCalledWith("public");
     expect(verifyUserAccessKey).toHaveBeenCalledWith(uak, "gov");
     expect(verifyLogncrash).toHaveBeenCalledWith(uak, "lncs-appkey", "gov");
     expect(verifyIaas).toHaveBeenCalledWith(iaas, "gov");
@@ -123,7 +137,7 @@ describe("configure logncrash Search v3", () => {
   });
 
   it("profile의 environment 값이 잘못되면 연결 테스트와 저장 전에 멈춘다", async () => {
-    vi.mocked(getProfileEnvironment).mockRejectedValue(new NhnCloudCliError("environment 오류", EXIT_CONFIG_ERROR));
+    vi.mocked(getStoredProfileEnvironment).mockRejectedValue(new NhnCloudCliError("environment 오류", EXIT_CONFIG_ERROR));
 
     await expect(programWithConfigure().parseAsync([
       "node", "nhncloud", "configure", "--profile", "bad",
@@ -370,7 +384,7 @@ describe("configure logncrash Search v3", () => {
   });
 
   it("--dnsplus-appkey 는 UAK 없이 profile 의 망 주소로 검증하고 저장한다", async () => {
-    vi.mocked(getProfileEnvironment).mockResolvedValue("gov");
+    mockStoredProfile("gov");
     vi.mocked(verifyDnsplus).mockResolvedValue(true);
 
     await programWithConfigure().parseAsync([
@@ -423,5 +437,188 @@ describe("configure logncrash Search v3", () => {
     ).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
 
     expect(setServiceCredential).not.toHaveBeenCalled();
+  });
+});
+
+describe("configure --environment", () => {
+  function nonInteractive(...args: string[]): Promise<Command> {
+    return programWithConfigure().parseAsync([
+      "node",
+      "nhncloud",
+      "configure",
+      ...args,
+      "--uak-id",
+      "uak-id",
+      "--uak-secret",
+      "uak-secret",
+    ]);
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(process.stderr, "write").mockImplementation((() => true) as never);
+    vi.mocked(getStoredProfileEnvironment).mockResolvedValue(undefined);
+    vi.mocked(verifyUserAccessKey).mockResolvedValue(true);
+  });
+
+  it("새 profile 에 gov 를 주면 공공망으로 검증하고 environment: gov 를 저장한다", async () => {
+    await nonInteractive("--profile", "gov-new", "--environment", "gov");
+
+    expect(verifyUserAccessKey).toHaveBeenCalledWith({ id: "uak-id", secret: "uak-secret" }, "gov");
+    expect(setProfileEnvironment).toHaveBeenCalledWith("gov-new", "gov");
+    expect(setUserAccessKey).toHaveBeenCalledWith("gov-new", { id: "uak-id", secret: "uak-secret" });
+  });
+
+  it("새 profile 에 private 를 주면 일반망으로 검증하고 environment 를 쓰지 않는다", async () => {
+    await nonInteractive("--profile", "real-new", "--environment", "private");
+
+    expect(verifyUserAccessKey).toHaveBeenCalledWith({ id: "uak-id", secret: "uak-secret" }, "real");
+    expect(setProfileEnvironment).toHaveBeenCalledWith("real-new", "real");
+    expect(setUserAccessKey).toHaveBeenCalled();
+  });
+
+  it("기존 gov profile 은 옵션 없이도, 같은 값을 줘도 공공망으로 검증한다", async () => {
+    mockStoredProfile("gov");
+
+    await nonInteractive("--profile", "gov-old");
+    await nonInteractive("--profile", "gov-old", "--environment", "gov");
+
+    expect(verifyUserAccessKey).toHaveBeenNthCalledWith(1, { id: "uak-id", secret: "uak-secret" }, "gov");
+    expect(verifyUserAccessKey).toHaveBeenNthCalledWith(2, { id: "uak-id", secret: "uak-secret" }, "gov");
+  });
+
+  it("기존 profile 과 다른 망을 주면 검증과 저장 없이 EXIT_PARAM_ERROR 로 끝난다", async () => {
+    mockStoredProfile("real");
+
+    await expect(nonInteractive("--profile", "real-old", "--environment", "gov")).rejects.toMatchObject({
+      exitCode: EXIT_PARAM_ERROR,
+    });
+
+    expect(verifyUserAccessKey).not.toHaveBeenCalled();
+    expect(setUserAccessKey).not.toHaveBeenCalled();
+    expect(setServiceCredential).not.toHaveBeenCalled();
+    expect(setIaasCredential).not.toHaveBeenCalled();
+    expect(setProfileEnvironment).not.toHaveBeenCalled();
+  });
+
+  it("기존 gov profile 에 private 를 주면 저장 없이 EXIT_PARAM_ERROR 로 끝난다", async () => {
+    mockStoredProfile("gov");
+
+    await expect(
+      nonInteractive("--profile", "gov-old", "--environment", "private", "--logncrash-appkey", "appkey"),
+    ).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+
+    expect(verifyUserAccessKey).not.toHaveBeenCalled();
+    expect(setUserAccessKey).not.toHaveBeenCalled();
+    expect(setServiceCredential).not.toHaveBeenCalled();
+    expect(setProfileEnvironment).not.toHaveBeenCalled();
+  });
+
+  it("--no-verify 로 새 gov profile 을 저장해도 environment: gov 를 남긴다", async () => {
+    await nonInteractive("--profile", "gov-nv", "--environment", "gov", "--no-verify");
+
+    expect(verifyUserAccessKey).not.toHaveBeenCalled();
+    expect(setProfileEnvironment).toHaveBeenCalledWith("gov-nv", "gov");
+    expect(setUserAccessKey).toHaveBeenCalledWith("gov-nv", { id: "uak-id", secret: "uak-secret" });
+  });
+
+  it.each(["real", "public", ""])("--environment %j 는 사용법 오류로 끝난다", async (value) => {
+    await expect(nonInteractive("--profile", "p", "--environment", value)).rejects.toMatchObject({
+      exitCode: EXIT_PARAM_ERROR,
+    });
+
+    expect(verifyUserAccessKey).not.toHaveBeenCalled();
+    expect(setUserAccessKey).not.toHaveBeenCalled();
+  });
+
+  describe("대화형", () => {
+    // clearAllMocks 는 구현을 남기므로, 테스트마다 건 프롬프트 응답이 다음 테스트로 넘어가지 않게 지운다.
+    beforeEach(() => {
+      vi.mocked(input).mockReset();
+      vi.mocked(password).mockReset();
+      vi.mocked(confirm).mockReset();
+    });
+
+    const GOV_QUESTION = "공공망(gov) profile 인가요?";
+
+    function answer(isGov: boolean): void {
+      vi.mocked(input).mockImplementation((async ({ message }: { message: string }) =>
+        message === "UAK ID" ? "uak-id" : "profile-i") as never);
+      vi.mocked(password).mockResolvedValue("uak-secret" as never);
+      vi.mocked(confirm).mockImplementation((async ({ message }: { message: string }) =>
+        message === GOV_QUESTION ? isGov : false) as never);
+    }
+
+    function interactive(...args: string[]): Promise<Command> {
+      return programWithConfigure().parseAsync(["node", "nhncloud", "configure", ...args]);
+    }
+
+    function govQuestionAsked(): boolean {
+      return vi.mocked(confirm).mock.calls.some(([opts]) => (opts as { message: string }).message === GOV_QUESTION);
+    }
+
+    it("새 profile 이면 망을 묻고, gov 를 고르면 공공망으로 검증하고 저장한다", async () => {
+      answer(true);
+
+      await interactive();
+
+      expect(govQuestionAsked()).toBe(true);
+      expect(verifyUserAccessKey).toHaveBeenCalledWith({ id: "uak-id", secret: "uak-secret" }, "gov");
+      expect(setProfileEnvironment).toHaveBeenCalledWith("profile-i", "gov");
+    });
+
+    it("기본값(일반망)이면 environment 를 쓰지 않는다", async () => {
+      answer(false);
+
+      await interactive();
+
+      expect(verifyUserAccessKey).toHaveBeenCalledWith({ id: "uak-id", secret: "uak-secret" }, "real");
+      expect(setProfileEnvironment).toHaveBeenCalledWith("profile-i", "real");
+      expect(setUserAccessKey).toHaveBeenCalled();
+    });
+
+    it("--environment 를 주거나 기존 profile 이면 망을 묻지 않는다", async () => {
+      answer(false);
+      await interactive("--environment", "gov");
+      expect(govQuestionAsked()).toBe(false);
+      expect(verifyUserAccessKey).toHaveBeenLastCalledWith({ id: "uak-id", secret: "uak-secret" }, "gov");
+
+      mockStoredProfile("gov");
+      await interactive();
+      expect(govQuestionAsked()).toBe(false);
+      expect(verifyUserAccessKey).toHaveBeenLastCalledWith({ id: "uak-id", secret: "uak-secret" }, "gov");
+    });
+
+    it("기존 profile 과 다른 망을 주면 UAK 를 묻기 전에 EXIT_PARAM_ERROR 로 끝난다", async () => {
+      answer(false);
+      mockStoredProfile("gov");
+
+      await expect(interactive("--environment", "private")).rejects.toMatchObject({ exitCode: EXIT_PARAM_ERROR });
+
+      expect(password).not.toHaveBeenCalled();
+      expect(setUserAccessKey).not.toHaveBeenCalled();
+    });
+
+    it("iaas 질문 앞에 테넌트 ID, API 비밀번호, IAM username 찾는 곳과 공식 문서를 안내한다", async () => {
+      answer(false);
+      vi.mocked(confirm).mockImplementation((async ({ message }: { message: string }) =>
+        message.startsWith("iaas")) as never);
+      vi.mocked(input).mockResolvedValue("value" as never);
+      const { select } = await import("@inquirer/prompts");
+      vi.mocked(select).mockResolvedValue("kr1" as never);
+      vi.mocked(verifyIaas).mockResolvedValue(true);
+
+      await interactive();
+
+      const stderr = vi
+        .mocked(process.stderr.write)
+        .mock.calls.map(([chunk]) => String(chunk))
+        .join("");
+      expect(stderr).toContain("API 엔드포인트 설정");
+      expect(stderr).toContain("테넌트 ID");
+      expect(stderr).toContain("API 비밀번호 설정");
+      expect(stderr).toContain("이메일 형식");
+      expect(stderr).toContain("https://docs.nhncloud.com/ko/nhncloud/ko/public-api/iaas-token/");
+    });
   });
 });
