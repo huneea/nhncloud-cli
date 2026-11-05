@@ -1,6 +1,6 @@
-# docs-check 오버레이: nhncloud-cli
+# docs-audit 오버레이: nhncloud-cli
 
-공용 `docs-check` 스킬에 이 저장소의 문서 범위만 보탠다.
+공용 `docs-audit` 스킬에 이 저장소의 문서 범위만 보탠다.
 
 ## 감사 대상
 
